@@ -12,19 +12,18 @@ return new class extends Migration
     public function up()
     {
         Schema::create('tenants', function (Blueprint $t) {
-            $t->ulid('id')->primary();
+            $t->uuid('id')->primary();
             $t->string('name');
             $t->string('domain')->unique();
 
             // Campos base
-            $t->string('name');
             $t->string('logo')->nullable();
             $t->string('address')->nullable();
             $t->string('phone')->nullable();
             $t->string('email')->nullable();
 
             // Identificación legal
-            $t->uuid('legal_id')->nullable();
+            $t->string('legal_id')->nullable();
             $t->string('legal_id_type')->nullable();
             $t->boolean('is_active')->default(true);
 

@@ -36,7 +36,14 @@ class RolePerTenantSeeder extends Seeder
                 'Search tenants',
                 'Create tenants',
                 'Update tenants',
-                'Delete tenants'],
+                'Delete tenants',
+                'Sync role_permissions',
+                'Assign role_permissions',
+                'Assign roles',
+                'Sync user_roles',
+                'Register users',
+                'Social login',
+            ],
         ];
 
         $tenants = Tenant::all();

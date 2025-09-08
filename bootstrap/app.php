@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AttachBearerTokenFromCookie;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\SetPermissionsTeamFromTenant;
 use Illuminate\Foundation\Application;
@@ -24,10 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission'         => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'setLocale' => SetLocale::class,
+            'bearer_cookie' => AttachBearerTokenFromCookie::class,
         ]);
         $middleware->group('tenant', [
             NeedsTenant::class,
-            EnsureValidTenantSession::class,
             SetPermissionsTeamFromTenant::class,
         ]);
     })

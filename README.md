@@ -1,61 +1,68 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+[//]: # ( Lo primero para poder trabajar con phpstorm)
+`composer require --dev barryvdh/laravel-ide-helper`
 
-## About Laravel
+[//]: # (Luego correr los siguientes comandos)
+`php artisan ide-helper:generate`
+`php artisan ide-helper:models -M`
+`php artisan ide-helper:meta`
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+[//]: # (Pasos previos)
+`php artisan passport:keys`
+`php artisan passport:client --personal`
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+[//]: # (Corre seeders)
+`php artisan db:seed --class=PermissionSeeder`
+`php artisan db:seed --class=RoleSeeder`
+`php artisan db:seed --class=UserSeeder`
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+[//]: # (Tenemos un servicio para identificar a las personas, esto lo usamos para cuando un usuario de un colegio quiere buscar a
+[//]: # (un estudiante para matricularlo que es de otro colegio, para buscarlo se usa ese servicio&#41;)
+[//]: # (Úsalo al buscar)
+[//]: # (En tu controlador de búsqueda:)
 
-## Learning Laravel
+$norm = PIS::normalize($type, $value);
+$hex  = PIS::hash($norm);
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+$exists = PersonIdentifier::where('type', $type)
+->where('value_hash', PIS::hexToBin($hex))
+->exists();
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+[//]: # (Tenemos un provider llamado RouteServiceProvider que lo que hace es hacer mas corto el registro de las apis)
+RouteServiceProvider.php
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+[//]: # (Las apis las probaremos en telescope)
+`composer require laravel/telescope --dev`
+`php artisan telescope:install`
+`php artisan migrate`
 
-## Laravel Sponsors
+.env
+TELESCOPE_ENABLED=true
+http://tu-app.test/telescope/commands
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+[//]: # (Lipiar)
+php artisan config:clear
+php artisan cache:clear
+php artisan optimize:clear
+php artisan permission:cache-reset
+=======
+## link
+php artisan storage:link
 
-### Premium Partners
+## Esto es para el chat en tiempo real
+composer require pusher/pusher-php-server
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## esto es para correr soketi en docker
+docker run -p 6001:6001 \
+-e DEBUG=1 \
+-e PORT=6001 \
+-e APP_ID=local-chat \
+-e KEY=localkey \
+-e SECRET=localsecret \
+--name soketi \
+quay.io/soketi/soketi:latest-16-alpine
 
-## Contributing
+[//]: # (comando para limpiar la cache de los router)
+php artisan route:clear
+php artisan route:list | grep refresh
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).

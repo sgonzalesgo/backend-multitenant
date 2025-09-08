@@ -4,8 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// ... cabecera igual
-
 return new class extends Migration
 {
     public function up(): void
@@ -18,7 +16,7 @@ return new class extends Migration
 
         // ----- permissions
         Schema::create($tableNames['permissions'], static function (Blueprint $table) {
-            $table->ulid('id')->primary();
+            $table->uuid('id')->primary();
             $table->string('name');
             $table->string('guard_name');
             $table->timestamps();
@@ -27,15 +25,15 @@ return new class extends Migration
 
         // ----- roles
         Schema::create($tableNames['roles'], static function (Blueprint $table) use ($teams, $columnNames) {
-            $table->ulid('id')->primary();
+            $table->uuid('id')->primary();
 
             if ($teams || config('permission.testing')) {
-                // SOLO definir una vez. Si quieres FK a tenants, usa foreignUlid directamente.
-                $table->ulid($columnNames['team_foreign_key'])->nullable()
+                // SOLO definir una vez. Si quieres FK a tenants, usa foreignUuid directamente.
+                $table->uuid($columnNames['team_foreign_key'])->nullable()
                     ->index('roles_team_foreign_key_index');
 
                 // Opcional: FK a tenants (si aplica)
-                // $table->foreignUlid($columnNames['team_foreign_key'])
+                // $table->foreignUuid($columnNames['team_foreign_key'])
                 //       ->references('id')->on('tenants')->nullOnDelete();
             }
 
@@ -53,23 +51,22 @@ return new class extends Migration
         // ----- model_has_permissions
         Schema::create($tableNames['model_has_permissions'], static function (Blueprint $table) use ($tableNames, $columnNames, $pivotPermission, $teams) {
 
-            // NO definir $table->ulid($pivotPermission) aquí.
-            // Usar foreignUlid directamente (crea columna + FK):
-            $table->foreignUlid($pivotPermission)
+            // Usar foreignUuid directamente (crea columna + FK):
+            $table->foreignUuid($pivotPermission)
                 ->references('id')
                 ->on($tableNames['permissions'])
                 ->cascadeOnDelete();
 
             $table->string('model_type');
-            $table->ulid($columnNames['model_morph_key']);
+            $table->uuid($columnNames['model_morph_key']);
             $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_permissions_model_id_model_type_index');
 
             if ($teams) {
-                $table->ulid($columnNames['team_foreign_key']);
+                $table->uuid($columnNames['team_foreign_key']);
                 $table->index($columnNames['team_foreign_key'], 'model_has_permissions_team_foreign_key_index');
 
                 // Opcional: FK del team/tenant
-                // $table->foreignUlid($columnNames['team_foreign_key'])
+                // $table->foreignUuid($columnNames['team_foreign_key'])
                 //       ->references('id')->on('tenants')->cascadeOnDelete();
 
                 $table->primary(
@@ -87,22 +84,22 @@ return new class extends Migration
         // ----- model_has_roles
         Schema::create($tableNames['model_has_roles'], static function (Blueprint $table) use ($tableNames, $columnNames, $pivotRole, $teams) {
 
-            // Igual: NO definir $table->ulid($pivotRole) aparte.
-            $table->foreignUlid($pivotRole)
+            $table->foreignUuid($pivotRole)
                 ->references('id')
                 ->on($tableNames['roles'])
                 ->cascadeOnDelete();
 
             $table->string('model_type');
-            $table->ulid($columnNames['model_morph_key']);
+            // Para evitar columnas duplicadas, definimos explícitamente el ID del morph:
+            $table->uuid($columnNames['model_morph_key']);
             $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_roles_model_id_model_type_index');
 
             if ($teams) {
-                $table->ulid($columnNames['team_foreign_key']);
+                $table->uuid($columnNames['team_foreign_key']);
                 $table->index($columnNames['team_foreign_key'], 'model_has_roles_team_foreign_key_index');
 
                 // Opcional: FK a tenants
-                // $table->foreignUlid($columnNames['team_foreign_key'])
+                // $table->foreignUuid($columnNames['team_foreign_key'])
                 //       ->references('id')->on('tenants')->cascadeOnDelete();
 
                 $table->primary(
@@ -120,13 +117,12 @@ return new class extends Migration
         // ----- role_has_permissions
         Schema::create($tableNames['role_has_permissions'], static function (Blueprint $table) use ($tableNames, $pivotRole, $pivotPermission) {
 
-            // De nuevo: usar solo foreignUlid (nada de ulid() previo).
-            $table->foreignUlid($pivotPermission)
+            $table->foreignUuid($pivotPermission)
                 ->references('id')
                 ->on($tableNames['permissions'])
                 ->cascadeOnDelete();
 
-            $table->foreignUlid($pivotRole)
+            $table->foreignUuid($pivotRole)
                 ->references('id')
                 ->on($tableNames['roles'])
                 ->cascadeOnDelete();
@@ -154,4 +150,3 @@ return new class extends Migration
         Schema::drop($tableNames['permissions']);
     }
 };
-

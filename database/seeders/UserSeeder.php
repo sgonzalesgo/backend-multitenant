@@ -14,7 +14,7 @@ class UserSeeder extends Seeder
         // Usuarios GLOBALes (sin tenant_id)
         $admin = User::firstOrCreate(
             ['email' => 'admin@example.test'],
-            ['name' => 'Global Admin', 'password' => bcrypt('123456')]
+            ['name' => 'Global Admin', 'password' => bcrypt('secret123')]
         );
 
         // Asignación por tenant:

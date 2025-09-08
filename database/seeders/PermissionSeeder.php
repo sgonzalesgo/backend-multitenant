@@ -33,6 +33,12 @@ class PermissionSeeder extends Seeder
             'Create tenants',
             'Update tenants',
             'Delete tenants',
+            'Sync role_permissions',
+            'Assign role_permissions',
+            'Assign roles',
+            'Sync user_roles',
+            'Register users',
+            'Social login',
         ];
 
         foreach ($perms as $name) {
