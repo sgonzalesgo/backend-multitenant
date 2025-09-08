@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Administration\Tenant;
+use App\Notifications\VerifyEmailCode;
 use App\Tenancy\Finders\HeaderTenantFinder;
 use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Events\CallQueuedListener;
@@ -119,6 +120,6 @@ return [
      * Jobs not tenant aware even if these don't implement the NotTenantAware interface.
      */
     'not_tenant_aware_jobs' => [
-        // ...
+        VerifyEmailCode::class,
     ],
 ];

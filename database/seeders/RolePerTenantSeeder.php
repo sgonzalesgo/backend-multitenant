@@ -43,6 +43,9 @@ class RolePerTenantSeeder extends Seeder
                 'Sync user_roles',
                 'Register users',
                 'Social login',
+                'Impersonate users',
+                'List audit_logs',
+                'Create audit_logs'
             ],
         ];
 

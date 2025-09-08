@@ -16,12 +16,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
+use App\Models\Administration\User;
+use Carbon\Carbon;
+
 
 class AuthController extends Controller
 {
     use ApiRespondTrait;
 
-    public function __construct(private readonly AuthRepository $repo, UserRepository $user)
+    public function __construct(private readonly AuthRepository $repo,private readonly UserRepository $user)
     {
         // Aplica aquí tu middleware de multitenancy por dominio/header si es necesario antes de login
         // $this->middleware([\Spatie\Multitenancy\Http\Middleware\InitializeTenancyByDomain::class])->only(['login']);
@@ -145,16 +148,25 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
+        // Revoca access/refresh tokens y limpia contexto tenant/permissions (lo hace tu repo)
         $this->repo->logout($user);
 
+        // Nombres de cookies según tu config
         $tokenCookieName  = config('auth.cookie', 'access_token');
         $tenantCookieName = config('tenancy.cookie', 'X-Company-ID');
-        $domain           = config('session.domain');
+        $domain           = config('session.domain'); // puede ser null en local
 
-        $forgetTokenCookie  = Cookie::forget($tokenCookieName, '/', $domain);
-        $forgetTenantCookie = Cookie::forget($tenantCookieName, '/', $domain);
+        // “Olvidar” cookies (path '/', domain opcional)
+        $forgetTokenCookie  = Cookie::forget($tokenCookieName, '/', $domain ?: null);
+        $forgetTenantCookie = Cookie::forget($tenantCookieName, '/', $domain ?: null);
 
-        return $this->deletedResponse()
+        // Respuesta uniforme (200 OK) + cookies eliminadas
+        return response()->json([
+            'code'    => Response::HTTP_OK,
+            'message' => __('auth.logout_success'),
+            'data'    => null,
+            'error'   => null,
+        ], Response::HTTP_OK)
             ->withCookie($forgetTokenCookie)
             ->withCookie($forgetTenantCookie);
     }
@@ -210,4 +222,182 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Inicia suplantación por email:
+     * - Setea cookies del USUARIO suplantado (access/refresh)
+     * - Guarda cookies BACKUP del ADMIN (imp_access/imp_refresh)
+     * - Marca bandera 'impersonating'
+     */
+    public function impersonate(Request $request): JsonResponse
+    {
+        $actor = $request->user();                // admin autenticado
+        $email = (string) $request->input('email');
+
+        $payload = $this->repo->impersonateByEmail($actor, $email);
+
+        // === Config duraciones (minutos) ===
+        $accessMinutes      = (int) config('auth.tokens.impersonation_minutes', 60);
+        $refreshMinutes     = (int) config('auth.tokens.refresh_days', 30) * 24 * 60;
+        $backupMinutes      = (int) config('auth.tokens.backup_minutes', 120);
+
+        // === Nombres de cookies ===
+        $accessCookieName   = config('auth.cookie', 'access_token');
+        $refreshCookieName  = config('auth.refresh_cookie', 'refresh_token');
+        $impAccessCookie    = 'imp_access_token';   // backup admin
+        $impRefreshCookie   = 'imp_refresh_token';  // backup admin
+        $flagImpersonating  = 'impersonating';      // opcional, no sensible
+
+        // === Tokens de suplantado y backup (NO salen en el body) ===
+        $tok = $payload['_tokens'] ?? [];
+        $rev = $payload['_revert_tokens'] ?? [];
+
+        // --- Cookies BACKUP del admin (HttpOnly + Secure) ---
+        $bakAccessCookie = cookie()->make(
+            name: $impAccessCookie,
+            value: (string) ($rev['access_token'] ?? ''),
+            minutes: $backupMinutes,
+            path: '/',
+            domain: null,
+            secure: true,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Lax'
+        );
+        $bakRefreshCookie = cookie()->make(
+            name: $impRefreshCookie,
+            value: (string) ($rev['refresh_token'] ?? ''),
+            minutes: $refreshMinutes,
+            path: '/',
+            domain: null,
+            secure: true,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Strict'
+        );
+
+        // --- Cookies PRINCIPALES del usuario suplantado (HttpOnly + Secure) ---
+        $accessCookie = cookie()->make(
+            name: $accessCookieName,
+            value: (string) ($tok['access_token'] ?? ''),
+            minutes: $accessMinutes,
+            path: '/',
+            domain: null,
+            secure: true,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Lax'
+        );
+        $refreshCookie = cookie()->make(
+            name: $refreshCookieName,
+            value: (string) ($tok['refresh_token'] ?? ''),
+            minutes: $refreshMinutes,
+            path: '/',
+            domain: null,
+            secure: true,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Strict'
+        );
+
+        // --- Bandera informativa (no HttpOnly) ---
+        $flagCookie = cookie()->make(
+            name: $flagImpersonating,
+            value: '1',
+            minutes: $accessMinutes,
+            path: '/',
+            domain: null,
+            secure: true,
+            httpOnly: false,
+            raw: false,
+            sameSite: 'Lax'
+        );
+
+        // Limpia los tokens del payload para no exponerlos
+        unset($payload['_tokens'], $payload['_revert_tokens']);
+
+        return response()->json([
+            'code'    => 200,
+            'message' => __('audit.auth.impersonate.start'),
+            'data'    => [
+                'user' => $payload['user'] ?? null,
+                'me'   => $payload['me']   ?? null,
+            ],
+            'error'   => null,
+        ], Response::HTTP_OK)
+            ->withCookie($bakAccessCookie)
+            ->withCookie($bakRefreshCookie)
+            ->withCookie($accessCookie)
+            ->withCookie($refreshCookie)
+            ->withCookie($flagCookie);
+    }
+
+    /**
+     * Finaliza suplantación:
+     * - Revoca token actual del suplantado
+     * - Restaura tokens del admin desde cookies BACKUP
+     * - Limpia cookies de impersonación
+     */
+    public function revertImpersonation(Request $request): JsonResponse
+    {
+        // Revoca el token actual del suplantado (idempotente)
+        $this->repo->stopImpersonation($request->user());
+
+        // Nombres
+        $accessCookieName   = config('auth.cookie', 'access_token');
+        $refreshCookieName  = config('auth.refresh_cookie', 'refresh_token');
+        $impAccessCookie    = 'imp_access_token';
+        $impRefreshCookie   = 'imp_refresh_token';
+        $flagImpersonating  = 'impersonating';
+
+        // Lee backup del admin desde cookies
+        $backupAccess  = (string) $request->cookie($impAccessCookie, '');
+        $backupRefresh = (string) $request->cookie($impRefreshCookie, '');
+
+        abort_if($backupAccess === '' || $backupRefresh === '', 400, __('No backup tokens to restore.'));
+
+        // TTLs simples (como login)
+        $backupMinutes  = (int) config('auth.tokens.backup_minutes', 120);
+        $refreshMinutes = (int) config('auth.tokens.refresh_days', 30) * 24 * 60;
+
+        // Reemplaza cookies principales con el backup (HttpOnly + Secure)
+        $newAccessCookie = cookie()->make(
+            name: $accessCookieName,
+            value: $backupAccess,
+            minutes: $backupMinutes,
+            path: '/',
+            domain: null,
+            secure: true,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Lax'
+        );
+        $newRefreshCookie = cookie()->make(
+            name: $refreshCookieName,
+            value: $backupRefresh,
+            minutes: $refreshMinutes,
+            path: '/',
+            domain: null,
+            secure: true,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Strict'
+        );
+
+        // Limpia cookies de impersonación y bandera
+        $forgetImpAT  = Cookie::forget($impAccessCookie,  '/', null);
+        $forgetImpRT  = Cookie::forget($impRefreshCookie, '/', null);
+        $forgetFlag   = Cookie::forget($flagImpersonating,'/', null);
+
+        return response()->json([
+            'code'    => 200,
+            'message' => __('audit.auth.impersonate.stop'),
+            'data'    => null,
+            'error'   => null,
+        ], Response::HTTP_OK)
+            ->withCookie($newAccessCookie)
+            ->withCookie($newRefreshCookie)
+            ->withCookie($forgetImpAT)
+            ->withCookie($forgetImpRT)
+            ->withCookie($forgetFlag);
+    }
 }

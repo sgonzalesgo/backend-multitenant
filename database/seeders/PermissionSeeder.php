@@ -39,6 +39,9 @@ class PermissionSeeder extends Seeder
             'Sync user_roles',
             'Register users',
             'Social login',
+            'Impersonate users',
+            'List audit_logs',
+            'Create audit_logs'
         ];
 
         foreach ($perms as $name) {

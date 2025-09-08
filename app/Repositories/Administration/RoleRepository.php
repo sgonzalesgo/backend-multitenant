@@ -13,6 +13,15 @@ use Spatie\Permission\PermissionRegistrar;
 
 class RoleRepository
 {
+    public function __construct(
+        protected ?AuditLogRepository $audit = null
+    ) {}
+
+    protected function audit(): AuditLogRepository
+    {
+        return $this->audit ??= app(AuditLogRepository::class);
+    }
+
     // ===== CRUD (roles por tenant) =====
 
     public function list(array $filters = []): LengthAwarePaginator
@@ -45,11 +54,13 @@ class RoleRepository
         $q = Role::query();
         if ($tenantId) $q->where('tenant_id', $tenantId);
         return $q->orderBy('name')->get();
+
     }
 
     public function findOrFail(int|string $id): Role
     {
         return Role::query()->findOrFail($id);
+
     }
 
     public function create(array $data): Role
@@ -65,6 +76,16 @@ class RoleRepository
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Rol creado',
+                subject: $role,
+                description: __('audit.roles.created'),
+                changes: ['old' => null, 'new' => Arr::only($role->toArray(), ['id','name','guard_name','tenant_id'])],
+                tenantId: $role->tenant_id
+            );
+
             return $role;
         });
     }
@@ -72,7 +93,9 @@ class RoleRepository
     public function update(Role $role, array $data): Role
     {
         return DB::transaction(function () use ($role, $data) {
-            // en general no se cambia tenant_id de un rol existente
+            $old = Arr::only($role->getOriginal(), ['name','guard_name','tenant_id']);
+
+            // en general no se cambia tenant_id de un rol existente (pero lo soportamos si viene)
             $role->fill(Arr::only($data, ['name','guard_name']));
             if (array_key_exists('tenant_id', $data)) {
                 $role->tenant_id = $data['tenant_id'];
@@ -81,6 +104,18 @@ class RoleRepository
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+            $new = Arr::only($role->fresh()->toArray(), ['name','guard_name','tenant_id']);
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Rol actualizado',
+                subject: $role,
+                description: __('audit.roles.updated'),
+                changes: ['old' => $old, 'new' => $new],
+                tenantId: $role->tenant_id
+            );
+
             return $role->refresh();
         });
     }
@@ -88,8 +123,20 @@ class RoleRepository
     public function delete(Role $role): void
     {
         DB::transaction(function () use ($role) {
+            $snapshot = Arr::only($role->toArray(), ['id','name','guard_name','tenant_id']);
+
             $role->delete();
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Rol eliminado',
+                subject: ['type' => Role::class, 'id' => $snapshot['id']],
+                description: __('audit.roles.deleted'),
+                changes: ['old' => $snapshot, 'new' => null],
+                tenantId: $snapshot['tenant_id']
+            );
         });
     }
 
@@ -98,7 +145,7 @@ class RoleRepository
     public function permissions(Role|int|string $role): Collection
     {
         $role = $role instanceof Role ? $role : Role::query()->findOrFail($role);
-        return $role->permissions()->orderBy('name')->get();
+        return$role->permissions()->orderBy('name')->get();
     }
 
     /** Sync total de permisos del rol (IDs). */
@@ -107,8 +154,28 @@ class RoleRepository
         $role = $role instanceof Role ? $role : Role::query()->findOrFail($role);
 
         DB::transaction(function () use ($role, $permissionIds) {
+            // Snapshot anterior
+            $before = $role->permissions()->pluck('id')->values()->all();
+
             $role->syncPermissions($permissionIds);
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            // Snapshot nuevo
+            $after = $role->permissions()->pluck('id')->values()->all();
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Permisos asignados',
+                subject: $role,
+                description: __('audit.roles.permissions.sync'),
+                changes: [
+                    'old' => ['permission_ids' => $before],
+                    'new' => ['permission_ids' => $after],
+                ],
+                tenantId: $role->tenant_id,
+                meta: ['role_id' => $role->id]
+            );
         });
 
         return $role->load('permissions');
@@ -133,12 +200,39 @@ class RoleRepository
         }
 
         return DB::transaction(function () use ($user, $tenant, $roleIds) {
-            app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->id);
-            $user->syncRoles($roleIds);
+            $registrar = app(PermissionRegistrar::class);
+            $registrar->setPermissionsTeamId($tenant->id);
 
-            return $user->roles()
-                ->wherePivot(config('permission.team_foreign_key', 'team_id'), $tenant->id)
+            // Roles actuales del user en este tenant (antes)
+            $teamFk = config('permission.team_foreign_key', 'tenant_id');
+            $before = $user->roles()
+                ->wherePivot($teamFk, $tenant->id)
                 ->pluck('id')->values()->all();
+
+            // Sync
+            $user->syncRoles($roleIds);
+            $registrar->forgetCachedPermissions();
+
+            // Después
+            $after = $user->roles()
+                ->wherePivot($teamFk, $tenant->id)
+                ->pluck('id')->values()->all();
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Roles asignados',
+                subject: $user,
+                description: __('audit.users.roles.sync_in_tenant'),
+                changes: [
+                    'old' => ['role_ids' => $before],
+                    'new' => ['role_ids' => $after],
+                ],
+                tenantId: $tenant->id,
+                meta: ['tenant_id' => $tenant->id, 'user_id' => $user->id]
+            );
+
+            return $after;
         });
     }
 }

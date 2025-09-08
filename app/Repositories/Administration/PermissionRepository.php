@@ -8,12 +8,22 @@ use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use App\Repositories\Administration\AuditLogRepository;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\PermissionRegistrar;
 
 class PermissionRepository
 {
+    public function __construct(
+        protected ?AuditLogRepository $audit = null
+    ) {}
+
+    protected function audit(): AuditLogRepository
+    {
+        return $this->audit ??= app(AuditLogRepository::class);
+    }
+
     /**
      * Pagina permisos (globales).
      */
@@ -34,13 +44,14 @@ class PermissionRepository
             $sort = 'name';
         }
 
-        return $query->orderBy($sort, $dir)->paginate($perPage);
+        return$query->orderBy($sort, $dir)->paginate($perPage);
     }
 
     /** Todos los permisos (ordenados). */
     public function all(): Collection
     {
         return Permission::query()->orderBy('name')->get();
+
     }
 
     /** Buscar por ID (404 si no existe). */
@@ -62,6 +73,16 @@ class PermissionRepository
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Permiso creado',
+                subject: $perm,
+                description: __('audit.permissions.created'),
+                changes: ['old' => null, 'new' => Arr::only($perm->toArray(), ['id','name','guard_name'])],
+                tenantId: Tenant::current()?->id
+            );
+
             return $perm;
         });
     }
@@ -70,10 +91,24 @@ class PermissionRepository
     public function update(Permission $permission, array $data): Permission
     {
         return DB::transaction(function () use ($permission, $data) {
+            $old = Arr::only($permission->getOriginal(), ['name','guard_name']);
+
             $permission->fill(Arr::only($data, ['name','guard_name']));
             $permission->save();
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            $new = Arr::only($permission->fresh()->toArray(), ['name','guard_name']);
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Permiso actualizado',
+                subject: $permission,
+                description: __('audit.permissions.updated'),
+                changes: ['old' => $old, 'new' => $new],
+                tenantId: Tenant::current()?->id
+            );
 
             return $permission->refresh();
         });
@@ -83,8 +118,20 @@ class PermissionRepository
     public function delete(Permission $permission): void
     {
         DB::transaction(function () use ($permission) {
+            $snapshot = Arr::only($permission->toArray(), ['id','name','guard_name']);
+
             $permission->delete();
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Permiso eliminado',
+                subject: ['type' => Permission::class, 'id' => $snapshot['id']],
+                description: __('audit.permissions.deleted'),
+                changes: ['old' => $snapshot, 'new' => null],
+                tenantId: Tenant::current()?->id
+            );
         });
     }
 
@@ -96,7 +143,9 @@ class PermissionRepository
     public function permissionsForRole(Role|int|string $role): Collection
     {
         $role = $role instanceof Role ? $role : Role::query()->findOrFail($role);
-        return $role->permissions()->orderBy('name')->get();
+        $list = $role->permissions()->orderBy('name')->get();
+
+        return $list;
     }
 
     /**
@@ -107,9 +156,19 @@ class PermissionRepository
         $role = $role instanceof Role ? $role : Role::query()->findOrFail($role);
 
         DB::transaction(function () use ($role, $permissionIds) {
-            // Spatie acepta IDs directamente
             $role->givePermissionTo($permissionIds);
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Permisos asignados',
+                subject: $role,
+                description: __('audit.roles_permissions.attach'),
+                changes: ['old' => null, 'new' => ['permission_ids' => array_values($permissionIds)]],
+                tenantId: Tenant::current()?->id,
+                meta: ['role_id' => $role->id, 'attached_count' => count($permissionIds)]
+            );
         });
 
         return $role->load('permissions');
@@ -123,11 +182,21 @@ class PermissionRepository
         $role = $role instanceof Role ? $role : Role::query()->findOrFail($role);
 
         DB::transaction(function () use ($role, $permissionIds) {
-            // revokePermissionTo admite id(s), nombres o modelos
             foreach ($permissionIds as $pid) {
                 $role->revokePermissionTo($pid);
             }
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Permisos revocados',
+                subject: $role,
+                description: __('audit.roles_permissions.revoke'),
+                changes: ['old' => ['permission_ids' => array_values($permissionIds)], 'new' => null],
+                tenantId: Tenant::current()?->id,
+                meta: ['role_id' => $role->id, 'revoked_count' => count($permissionIds)]
+            );
         });
 
         return $role->load('permissions');
@@ -142,8 +211,25 @@ class PermissionRepository
         $role = $role instanceof Role ? $role : Role::query()->findOrFail($role);
 
         DB::transaction(function () use ($role, $permissionIds) {
-            $role->syncPermissions($permissionIds); // ← reemplazo total
+            // Snapshot anterior (ids)
+            $before = $role->permissions()->pluck('id')->values()->all();
+
+            $role->syncPermissions($permissionIds);
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            // Snapshot nuevo (ids)
+            $after = $role->permissions()->pluck('id')->values()->all();
+
+            // Audit
+            $this->audit()->log(
+                actor: auth()->user(),
+                event: 'Permisos asignados',
+                subject: $role,
+                description: __('audit.roles_permissions.sync'),
+                changes: ['old' => ['permission_ids' => $before], 'new' => ['permission_ids' => $after]],
+                tenantId: Tenant::current()?->id,
+                meta: ['role_id' => $role->id]
+            );
         });
 
         return $role->load('permissions');
@@ -162,12 +248,7 @@ class PermissionRepository
         $tenant = $tenant instanceof Tenant ? $tenant : Tenant::query()->findOrFail($tenant);
 
         app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->id);
-
-        return $user->getAllPermissions()
-            ->pluck('name')
-            ->unique()
-            ->values()
-            ->all();
+        return $user->getAllPermissions()->pluck('name')->unique()->values()->all();
     }
 
     /** Roles del usuario en un tenant (útil para UI). */
@@ -176,10 +257,12 @@ class PermissionRepository
         $tenant = $tenant instanceof Tenant ? $tenant : Tenant::query()->findOrFail($tenant);
         $teamFk = config('permission.team_foreign_key', 'tenant_id');
 
-        return $user->roles()
+        $roles = $user->roles()
             ->wherePivot($teamFk, $tenant->id)
             ->pluck('name')
             ->values()
             ->all();
+
+        return $roles;
     }
 }

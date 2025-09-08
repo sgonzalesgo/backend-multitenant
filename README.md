@@ -66,3 +66,13 @@ quay.io/soketi/soketi:latest-16-alpine
 php artisan route:clear
 php artisan route:list | grep refresh
 
+// mailtrap
+MAIL_MAILER=smtp
+MAIL_HOST=sandbox.smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=e89c0f90f6bd60
+MAIL_PASSWORD=9c00903b8cd44a
+MAIL_ENCRYPTION=null
+MAIL_FROM_ADDRESS=admin@eduolivo.com
+MAIL_FROM_NAME="Mi App"
+

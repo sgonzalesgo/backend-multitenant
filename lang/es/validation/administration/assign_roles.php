@@ -8,14 +8,22 @@ return [
         'roles.*'   => 'rol',
     ],
     'custom' => [
-        'user_id.required'   => 'El :attribute es obligatorio.',
-        'user_id.uuid'       => 'El :attribute no tiene un formato válido.',
-        'user_id.exists'     => 'El :attribute no existe.',
-        'tenant_id.required' => 'La :attribute es obligatoria.',
-        'tenant_id.exists'   => 'La :attribute no existe.',
-        'roles.required'     => 'Los :attribute son obligatorios.',
-        'roles.array'        => 'Los :attribute deben ser un arreglo.',
-        'roles.*.exists'     => 'Alguno de los :attribute no existe.',
-        'roles.*.tenant_mismatch' => 'Alguno de los roles no pertenece al tenant especificado.',
+        'user_id' => [
+            'required' => 'El :attribute es obligatorio.',
+            'uuid'     => 'El :attribute no tiene un formato válido.',
+            'exists'   => 'El :attribute no existe.',
+        ],
+        'tenant_id' => [
+            'required' => 'La :attribute es obligatoria.',
+            'exists'   => 'La :attribute no existe.',
+        ],
+        'roles' => [
+            'required' => 'Los :attribute son obligatorios.',
+            'array'    => 'Los :attribute deben ser un arreglo.',
+            '*' => [
+                'exists'          => 'Alguno de los :attribute no existe.',
+                'tenant_mismatch' => 'Alguno de los roles no pertenece al tenant especificado.',
+            ],
+        ],
     ],
 ];

@@ -5,8 +5,11 @@ use Illuminate\Support\Facades\Route;
 
 require __DIR__ . '/administration/auth.php';
 
-Route::middleware(['auth:api','tenant','setLocale'])->prefix('v1')->group(function () {
-    require base_path('routes/administration/permission.php');
+// Requieren por obligacion un current tenant
+Route::middleware(['auth:api','setLocale','tenant','verified.email'])->prefix('v1')->group(function () {
     require base_path('routes/administration/role.php');
-//    require base_path('routes/v1/administration/user.php');
+    require base_path('routes/administration/permission.php');
+    require base_path('routes/administration/user.php');
+    require base_path('routes/administration/audit_log.php');
 });
+

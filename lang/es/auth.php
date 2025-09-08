@@ -17,5 +17,7 @@ return [
     'password' => 'La contraseña proporcionada es incorrecta.',
     'throttle' => 'Demasiados intentos de inicio de sesión. Por favor, inténtalo de nuevo en :seconds segundos.',
     'invalid_credentials' => 'Credenciales incorrectas.',
-
+    'logout_success' => 'Cierre de sesión exitoso.',
+    'resolve_initial_tenant' => 'Resolver el colegio inicial.',
+    'me' => 'Perfil de usuario'
 ];
