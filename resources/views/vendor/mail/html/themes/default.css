@@ -194,6 +194,8 @@ img {
     width: 100%;
 }
 
+.button-primary { background-color:#0ea5e9; }
+
 .table th {
     border-bottom: 1px solid #edeff2;
     margin: 0;

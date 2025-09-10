@@ -26,5 +26,7 @@ return [
         'need_help'       => 'Need help?',
         'or_write'        => 'or write to',
         'code_is'         => 'Your code is:',
+        // new
+
     ],
 ];

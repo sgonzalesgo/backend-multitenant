@@ -3,6 +3,7 @@
 namespace App\Repositories\Administration;
 
 use App\Models\Administration\EmailVerification;
+use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
 use App\Notifications\VerifyEmailCode;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +46,7 @@ class EmailVerificationRepository
                 subject: $rec,
                 description: __('verify.sent'),
                 changes: ['old'=>null,'new'=>null],
-                tenantId: \App\Models\Administration\Tenant::current()?->id
+                tenantId: Tenant::current()?->id
             );
 
             return $rec;
@@ -84,7 +85,7 @@ class EmailVerificationRepository
                     subject: $user,
                     description: __('verify.verified'),
                     changes: ['old'=>null,'new'=>['email_verified_at'=>$user->email_verified_at]],
-                    tenantId: \App\Models\Administration\Tenant::current()?->id
+                    tenantId: Tenant::current()?->id
                 );
             });
         } else {
@@ -95,7 +96,7 @@ class EmailVerificationRepository
                 subject: $user,
                 description: __('verify.failed'),
                 changes: ['old'=>null,'new'=>['attempts'=>$rec->attempts]],
-                tenantId: \App\Models\Administration\Tenant::current()?->id
+                tenantId: Tenant::current()?->id
             );
         }
 

@@ -108,6 +108,7 @@
 // app/Notifications/VerifyEmailCode.php
 namespace App\Notifications;
 
+use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -123,7 +124,7 @@ class VerifyEmailCode extends Notification implements ShouldQueue, NotTenantAwar
         public int $ttlMinutes,
         public ?string $ip = null,
         public ?string $userAgent = null,
-        public ?\Carbon\CarbonInterface $requestedAt = null
+        public ?CarbonInterface $requestedAt = null
     ) {}
 
     public function via($notifiable): array
@@ -139,6 +140,11 @@ class VerifyEmailCode extends Notification implements ShouldQueue, NotTenantAwar
         $helpUrl = config('brand.help_url', $appUrl);
         $support = config('brand.support_email', config('mail.from.address'));
 
+        // 👇 arma la URL con query params
+        $actionUrl = $appUrl.'/verify/email'
+            .'?email='.urlencode($notifiable->email)
+            .'&code='.urlencode($this->code6);
+
         return (new MailMessage)
             ->subject(__('verify.mail.subject').' | '.$appName)
             ->markdown('mail.verify.code', [
@@ -153,6 +159,20 @@ class VerifyEmailCode extends Notification implements ShouldQueue, NotTenantAwar
                 'logoUrl'     => $logoUrl,
                 'helpUrl'     => $helpUrl,
                 'support'     => $support,
+                'actionUrl'  => $actionUrl, // 👈 pásala a la vista
+            ])
+            ->text('mail.verify.code_plain', [
+                'user'        => $notifiable,
+                'code'        => $this->code6,
+                'ttlMinutes'  => $this->ttlMinutes,
+                'ip'          => $this->ip,
+                'userAgent'   => $this->userAgent,
+                'requestedAt' => $this->requestedAt,
+                'appName'     => $appName,
+                'appUrl'      => $appUrl,
+                'helpUrl'     => $helpUrl,
+                'support'     => $support,
+                'actionUrl'  => $actionUrl, // 👈 pásala a la vista
             ]);
     }
 }
