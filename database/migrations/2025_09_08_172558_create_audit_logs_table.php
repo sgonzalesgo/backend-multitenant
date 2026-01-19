@@ -17,10 +17,10 @@ return new class extends Migration {
             // Multitenancy (opcional)
             $table->uuid('tenant_id')->nullable()->index();
 
-            // Evento y sujeto
+            // Evento y sujeto (sujeto ahora opcional)
             $table->string('event', 100)->index();
-            $table->string('auditable_type', 191)->index();
-            $table->string('auditable_id', 64)->index();
+            $table->string('auditable_type', 191)->nullable()->index();
+            $table->string('auditable_id', 64)->nullable()->index();
 
             // Descripción libre
             $table->string('description', 500)->nullable();

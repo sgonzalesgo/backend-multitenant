@@ -2,8 +2,7 @@
 
 namespace App\Repositories\Administration;
 
-use App\Models\Administration\Tenant;
-use App\Models\Administration\User;
+// global import
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -13,9 +12,20 @@ use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
+use Exception;
+use Illuminate\Support\Facades\Cache;
+
+// local import
+use App\Events\Presence\UserOffline;
+use App\Events\Presence\UserOnline;
+use App\Models\Administration\Tenant;
+use App\Models\Administration\User;
+use App\Events\Presence\GroupMemberOnline;
+use App\Events\Presence\GroupMemberOffline;
+
 
 /** Si tu AuditLogRepository está en este mismo namespace, no necesitas el use.
- *  Descomenta el siguiente use si lo tienes en otro lado.
+ *  Des-comenta el siguiente use si lo tienes en otro lado.
  */
 // use App\Repositories\Administration\AuditLogRepository;
 
@@ -23,7 +33,9 @@ class AuthRepository
 {
     public function __construct(
         protected ?AuditLogRepository $audit = null
-    ) {}
+    )
+    {
+    }
 
     /** Helper para obtener el repo de auditoría aunque no esté inyectado */
     protected function audit(): AuditLogRepository
@@ -34,9 +46,8 @@ class AuthRepository
     /**
      * Valida credenciales y retorna el User (sin token).
      * Usuarios: globales.
-     * @throws ValidationException
-     * @throws AuthenticationException
      */
+
     public function attemptLogin(string $email, string $password): array
     {
         try {
@@ -44,18 +55,18 @@ class AuthRepository
             $user = User::query()->where('email', $email)->first();
 
             // Credenciales inválidas
-            if (!$user || !Hash::check($password, $user->password)) {
+            if (!$user || !Hash::check($password, (string) $user->password)) {
                 $this->audit()->log(
                     actor: $user, // puede ser null
                     event: 'auth.login.failed',
-                    subject: ['type' => User::class, 'id' => $user?->getKey()],
+                    subject: $user ?: null,
                     description: 'Intento de login fallido',
                     changes: ['old' => null, 'new' => null],
                     tenantId: Tenant::current()?->id,
                     meta: ['email' => $email, 'reason' => 'invalid_credentials']
                 );
 
-                throw new AuthenticationException(__('auth.invalid_credentials'));
+                throw new HttpException(401, __('auth.invalid_credentials'));
             }
 
             // Cuenta inactiva
@@ -69,7 +80,7 @@ class AuthRepository
                     tenantId: Tenant::current()?->id
                 );
 
-                throw new HttpException(403, __('errors.account_inactive'));
+                throw new HttpException(403, __('auth.account_inactive'));
             }
 
             // Correo no verificado
@@ -83,51 +94,34 @@ class AuthRepository
                     tenantId: Tenant::current()?->id
                 );
 
-                // OPCIONAL: emitir/re-enviar el código automáticamente
-                // app(\App\Repositories\Administration\EmailVerificationRepository::class)
-                //     ->resendCode($user);
-
-                throw new HttpException(403, __('errors.email_not_verified'));
+                throw new HttpException(403, __('auth.email_not_verified'));
             }
 
-            // === Access token (corto) ===
-            $accessMinutes = (int) config('auth.tokens.access_minutes', 15);
-            $access = $user->createToken('web-access'); // Passport Personal Access Token
-            $access->token->expires_at = now()->addMinutes($accessMinutes);
-            $access->token->save();
+            // 1) emitir tokens (centralizado)
+            $tokens = $this->issuePassportTokens($user, 'web-access');
 
-            // === Refresh token (largo) en tabla de Passport ===
-            $refreshDays = (int) config('auth.tokens.refresh_days', 30);
-            $refreshId   = Str::random(64);
+            // 2) devolver payload tipo /me (roles/permisos/tenants)
+            $me = $this->me($user);
 
-            $conn = config('passport.connection'); // si usas otra conexión para oauth_*
-            DB::connection($conn)
-                ->table('oauth_refresh_tokens')
-                ->insert([
-                    'id'               => $refreshId,
-                    'access_token_id'  => $access->token->id,
-                    'revoked'          => false,
-                    'expires_at'       => now()->addDays($refreshDays),
-                ]);
+            // 3) para marcar el usuario como online
+            $this->markOnline($user);
 
-            // Payload público + tokens (Controller los pone en cookies)
+            // 4) retornar tokens y perfil
             return [
-                'user' => [
-                    'id'    => $user->id,
-                    'name'  => $user->name,
-                    'email' => $user->email,
-                ],
+                'me' => $me,
                 '_tokens' => [
-                    'access_token'       => $access->accessToken,
-                    'access_expires_at'  => optional($access->token->expires_at)?->toIso8601String(),
-                    'refresh_token'      => $refreshId, // <-- cookie HttpOnly en controller
-                    'refresh_expires_at' => now()->addDays($refreshDays)->toIso8601String(),
+                    'access_token' => $tokens['access_token'],
+                    'access_expires_at' => $tokens['access_expires_at'],
+                    'refresh_token' => $tokens['refresh_token'],
+                    'refresh_expires_at' => $tokens['refresh_expires_at'],
                 ],
             ];
-        } catch (AuthenticationException $e) {
-            throw $e; // tu Handler lo formatea
-        } catch (Throwable $e) {
+        } catch (HttpException $e) {
+            // Importante: no conviertas 401/403 en 403, re-lanza tal cual
+            throw $e;
+        } catch (\Throwable $e) {
             report($e);
+
             $this->audit()->log(
                 actor: null,
                 event: 'auth.login.error',
@@ -137,10 +131,9 @@ class AuthRepository
                 tenantId: Tenant::current()?->id,
                 meta: ['exception' => class_basename($e)]
             );
-            throw new HttpException(500,$e->getMessage());
+            throw new HttpException(500, __('errors.server_error'));
         }
     }
-
 
     /**
      * Perfil + contexto tenant-aware.
@@ -149,8 +142,8 @@ class AuthRepository
      */
     public function me(User $user): array
     {
-        $tenant     = $this->resolveInitialTenantFor($user);
-        $registrar  = app(PermissionRegistrar::class);
+        $tenant = $this->resolveInitialTenantFor($user);
+        $registrar = app(PermissionRegistrar::class);
 
         if ($tenant) {
             $tenant->makeCurrent();
@@ -193,22 +186,22 @@ class AuthRepository
 
         return [
             'user' => [
-                'id'             => $user->id,
-                'name'           => $user->name,
-                'email'          => $user->email,
-                'email_verified' => (bool) $user->email_verified_at,
-                'created_at'     => optional($user->created_at)?->toIso8601String(),
-                'updated_at'     => optional($user->updated_at)?->toIso8601String(),
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'email_verified' => (bool)$user->email_verified_at,
+                'created_at' => optional($user->created_at)?->toIso8601String(),
+                'updated_at' => optional($user->updated_at)?->toIso8601String(),
             ],
             'current_tenant' => $tenant ? [
-                'id'   => $tenant->id,
+                'id' => $tenant->id,
                 'name' => $tenant->name ?? null,
             ] : null,
 
-            'roles'               => $roles,
-            'permissions'         => $tenantPermissions,
-            'global_permissions'  => $globalPermissions,
-            'companies'           => $companies,
+            'roles' => $roles,
+            'permissions' => $tenantPermissions,
+            'global_permissions' => $globalPermissions,
+            'companies' => $companies,
         ];
     }
 
@@ -261,7 +254,7 @@ class AuthRepository
                 ->where($teamFk, $tenant->id)
                 ->exists();
 
-        if (! $canSwitch) {
+        if (!$canSwitch) {
             // Log de intento denegado antes del abort
             $this->audit()->log(
                 actor: $user,
@@ -292,7 +285,7 @@ class AuthRepository
     {
         $token = $user->token();
 
-        if (! $token) {
+        if (!$token) {
             // Log “idempotente” sin token asociado
             $this->audit()->log(
                 actor: $user,
@@ -302,6 +295,8 @@ class AuthRepository
                 changes: ['old' => null, 'new' => null],
                 tenantId: Tenant::current()?->id
             );
+            $this->markOffline($user);
+
             return;
         }
 
@@ -312,6 +307,9 @@ class AuthRepository
         DB::table('oauth_refresh_tokens')
             ->where('access_token_id', $token->id)
             ->update(['revoked' => true]);
+
+        // 3)marcar el usuario como offline
+        $this->markOffline($user);
 
         // Log de logout
         $this->audit()->log(
@@ -327,71 +325,72 @@ class AuthRepository
 
     public function upsertFromSocialAccessToken(string $provider, string $accessToken, array $hints = []): User
     {
-        // 1) Obtener perfil desde el proveedor con Socialite (stateless)
+        if (!in_array($provider, ['google', 'facebook'], true)) {
+            throw new HttpException(422, 'Proveedor social no soportado.');
+        }
+
         $socialUser = \Laravel\Socialite\Facades\Socialite::driver($provider)
             ->stateless()
             ->userFromToken($accessToken);
 
-        // 2) Normalizar datos
         $providerId = (string) $socialUser->getId();
-        $email      = $socialUser->getEmail() ?: ($hints['email'] ?? null);
-        $name       = $socialUser->getName()  ?: ($hints['name']  ?? 'User');
-        $avatar     = $socialUser->getAvatar() ?: ($hints['avatar'] ?? null);
-        $locale     = $hints['locale'] ?? app()->getLocale();
+        $email  = $socialUser->getEmail() ?: ($hints['email'] ?? null);
+        $name   = $socialUser->getName() ?: ($hints['name'] ?? 'User');
+        $avatar = $socialUser->getAvatar() ?: ($hints['avatar'] ?? null);
+        $locale = $hints['locale'] ?? app()->getLocale();
 
-        // 3) Buscar usuario por provider_id; si no, por email (y enlazar)
         $query = User::query();
 
-        if ($provider === 'google')   { $query->where('google_id', $providerId); }
-        if ($provider === 'facebook') { $query->where('facebook_id', $providerId); }
+        if ($provider === 'google') {
+            $query->where('google_id', $providerId);
+        } else { // facebook
+            $query->where('facebook_id', $providerId);
+        }
 
         $user = $query->first();
 
-        if (! $user && $email) {
+        if (!$user && $email) {
             $user = User::query()->where('email', $email)->first();
         }
 
-        $created = ! $user;
+        $created = !$user;
 
-        // 4) Crear o actualizar
         return DB::transaction(function () use ($user, $provider, $providerId, $email, $name, $avatar, $locale, $created) {
-            if (! $user) {
+            if (!$user) {
                 $user = new User();
                 $user->email = $email ?: "user_{$provider}_{$providerId}@example.local";
-                $user->password = Hash::make(\Str::random(40)); // placeholder
+                $user->password = Hash::make(Str::random(40));
             }
 
-            $user->name     = $name ?: $user->name;
-            $user->avatar   = $avatar ?: $user->avatar;
-            $user->locale   = $locale ?: $user->locale;
+            $user->name = $name ?: $user->name;
+            $user->avatar = $avatar ?: $user->avatar;
+            $user->locale = $locale ?: $user->locale;
             $user->is_active = true;
 
-            if ($provider === 'google')   { $user->google_id   = $providerId; }
-            if ($provider === 'facebook') { $user->facebook_id = $providerId; }
+            if ($provider === 'google') {
+                $user->google_id = $providerId;
+            } else {
+                $user->facebook_id = $providerId;
+            }
 
-            // Si vino email y el user no lo tenía (o era placeholder), actualízalo
-            if ($email && (! $user->email || str_ends_with($user->email, '@example.local'))) {
+            if ($email && (!$user->email || str_ends_with($user->email, '@example.local'))) {
                 $user->email = $email;
             }
 
             $user->save();
             $fresh = $user->refresh();
 
-            // Audit (no guardamos token ni accessToken de proveedor)
             $this->audit()->log(
-                actor: auth()->user(), // puede ser null si es flujo público
+                actor: auth()->user(),
                 event: 'users.social.upsert',
                 subject: $fresh,
                 description: $created ? __('audit.users.social.created') : __('audit.users.social.updated'),
                 changes: [
                     'old' => null,
-                    'new' => Arr::only($fresh->toArray(), ['id','email','name','locale','is_active'])
+                    'new' => Arr::only($fresh->toArray(), ['id', 'email', 'name', 'locale', 'is_active'])
                 ],
                 tenantId: Tenant::current()?->id,
-                meta: [
-                    'provider' => $provider,
-                    'linked'   => true,
-                ]
+                meta: ['provider' => $provider, 'linked' => true]
             );
 
             return $fresh;
@@ -457,10 +456,10 @@ class AuthRepository
 
         try {
             // Config
-            $conn                 = config('passport.connection'); // conexión de oauth_*
-            $refreshDays          = (int) config('auth.tokens.refresh_days', 30);
-            $impMinutes           = (int) config('auth.tokens.impersonation_minutes', 60);
-            $backupMinutes        = (int) config('auth.tokens.backup_minutes', 120);
+            $conn = config('passport.connection'); // conexión de oauth_*
+            $refreshDays = (int)config('auth.tokens.refresh_days', 30);
+            $impMinutes = (int)config('auth.tokens.impersonation_minutes', 60);
+            $backupMinutes = (int)config('auth.tokens.backup_minutes', 120);
 
             // 1) Emitir TOKEN BACKUP para el admin (para revertir)
             $backupAccess = $actor->createToken('impersonation-backup');
@@ -469,10 +468,10 @@ class AuthRepository
 
             $backupRefreshId = Str::random(64);
             DB::connection($conn)->table('oauth_refresh_tokens')->insert([
-                'id'              => $backupRefreshId,
+                'id' => $backupRefreshId,
                 'access_token_id' => $backupAccess->token->id,
-                'revoked'         => false,
-                'expires_at'      => now()->addDays($refreshDays),
+                'revoked' => false,
+                'expires_at' => now()->addDays($refreshDays),
             ]);
 
             // 2) Emitir TOKEN del usuario suplantado
@@ -482,10 +481,10 @@ class AuthRepository
 
             $impRefreshId = Str::random(64);
             DB::connection($conn)->table('oauth_refresh_tokens')->insert([
-                'id'              => $impRefreshId,
+                'id' => $impRefreshId,
                 'access_token_id' => $impAccess->token->id,
-                'revoked'         => false,
-                'expires_at'      => now()->addDays($refreshDays),
+                'revoked' => false,
+                'expires_at' => now()->addDays($refreshDays),
             ]);
 
             // 3) Auditoría (no guardamos tokens)
@@ -500,8 +499,8 @@ class AuthRepository
                     'impersonator_id' => $actor->id,
                     'impersonated_id' => $target->id,
                     'backup_access_token_id' => $backupAccess->token->id,
-                    'imp_access_token_id'    => $impAccess->token->id,
-                    'imp_minutes'            => $impMinutes,
+                    'imp_access_token_id' => $impAccess->token->id,
+                    'imp_minutes' => $impMinutes,
                 ]
             );
 
@@ -510,25 +509,25 @@ class AuthRepository
 
             return [
                 'user' => [
-                    'id'    => $target->id,
-                    'name'  => $target->name,
+                    'id' => $target->id,
+                    'name' => $target->name,
                     'email' => $target->email,
                 ],
                 'me' => $me,
 
                 // Tokens del usuario suplantado (para setear en cookies principales)
                 '_tokens' => [
-                    'access_token'       => $impAccess->accessToken,
-                    'access_expires_at'  => optional($impAccess->token->expires_at)?->toIso8601String(),
-                    'refresh_token'      => $impRefreshId,
+                    'access_token' => $impAccess->accessToken,
+                    'access_expires_at' => optional($impAccess->token->expires_at)?->toIso8601String(),
+                    'refresh_token' => $impRefreshId,
                     'refresh_expires_at' => now()->addDays($refreshDays)->toIso8601String(),
                 ],
 
                 // Tokens BACKUP del admin (guárdalos aparte para “desimpersonar”)
                 '_revert_tokens' => [
-                    'access_token'       => $backupAccess->accessToken,
-                    'access_expires_at'  => optional($backupAccess->token->expires_at)?->toIso8601String(),
-                    'refresh_token'      => $backupRefreshId,
+                    'access_token' => $backupAccess->accessToken,
+                    'access_expires_at' => optional($backupAccess->token->expires_at)?->toIso8601String(),
+                    'refresh_token' => $backupRefreshId,
                     'refresh_expires_at' => now()->addDays($refreshDays)->toIso8601String(),
                 ],
             ];
@@ -554,7 +553,7 @@ class AuthRepository
     public function stopImpersonation(User $current): void
     {
         $token = $current->token();
-        if (! $token) {
+        if (!$token) {
             // idempotente
             $this->audit()->log(
                 actor: $current,
@@ -605,7 +604,9 @@ class AuthRepository
         $registrar->forgetCachedPermissions();
         $resetActor();
         if ($actor->can('Impersonate users')) {
-            if ($prevTeamId) { $registrar->setPermissionsTeamId($prevTeamId); }
+            if ($prevTeamId) {
+                $registrar->setPermissionsTeamId($prevTeamId);
+            }
             return true;
         }
 
@@ -627,16 +628,132 @@ class AuthRepository
             $resetActor();
             if ($actor->can('Impersonate users')) {
                 // restaurar y permitir
-                if ($prevTeamId) { $registrar->setPermissionsTeamId($prevTeamId); }
-                else { $registrar->setPermissionsTeamId(null); }
+                if ($prevTeamId) {
+                    $registrar->setPermissionsTeamId($prevTeamId);
+                } else {
+                    $registrar->setPermissionsTeamId(null);
+                }
                 return true;
             }
         }
 
         // restaurar
-        if ($prevTeamId) { $registrar->setPermissionsTeamId($prevTeamId); }
-        else { $registrar->setPermissionsTeamId(null); }
+        if ($prevTeamId) {
+            $registrar->setPermissionsTeamId($prevTeamId);
+        } else {
+            $registrar->setPermissionsTeamId(null);
+        }
 
         return false;
     }
+
+    // para emitir tokens Passport (reutilizable)
+    public function issuePassportTokens(User $user, string $tokenName = 'web-access'): array
+    {
+        $accessMinutes = (int) config('auth.tokens.access_minutes', 15);
+        $refreshDays   = (int) config('auth.tokens.refresh_days', 30);
+
+        $access = $user->createToken($tokenName);
+        $access->token->expires_at = now()->addMinutes($accessMinutes);
+        $access->token->save();
+
+        $refreshId = Str::random(64);
+        $conn = config('passport.connection');
+
+        DB::connection($conn)->table('oauth_refresh_tokens')->insert([
+            'id' => $refreshId,
+            'access_token_id' => $access->token->id,
+            'revoked' => false,
+            'expires_at' => now()->addDays($refreshDays),
+        ]);
+
+        return [
+            'access_token' => $access->accessToken,
+            'access_expires_at' => optional($access->token->expires_at)?->toIso8601String(),
+            'refresh_token' => $refreshId,
+            'refresh_expires_at' => now()->addDays($refreshDays)->toIso8601String(),
+            'access_minutes' => $accessMinutes,
+            'refresh_days' => $refreshDays,
+        ];
+    }
+
+    // accepted groups for user
+    protected function acceptedGroupIdsFor(User $user): array
+    {
+        return DB::table('group_members')
+            ->where('user_id', $user->id)
+            ->where('status', 'accepted')
+            ->pluck('group_id')
+            ->map(fn($v) => (string) $v)
+            ->all();
+    }
+
+    /**
+     * Marca al usuario como online en cache con TTL.
+     * Usa Redis (CACHE_DRIVER=redis).
+     */
+    public function markOnline(User $user, ?int $ttlSeconds = null): void
+    {
+        $ttlSeconds ??= 120;
+
+        $key = $this->onlineKey((string)$user->id);
+        $wasOnline = Cache::has($key);
+
+        Cache::put($key, true, $ttlSeconds);
+
+        // Emitir SOLO si cambió de offline -> online
+        if (!$wasOnline) {
+            foreach ($this->acceptedGroupIdsFor($user) as $groupId) {
+                event(new GroupMemberOnline($groupId, (string)$user->id));
+            }
+        }
+    }
+
+    /**
+     * Marca al usuario como offline (borra flag).
+     */
+    public function markOffline(User $user): void
+    {
+        $key = $this->onlineKey((string)$user->id);
+        $wasOnline = Cache::has($key);
+
+        Cache::forget($key);
+
+        if ($wasOnline) {
+            foreach ($this->acceptedGroupIdsFor($user) as $groupId) {
+                event(new GroupMemberOffline($groupId, (string)$user->id));
+            }
+        }
+    }
+
+    /**
+     * Devuelve true si está online (según TTL).
+     */
+    public function isOnline(string $userId): bool
+    {
+        return Cache::has($this->onlineKey($userId));
+    }
+
+    // MARK: Online users
+    protected function onlineKey(string $userId): string
+    {
+        return "presence:online:{$userId}";
+    }
+
+    /**
+     * (Opcional) Guardar last_seen_at con throttle (cada N segundos).
+     * Requiere columna users.last_seen_at si lo quieres.
+     */
+    protected function touchLastSeen(User $user, bool $force = false): void
+    {
+        $throttleSeconds = (int) config('presence.last_seen_throttle_seconds', 120);
+
+        $lockKey = "presence:last_seen_lock:{$user->id}";
+
+        if ($force || Cache::add($lockKey, true, $throttleSeconds)) {
+            // Si NO tienes last_seen_at, comenta esta línea
+            $user->forceFill(['last_seen_at' => now()])->save();
+        }
+    }
+
 }

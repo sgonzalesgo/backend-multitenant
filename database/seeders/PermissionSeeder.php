@@ -41,7 +41,15 @@ class PermissionSeeder extends Seeder
             'Social login',
             'Impersonate users',
             'List audit_logs',
-            'Create audit_logs'
+            'Create audit_logs',
+            'Create groups',
+            'Invite users',
+            'List invitations',
+            'Accept users',
+            'Reject invitation_users',
+            'List member_users',
+            'List messages',
+            'Send messages',
         ];
 
         foreach ($perms as $name) {

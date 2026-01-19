@@ -27,7 +27,16 @@ class User extends Authenticatable implements MustVerifyEmailContract
         'name',
         'email',
         'password',
+        'avatar',
+        'is_active',
+        'google_id',
+        'facebook_id',
+        'instagram_id',
+        'locale',
+        'last_seen_at' => 'datetime',
+
     ];
+
 
     /**
      * The attributes that should be hidden for serialization.
@@ -49,6 +58,8 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
+
 }

@@ -11,6 +11,7 @@ return [
     // Errores comunes
     'bad_request'        => 'Solicitud incorrecta.',
     'unauthenticated'    => 'No autenticado.',
+    'account_inactive'   => 'Cuenta inactiva.',
     'forbidden'          => 'Esta acción no está autorizada.',
     'not_found'          => 'Recurso no encontrado.',
     'conflict'           => 'Conflicto detectado.',

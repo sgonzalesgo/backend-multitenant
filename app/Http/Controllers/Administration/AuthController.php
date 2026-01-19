@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Events\Presence\UserOffline;
+use App\Events\Presence\UserOnline;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administration\LoginRequest;
 use App\Http\Requests\Administration\User\RegisterRequest;
@@ -14,6 +16,8 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\Administration\User;
@@ -42,58 +46,122 @@ class AuthController extends Controller
      * @throws ValidationException
      * @throws AuthenticationException
      */
+//    public function login(LoginRequest $request): JsonResponse
+//    {
+//        $data = $request->validated();
+//        $result = $this->repo->attemptLogin($data['email'], $data['password']);
+//
+//        $tokens = $result['_tokens'];
+//        unset($result['_tokens']); // evita filtrarlos al body
+//
+//        // Duraciones (en minutos) para cookies
+//        $accessMinutes  = config('auth.tokens.access_minutes', 15);
+//        $refreshMinutes = config('auth.tokens.refresh_days', 30) * 24 * 60;
+//
+//        // Cookie del ACCESS TOKEN — HttpOnly + Secure + SameSite=Lax
+//        $accessCookie = cookie()->make(
+//            name: 'access_token',
+//            value: $tokens['access_token'],
+//            minutes: $accessMinutes,
+//            path: '/',
+//            domain: null,
+//            secure: true,     // solo HTTPS
+//            httpOnly: true,   // JS no puede leerla
+//            raw: false,
+//            sameSite: 'Lax'   // mitiga CSRF en navegación
+//        );
+//
+//        // Cookie del REFRESH TOKEN — HttpOnly + Secure + SameSite=Strict/Lax
+//        $refreshCookie = cookie()->make(
+//            name: 'refresh_token',
+//            value: $tokens['refresh_token'],
+//            minutes: $refreshMinutes,
+//            path: '/',
+//            domain: null,
+//            secure: true,
+//            httpOnly: true,
+//            raw: false,
+//            sameSite: 'Strict' // usa 'Lax' si necesitas flujo cross-site
+//        );
+//
+//        // CSRF cookie legible por JS (para enviar en header X-XSRF-TOKEN)
+//        $xsrfCookie = cookie()->make(
+//            name: 'XSRF-TOKEN',
+//            value: csrf_token(),
+//            minutes: 120,
+//            path: '/',
+//            domain: null,
+//            secure: true,
+//            httpOnly: false,  // debe ser legible por JS
+//            raw: false,
+//            sameSite: 'Lax'
+//        );
+//
+//        return $this->ok($result, __('messages.logged_in'))
+//            ->withCookie($accessCookie)
+//            ->withCookie($refreshCookie)
+//            ->withCookie($xsrfCookie);
+//    }
+
+
     public function login(LoginRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $result = $this->repo->attemptLogin($data['email'], $data['password']);
 
-        $tokens = $result['_tokens'];
-        unset($result['_tokens']); // evita filtrarlos al body
+        // Ahora attemptLogin devuelve: ['me' => <payload>, '_tokens' => <tokens>]
+        $result  = $this->repo->attemptLogin($data['email'], $data['password']);
+        $tokens  = $result['_tokens'] ?? [];
+        $payload = $result['me'] ?? null;
 
-        // Duraciones (en minutos) para cookies
-        $accessMinutes  = config('auth.tokens.access_minutes', 15);
-        $refreshMinutes = config('auth.tokens.refresh_days', 30) * 24 * 60;
+        // Por seguridad, nunca devolver tokens en el body
+        unset($result['_tokens'], $result['me']);
 
-        // Cookie del ACCESS TOKEN — HttpOnly + Secure + SameSite=Lax
+        // Duraciones para cookies
+        $accessMinutes  = (int) config('auth.tokens.access_minutes', 15);
+        $refreshMinutes = (int) config('auth.tokens.refresh_days', 30) * 24 * 60;
+
+        // En local (http) podrías usar: $secure = app()->environment('production');
+        $secure = false;
+
+        $sameSite = $secure ? 'None' : 'Lax';
+
         $accessCookie = cookie()->make(
             name: 'access_token',
-            value: $tokens['access_token'],
+            value: (string) ($tokens['access_token'] ?? ''),
             minutes: $accessMinutes,
             path: '/',
             domain: null,
-            secure: true,     // solo HTTPS
-            httpOnly: true,   // JS no puede leerla
-            raw: false,
-            sameSite: 'Lax'   // mitiga CSRF en navegación
-        );
-
-        // Cookie del REFRESH TOKEN — HttpOnly + Secure + SameSite=Strict/Lax
-        $refreshCookie = cookie()->make(
-            name: 'refresh_token',
-            value: $tokens['refresh_token'],
-            minutes: $refreshMinutes,
-            path: '/',
-            domain: null,
-            secure: true,
+            secure: $secure,
             httpOnly: true,
-            raw: false,
-            sameSite: 'Strict' // usa 'Lax' si necesitas flujo cross-site
-        );
-
-        // CSRF cookie legible por JS (para enviar en header X-XSRF-TOKEN)
-        $xsrfCookie = cookie()->make(
-            name: 'XSRF-TOKEN',
-            value: csrf_token(),
-            minutes: 120,
-            path: '/',
-            domain: null,
-            secure: true,
-            httpOnly: false,  // debe ser legible por JS
             raw: false,
             sameSite: 'Lax'
         );
 
-        return $this->ok($result, __('messages.logged_in'))
+        $refreshCookie = cookie()->make(
+            name: 'refresh_token',
+            value: (string) ($tokens['refresh_token'] ?? ''),
+            minutes: $refreshMinutes,
+            path: '/',
+            domain: null,
+            secure: $secure,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Lax'
+        );
+
+        $xsrfCookie = cookie()->make(
+            name: 'XSRF-TOKEN',
+            value: csrf_token(),
+            minutes: (int) config('jwt.ttl', 60),
+            path: '/',
+            domain: null,
+            secure: $secure,
+            httpOnly: false,
+            raw: false,
+            sameSite: 'Lax'
+        );
+
+        return $this->ok($payload, __('messages.logged_in'))
             ->withCookie($accessCookie)
             ->withCookie($refreshCookie)
             ->withCookie($xsrfCookie);
@@ -148,28 +216,37 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
-        // Revoca access/refresh tokens y limpia contexto tenant/permissions (lo hace tu repo)
+
+        // Revoca access/refresh tokens (DB) y loguea auditoría
         $this->repo->logout($user);
 
-        // Nombres de cookies según tu config
-        $tokenCookieName  = config('auth.cookie', 'access_token');
-        $tenantCookieName = config('tenancy.cookie', 'X-Company-ID');
-        $domain           = config('session.domain'); // puede ser null en local
+        $domain = config('session.domain'); // puede ser null
+        $tenantCookieName = 'tenant_id'; // o config('tenancy.cookie', 'X-Company-ID')
 
-        // “Olvidar” cookies (path '/', domain opcional)
-        $forgetTokenCookie  = Cookie::forget($tokenCookieName, '/', $domain ?: null);
-        $forgetTenantCookie = Cookie::forget($tenantCookieName, '/', $domain ?: null);
+        // ✅ Olvidar cookies principales
+        $forgetAccess  = Cookie::forget('access_token', '/', $domain ?: null);
+        $forgetRefresh = Cookie::forget('refresh_token', '/', $domain ?: null);
+        $forgetXsrf    = Cookie::forget('XSRF-TOKEN', '/', $domain ?: null);
 
-        // Respuesta uniforme (200 OK) + cookies eliminadas
+        // ✅ Olvidar cookie de tenant si existe
+        $forgetTenant  = Cookie::forget($tenantCookieName, '/', $domain ?: null);
+
+        cache()->forget("presence:online:{$user->id}");
+        event(new UserOffline($user->id));
+
+
         return response()->json([
             'code'    => Response::HTTP_OK,
             'message' => __('auth.logout_success'),
             'data'    => null,
             'error'   => null,
         ], Response::HTTP_OK)
-            ->withCookie($forgetTokenCookie)
-            ->withCookie($forgetTenantCookie);
+            ->withCookie($forgetAccess)
+            ->withCookie($forgetRefresh)
+            ->withCookie($forgetXsrf)
+            ->withCookie($forgetTenant);
     }
+
 
     // POST /auth/register
     public function register(RegisterRequest $request): JsonResponse
@@ -200,7 +277,7 @@ class AuthController extends Controller
 
     public function socialUpsert(SocialUpsertRequest $request): JsonResponse
     {
-        $user = $this->user->upsertFromSocialAccessToken(
+        $user = $this->repo->upsertFromSocialAccessToken(
             $request->input('provider'),
             $request->input('access_token'),
             $request->only(['email','name','avatar','locale'])
@@ -220,6 +297,77 @@ class AuthController extends Controller
             ],
             'error'   => null,
         ]);
+    }
+
+    public function socialLogin(SocialUpsertRequest $request): JsonResponse
+    {
+        $provider = $request->input('provider');       // google | facebook
+        $accessToken = $request->input('access_token');
+
+        $hints = $request->only(['email', 'name', 'avatar', 'locale']);
+
+        // 1) upsert
+        $user = $this->repo->upsertFromSocialAccessToken($provider, $accessToken, $hints);
+
+        // Si confías en provider como verificación de email:
+        if ($user->email && is_null($user->email_verified_at)) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+            $user = $user->refresh();
+        }
+
+        // 2) emitir tokens (reutiliza repo)
+        $tokens = $this->repo->issuePassportTokens($user, 'web-access');
+
+        // 3) set cookies (igual que login)
+        $domain = config('session.domain');
+        $secure = true; // en local quizá quieras env('COOKIE_SECURE', false)
+
+        $accessCookie = Cookie::make(
+            name: 'access_token',
+            value: $tokens['access_token'],
+            minutes: (int) $tokens['access_minutes'],
+            path: '/',
+            domain: $domain,
+            secure: $secure,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Lax'
+        );
+
+        $refreshCookie = Cookie::make(
+            name: 'refresh_token',
+            value: $tokens['refresh_token'],
+            minutes: (int) $tokens['refresh_days'] * 24 * 60,
+            path: '/',
+            domain: $domain,
+            secure: $secure,
+            httpOnly: true,
+            raw: false,
+            sameSite: 'Strict'
+        );
+
+        $xsrfCookie = Cookie::make(
+            name: 'XSRF-TOKEN',
+            value: csrf_token(),
+            minutes: 120,
+            path: '/',
+            domain: $domain,
+            secure: $secure,
+            httpOnly: false,
+            raw: false,
+            sameSite: 'Lax'
+        );
+
+        // 4) respuesta estándar
+        $payload = $this->repo->me($user);
+
+        // 5) marcar como online
+        $this->repo->markOnline($user);
+
+        return $this->ok($payload, __('messages.logged_in'))
+            ->withCookie($accessCookie)
+            ->withCookie($refreshCookie)
+            ->withCookie($xsrfCookie);
     }
 
     /**
@@ -400,4 +548,16 @@ class AuthController extends Controller
             ->withCookie($forgetImpRT)
             ->withCookie($forgetFlag);
     }
+
+    // POST /auth/ping para actualizar last_seen_at(ver quien esta logueado)
+    public function ping(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // refresca TTL + (opcional) last_seen_at throttled
+        $this->repo->markOnline($user);
+
+        return response()->json(['ok' => true]);
+    }
+
 }

@@ -16,6 +16,8 @@ return [
     'failed' => 'These credentials do not match our records.',
     'password' => 'The provided password is incorrect.',
     'throttle' => 'Too many login attempts. Please try again in :seconds seconds.',
+    'account_inactive' => 'Account is not active.',
+    'email_not_verified' => 'Email is not verified.',
     'invalid_credentials' => 'Invalid credentials.',
     'logout_success' => 'Logout successful.',
     'resolve_initial_tenant' => 'Resolve initial tenant.',

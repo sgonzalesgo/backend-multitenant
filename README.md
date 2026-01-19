@@ -76,3 +76,23 @@ MAIL_ENCRYPTION=null
 MAIL_FROM_ADDRESS=admin@eduolivo.com
 MAIL_FROM_NAME="Mi App"
 
+// Esto es para que el redis funcione, es para correr el worker y que pueda enviar mensajes por canales broadcast
+php artisan queue:work
+
+// es el comando que levanta el servidor WebSocket de Laravel Reverb
+//Sirve para que tu app pueda:
+//aceptar conexiones websocket desde el frontend (Echo / WebSocket)
+//crear canales (private-group..., presence...)
+//emitir eventos en tiempo real (broadcast)
+//Sin Reverb corriendo, no hay “tiempo real” aunque el evento se dispare.
+php artisan reverb:start
+
+3) OJO CRÍTICO: tus cookies están en secure=true (en local HTTP no se guardan)
+Aunque CORS esté perfecto, si tu backend setea cookies con secure=true y estás en http://localhost, el navegador NO las guarda.
+Para local, haz:
+secure = false
+SameSite = Lax (local)
+Y para prod HTTPS:
+secure = true
+SameSite = None (si frontend y backend están en dominios distintos)
+

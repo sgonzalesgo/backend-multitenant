@@ -157,7 +157,7 @@ class Handler extends ExceptionHandler
     {
         return $this->json(
             Response::HTTP_UNAUTHORIZED,
-            __('error.unauthenticated'),
+            __('auth.unauthenticated'),
             null,
             'Unauthenticated'
         );

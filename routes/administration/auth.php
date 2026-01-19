@@ -13,6 +13,8 @@ Route::prefix('v1')->group(function () {
         Route::post('auth/social/upsert', [AuthController::class, 'socialUpsert']);
         Route::post('auth/verify/request-code', [EmailVerificationController::class, 'requestCode']);
         Route::post('auth/verify/confirm',      [EmailVerificationController::class, 'confirm']);
+        Route::post('auth/social/login', [AuthController::class, 'socialLogin']);
+
     });
 
 // Protegidas con Passport (cookies HttpOnly -> bearer_cookie -> auth:api)
@@ -23,9 +25,12 @@ Route::prefix('v1')->group(function () {
         // Impersonate SIN middleware de permiso (permiso se valida en el repo, opción A)
         Route::post('auth/impersonate', [AuthController::class, 'impersonate']);
         Route::post('auth/impersonate/revert', [AuthController::class, 'revertImpersonation']);
+
+        // para verificar qué usuarios están online usando redis
+        Route::post('auth/ping', [AuthController::class, 'ping']);
     });
 
-// Si quieres que switch-company exija tenant
+    // Si quieres que switch-company exija tenant
     Route::middleware(['bearer_cookie', 'auth:api', 'setLocale', 'tenant'])->group(function () {
         Route::post('auth/switch-company', [AuthController::class, 'switchTenant'])->name('switchTenant');
 
@@ -33,4 +38,5 @@ Route::prefix('v1')->group(function () {
         // Route::post('auth/impersonate', [AuthController::class, 'impersonate'])
         //     ->middleware('permission:Impersonate users');
     });
+
 });
