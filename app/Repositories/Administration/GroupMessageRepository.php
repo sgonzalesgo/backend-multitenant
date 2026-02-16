@@ -8,10 +8,11 @@ use Illuminate\Support\Str;
 
 class GroupMessageRepository
 {
-    public function paginateMessages(string $groupId, int $perPage = 30): LengthAwarePaginator
+    public function paginateMessages(string $tenantId, string $groupId, int $perPage = 30): LengthAwarePaginator
     {
         return DB::table('group_messages as m')
             ->join('users as u', 'u.id', '=', 'm.user_id')
+            ->where('m.tenant_id', $tenantId)
             ->where('m.group_id', $groupId)
             ->select([
                 'm.id',
@@ -25,12 +26,13 @@ class GroupMessageRepository
             ->paginate($perPage);
     }
 
-    public function createMessage(string $groupId, string $userId, string $body): object
+    public function createMessage(string $tenantId, string $groupId, string $userId, string $body): object
     {
         $id = (string) Str::uuid();
 
         DB::table('group_messages')->insert([
             'id' => $id,
+            'tenant_id' => $tenantId,
             'group_id' => $groupId,
             'user_id' => $userId,
             'body' => $body,
@@ -40,6 +42,7 @@ class GroupMessageRepository
 
         return DB::table('group_messages as m')
             ->join('users as u', 'u.id', '=', 'm.user_id')
+            ->where('m.tenant_id', $tenantId)
             ->where('m.id', $id)
             ->select([
                 'm.id',

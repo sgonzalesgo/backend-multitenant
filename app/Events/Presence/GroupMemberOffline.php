@@ -8,7 +8,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 class GroupMemberOffline implements ShouldBroadcastNow
 {
     public function __construct(
-        public int $groupId,
+        public string $groupId,
         public string $userId
     ) {}
 

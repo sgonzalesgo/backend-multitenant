@@ -104,7 +104,10 @@ class AuthRepository
             $me = $this->me($user);
 
             // 3) para marcar el usuario como online
-            $this->markOnline($user);
+            $tenantId = (string) (Tenant::current()?->id ?? ($me['current_tenant']['id'] ?? ''));
+            if ($tenantId !== '') {
+                $this->markOnline($user, $tenantId);
+            }
 
             // 4) retornar tokens y perfil
             return [
@@ -295,7 +298,10 @@ class AuthRepository
                 changes: ['old' => null, 'new' => null],
                 tenantId: Tenant::current()?->id
             );
-            $this->markOffline($user);
+            $tenantId = (string) (Tenant::current()?->id ?? '');
+            if ($tenantId !== '') {
+                $this->markOffline($user, $tenantId);
+            }
 
             return;
         }
@@ -309,7 +315,10 @@ class AuthRepository
             ->update(['revoked' => true]);
 
         // 3)marcar el usuario como offline
-        $this->markOffline($user);
+        $tenantId = (string) (Tenant::current()?->id ?? '');
+        if ($tenantId !== '') {
+            $this->markOffline($user, $tenantId);
+        }
 
         // Log de logout
         $this->audit()->log(
@@ -678,12 +687,14 @@ class AuthRepository
     }
 
     // accepted groups for user
-    protected function acceptedGroupIdsFor(User $user): array
+    protected function acceptedGroupIdsFor(User $user, string $tenantId): array
     {
-        return DB::table('group_members')
-            ->where('user_id', $user->id)
-            ->where('status', 'accepted')
-            ->pluck('group_id')
+        return DB::table('group_members as gm')
+            ->join('groups as g', 'g.id', '=', 'gm.group_id')
+            ->where('gm.user_id', $user->id)
+            ->where('gm.status', 'accepted')
+            ->where('g.tenant_id', $tenantId)
+            ->pluck('gm.group_id')
             ->map(fn($v) => (string) $v)
             ->all();
     }
@@ -692,19 +703,18 @@ class AuthRepository
      * Marca al usuario como online en cache con TTL.
      * Usa Redis (CACHE_DRIVER=redis).
      */
-    public function markOnline(User $user, ?int $ttlSeconds = null): void
+    public function markOnline(User $user, string $tenantId, ?int $ttlSeconds = null): void
     {
         $ttlSeconds ??= 120;
 
-        $key = $this->onlineKey((string)$user->id);
+        $key = $this->onlineKey($tenantId, (string) $user->id);
         $wasOnline = Cache::has($key);
 
         Cache::put($key, true, $ttlSeconds);
 
-        // Emitir SOLO si cambió de offline -> online
-        if (!$wasOnline) {
-            foreach ($this->acceptedGroupIdsFor($user) as $groupId) {
-                event(new GroupMemberOnline($groupId, (string)$user->id));
+        if (! $wasOnline) {
+            foreach ($this->acceptedGroupIdsFor($user, $tenantId) as $groupId) {
+                event(new GroupMemberOnline($groupId, (string) $user->id));
             }
         }
     }
@@ -712,16 +722,16 @@ class AuthRepository
     /**
      * Marca al usuario como offline (borra flag).
      */
-    public function markOffline(User $user): void
+    public function markOffline(User $user, string $tenantId): void
     {
-        $key = $this->onlineKey((string)$user->id);
+        $key = $this->onlineKey($tenantId, (string) $user->id);
         $wasOnline = Cache::has($key);
 
         Cache::forget($key);
 
         if ($wasOnline) {
-            foreach ($this->acceptedGroupIdsFor($user) as $groupId) {
-                event(new GroupMemberOffline($groupId, (string)$user->id));
+            foreach ($this->acceptedGroupIdsFor($user, $tenantId) as $groupId) {
+                event(new GroupMemberOffline($groupId, (string) $user->id));
             }
         }
     }
@@ -729,15 +739,15 @@ class AuthRepository
     /**
      * Devuelve true si está online (según TTL).
      */
-    public function isOnline(string $userId): bool
+    public function isOnline(string $tenantId, string $userId): bool
     {
-        return Cache::has($this->onlineKey($userId));
+        return Cache::has($this->onlineKey($tenantId, $userId));
     }
 
     // MARK: Online users
-    protected function onlineKey(string $userId): string
+    protected function onlineKey(string $tenantId, string $userId): string
     {
-        return "presence:online:{$userId}";
+        return "presence:online:{$tenantId}:{$userId}";
     }
 
     /**

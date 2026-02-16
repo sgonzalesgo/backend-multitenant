@@ -2,12 +2,8 @@
 
 namespace App\Http\Controllers\Administration;
 
-// global imports
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-
-// local imports
-use App\Events\Groups\MessageSent;
 use App\Http\Controllers\Controller;
 use App\Models\Administration\Group;
 use App\Models\Administration\Tenant;
@@ -23,7 +19,10 @@ class GroupController extends Controller
         private readonly GroupMessageRepository $messages
     ) {}
 
-
+    /**
+     * ✅ Lista Slack-like (sidebar): último mensaje + unread_count
+     * Si quieres mantener paginado simple, puedes seguir usando paginateVisibleGroups().
+     */
     public function index(Request $request): JsonResponse
     {
         $tenant = Tenant::current();
@@ -31,6 +30,15 @@ class GroupController extends Controller
 
         $user = $request->user();
 
+        // Si viene ?sidebar=1 → devolvemos con unread_count
+        $sidebar = (bool) $request->query('sidebar', false);
+
+        if ($sidebar) {
+            $rows = $this->groups->listMyGroupsWithUnread((string) $tenant->id, (string) $user->id);
+            return response()->json(['data' => $rows]);
+        }
+
+        // Default: tu paginado existente
         $perPage = (int) $request->query('per_page', 15);
         $q = trim((string) $request->query('q', ''));
 
@@ -75,13 +83,13 @@ class GroupController extends Controller
         ]);
 
         $actor = $request->user();
-        $targetId = (string) $data['user_id'];
 
         $this->groups->inviteUserToGroup(
+            tenantId: (string) $tenant->id,
             groupId: (string) $group->id,
             groupOwnerId: (string) $group->owner_id,
             actorId: (string) $actor->id,
-            targetUserId: $targetId
+            targetUserId: (string) $data['user_id']
         );
 
         return response()->json(['message' => 'Invitación enviada.']);
@@ -111,6 +119,7 @@ class GroupController extends Controller
         $user = $request->user();
 
         $this->groups->acceptInvitation(
+            tenantId: (string) $tenant->id,
             groupId: (string) $group->id,
             userId: (string) $user->id
         );
@@ -127,6 +136,7 @@ class GroupController extends Controller
         $user = $request->user();
 
         $this->groups->rejectInvitation(
+            tenantId: (string) $tenant->id,
             groupId: (string) $group->id,
             userId: (string) $user->id
         );
@@ -142,19 +152,20 @@ class GroupController extends Controller
 
         $user = $request->user();
 
-        // Autoriza (accepted o owner) y obtiene miembros accepted
         $members = $this->groups->acceptedMembers(
+            tenantId: (string) $tenant->id,
             groupId: (string) $group->id,
             requesterId: (string) $user->id,
             groupOwnerId: (string) $group->owner_id
         );
 
-        $data = collect($members)->map(function ($m) {
+        $data = collect($members)->map(function ($m) use ($tenant) {
             return [
                 'id' => $m->id,
                 'name' => $m->name,
                 'email' => $m->email,
-                'online' => $this->authRepo->isOnline((string) $m->id),
+                // si tu authRepo requiere tenantId, cámbialo aquí
+                'online' => $this->authRepo->isOnline((string) $tenant->id, (string) $m->id),
             ];
         })->values();
 
@@ -168,12 +179,12 @@ class GroupController extends Controller
         abort_unless((string) $group->tenant_id === (string) $tenant->id, 404);
 
         $user = $request->user();
-        $this->groups->assertAcceptedOrOwner((string) $group->id, (string) $user->id, (string) $group->owner_id);
+        $this->groups->assertAcceptedOrOwner((string) $tenant->id, (string) $group->id, (string) $user->id, (string) $group->owner_id);
 
         $perPage = (int) $request->query('per_page', 30);
 
         return response()->json(
-            $this->messages->paginateMessages((string) $group->id, $perPage)
+            $this->messages->paginateMessages((string) $tenant->id, (string) $group->id, $perPage)
         );
     }
 
@@ -184,16 +195,18 @@ class GroupController extends Controller
         abort_unless((string) $group->tenant_id === (string) $tenant->id, 404);
 
         $user = $request->user();
-        $this->groups->assertAcceptedOrOwner((string) $group->id, (string) $user->id, (string) $group->owner_id);
+        $this->groups->assertAcceptedOrOwner((string) $tenant->id, (string) $group->id, (string) $user->id, (string) $group->owner_id);
 
         $data = $request->validate([
             'body' => ['required', 'string', 'max:5000'],
         ]);
 
-        $message = $this->messages->createMessage((string) $group->id, (string) $user->id, $data['body']);
-
-        // Emite a otros miembros conectados del grupo
-        broadcast(new MessageSent((string) $group->id, (array) $message))->toOthers();
+        $message = $this->messages->createMessage(
+            tenantId: (string) $tenant->id,
+            groupId: (string) $group->id,
+            userId: (string) $user->id,
+            body: $data['body']
+        );
 
         return response()->json(['data' => $message], 201);
     }

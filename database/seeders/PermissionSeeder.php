@@ -48,8 +48,20 @@ class PermissionSeeder extends Seeder
             'Accept users',
             'Reject invitation_users',
             'List member_users',
-            'List messages',
-            'Send messages',
+            'Start chat_messages',
+            'List chat_messages',
+            'Send chat_messages',
+            'Read chat_messages',
+            'List chat_groups',
+            'Create chat_groups',
+            'Invite chat_group_users',
+            'List chat_group_invitations',
+            'Accept chat_group_users',
+            'Reject chat_group_invitation_users',
+            'List chat_group_member_users',
+            'List chat_group_messages',
+            'Send chat_group_messages',
+            'Read chat_group_messages'
         ];
 
         foreach ($perms as $name) {

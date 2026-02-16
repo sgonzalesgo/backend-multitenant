@@ -2,21 +2,13 @@
 
 namespace App\Repositories\Administration;
 
-// global import
 use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-
-// local import
 use App\Models\Administration\User;
 use App\Models\Administration\Group;
 
 class GroupRepository
 {
-    /**
-     * Admin ve todos los grupos del tenant.
-     * No-admin ve solo: owner o miembro accepted.
-     * Además devuelve computed fields: is_owner (bool), is_member (bool), members_count (int).
-     */
     public function paginateVisibleGroups(
         string $tenantId,
         string $userId,
@@ -41,7 +33,6 @@ class GroupRepository
         }
 
         if ($q !== '') {
-            // Postgres: case-insensitive search
             $query->where('g.name', 'ilike', "%{$q}%");
         }
 
@@ -53,7 +44,6 @@ class GroupRepository
                 'g.tenant_id',
                 'g.created_at',
             ])
-            // Postgres boolean real
             ->selectRaw('(g.owner_id = ?) AS is_owner', [$userId])
             ->selectRaw(
                 "EXISTS(
@@ -78,6 +68,71 @@ class GroupRepository
             ->paginate($perPage);
     }
 
+    /**
+     * ✅ Sidebar Slack-like: último mensaje + unread_count + last_read_at
+     * OJO: group_messages usa user_id (no sender_id)
+     */
+    public function listMyGroupsWithUnread(string $tenantId, string $userId): array
+    {
+        $lastMsgSub = DB::table('group_messages')
+            ->selectRaw('group_id, MAX(created_at) as last_message_at')
+            ->where('tenant_id', $tenantId)
+            ->groupBy('group_id');
+
+        $readsSub = DB::table('group_conversation_reads')
+            ->select(['group_id', 'last_read_at'])
+            ->where('tenant_id', $tenantId)
+            ->where('user_id', $userId);
+
+        $rows = DB::table('groups as g')
+            ->leftJoin('group_members as gm', function ($join) use ($tenantId, $userId) {
+                $join->on('gm.group_id', '=', 'g.id')
+                    ->where('gm.tenant_id', '=', $tenantId)
+                    ->where('gm.user_id', '=', $userId)
+                    ->where('gm.status', '=', 'accepted');
+            })
+            ->where('g.tenant_id', $tenantId)
+            ->where(function ($q) use ($userId) {
+                $q->where('g.owner_id', $userId)
+                    ->orWhereNotNull('gm.user_id');
+            })
+            ->leftJoinSub($lastMsgSub, 'lm', fn ($j) => $j->on('lm.group_id', '=', 'g.id'))
+            ->leftJoin('group_messages as msg', function ($join) use ($tenantId) {
+                $join->on('msg.group_id', '=', 'g.id')
+                    ->on('msg.created_at', '=', 'lm.last_message_at')
+                    ->where('msg.tenant_id', '=', $tenantId);
+            })
+            ->leftJoinSub($readsSub, 'r', fn ($j) => $j->on('r.group_id', '=', 'g.id'))
+            ->select([
+                'g.id',
+                'g.tenant_id',
+                'g.name',
+                'g.owner_id',
+                'g.created_at',
+
+                'msg.id as last_message_id',
+                'msg.body as last_message_body',
+                'msg.user_id as last_message_user_id',
+                'msg.created_at as last_message_created_at',
+
+                'r.last_read_at',
+            ])
+            ->selectRaw("
+                (
+                    SELECT COUNT(*)
+                    FROM group_messages gm2
+                    WHERE gm2.tenant_id = ?
+                      AND gm2.group_id = g.id
+                      AND gm2.user_id <> ?
+                      AND gm2.created_at > COALESCE(r.last_read_at, TIMESTAMP '1970-01-01 00:00:00')
+                ) as unread_count
+            ", [$tenantId, $userId])
+            ->orderByRaw('COALESCE(lm.last_message_at, g.created_at) DESC')
+            ->get();
+
+        return $rows->toArray();
+    }
+
     public function createGroup(string $tenantId, string $ownerId, string $name): Group
     {
         return DB::transaction(function () use ($tenantId, $ownerId, $name) {
@@ -88,8 +143,9 @@ class GroupRepository
                 'owner_id' => $ownerId,
             ]);
 
-            // Owner entra aceptado
+            // ✅ Owner entra aceptado (con tenant_id)
             DB::table('group_members')->insert([
+                'tenant_id' => $tenantId,
                 'group_id' => (string) $group->id,
                 'user_id' => $ownerId,
                 'status' => 'accepted',
@@ -104,21 +160,20 @@ class GroupRepository
     }
 
     public function inviteUserToGroup(
+        string $tenantId,
         string $groupId,
         string $groupOwnerId,
         string $actorId,
         string $targetUserId
     ): void {
-        // Solo owner (por ahora)
         abort_unless($groupOwnerId === $actorId, 403, 'Solo el owner puede invitar.');
-
-        // Evitar auto-invite
         abort_if($actorId === $targetUserId, 422, 'No puedes invitarte a ti mismo.');
 
-        // Upsert membresía (si existe, vuelve a invited)
+        // ✅ Upsert membresía (con tenant_id)
         DB::table('group_members')->updateOrInsert(
             ['group_id' => $groupId, 'user_id' => $targetUserId],
             [
+                'tenant_id' => $tenantId,
                 'status' => 'invited',
                 'invited_by' => $actorId,
                 'joined_at' => null,
@@ -132,6 +187,7 @@ class GroupRepository
     {
         return DB::table('group_members as gm')
             ->join('groups as g', 'g.id', '=', 'gm.group_id')
+            ->where('gm.tenant_id', $tenantId)
             ->where('gm.user_id', $userId)
             ->where('gm.status', 'invited')
             ->where('g.tenant_id', $tenantId)
@@ -148,9 +204,10 @@ class GroupRepository
             ->all();
     }
 
-    public function acceptInvitation(string $groupId, string $userId): void
+    public function acceptInvitation(string $tenantId, string $groupId, string $userId): void
     {
         $row = DB::table('group_members')
+            ->where('tenant_id', $tenantId)
             ->where('group_id', $groupId)
             ->where('user_id', $userId)
             ->first();
@@ -159,6 +216,7 @@ class GroupRepository
         abort_if($row->status !== 'invited', 422, 'No hay invitación pendiente.');
 
         DB::table('group_members')
+            ->where('tenant_id', $tenantId)
             ->where('group_id', $groupId)
             ->where('user_id', $userId)
             ->update([
@@ -168,9 +226,10 @@ class GroupRepository
             ]);
     }
 
-    public function rejectInvitation(string $groupId, string $userId): void
+    public function rejectInvitation(string $tenantId, string $groupId, string $userId): void
     {
         $row = DB::table('group_members')
+            ->where('tenant_id', $tenantId)
             ->where('group_id', $groupId)
             ->where('user_id', $userId)
             ->first();
@@ -178,20 +237,17 @@ class GroupRepository
         abort_if(! $row, 404, 'No tienes invitación a este grupo.');
         abort_if($row->status !== 'invited', 422, 'No hay invitación pendiente.');
 
-        // Opción limpia: borrar registro
         DB::table('group_members')
+            ->where('tenant_id', $tenantId)
             ->where('group_id', $groupId)
             ->where('user_id', $userId)
             ->delete();
     }
 
-    /**
-     * Devuelve miembros accepted.
-     * Solo permitido si requester es accepted o es owner.
-     */
-    public function acceptedMembers(string $groupId, string $requesterId, string $groupOwnerId): array
+    public function acceptedMembers(string $tenantId, string $groupId, string $requesterId, string $groupOwnerId): array
     {
         $isMember = DB::table('group_members')
+            ->where('tenant_id', $tenantId)
             ->where('group_id', $groupId)
             ->where('user_id', $requesterId)
             ->where('status', 'accepted')
@@ -201,6 +257,7 @@ class GroupRepository
 
         return DB::table('group_members')
             ->join('users', 'users.id', '=', 'group_members.user_id')
+            ->where('group_members.tenant_id', $tenantId)
             ->where('group_members.group_id', $groupId)
             ->where('group_members.status', 'accepted')
             ->select('users.id', 'users.name', 'users.email')
@@ -209,9 +266,6 @@ class GroupRepository
             ->all();
     }
 
-    /**
-     * Rol admin scoping por tenant (Spatie Permission + Teams).
-     */
     protected function isAdminForTenant(string $userId, string $tenantId): bool
     {
         $teamFk = config('permission.team_foreign_key', 'tenant_id');
@@ -225,9 +279,10 @@ class GroupRepository
             ->exists();
     }
 
-    public function assertAcceptedOrOwner(string $groupId, string $requesterId, string $groupOwnerId): void
+    public function assertAcceptedOrOwner(string $tenantId, string $groupId, string $requesterId, string $groupOwnerId): void
     {
         $isMember = DB::table('group_members')
+            ->where('tenant_id', $tenantId)
             ->where('group_id', $groupId)
             ->where('user_id', $requesterId)
             ->where('status', 'accepted')

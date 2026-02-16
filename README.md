@@ -96,3 +96,50 @@ Y para prod HTTPS:
 secure = true
 SameSite = None (si frontend y backend están en dominios distintos)
 
+Para ver el chat y demas cosas relacionadas con mensajes de chat
+1-Recuerda hechar a andar el redis en el docker, 
+2-luego hacer el login
+3- ejecutar este comando: docker exec -it redis redis-cli -n 1 --scan --pattern "*presence:online:*"
+el resultado es este, fijate como tenemos el id del tenant y el id del usuario que esta logueado:
+    Parte	         Valor
+    Prefix Laravel	 school_chat_presence:online
+    tenantId	     baf21964-0286-46cc-b611-42bf49c7bd41
+    userId	         77156bc3-f53a-4f0e-b6ff-190fb71b78a4
+Para ver los online de un tenant:
+docker exec -it redis redis-cli -n 1 --scan \
+--pattern "school_chat_presence:online:baf21964-0286-46cc-b611-42bf49c7bd41:*"
+
+Para extraer el user id de los que estan logueados:
+docker exec -it redis sh -lc \
+'redis-cli -n 1 --scan --pattern "*presence:online:*" | awk -F: "{print \$NF}"'
+
+Para ver si sigue online:
+docker exec -it redis redis-cli -n 1 TTL \
+"school_chat_presence:online:baf21964-0286-46cc-b611-42bf49c7bd41:77156bc3-f53a-4f0e-b6ff-190fb71b78a4"
+    Estos son los posibles resultados:
+        | Valor | Significado   |
+        | ----- | ------------- |
+        | >0    | sigue online  |
+        | -2    | offline       |
+        | -1    | bug (sin TTL) |
+
+Para invitar a un usuario a un grupo creado debemos hacer estos pasos:
+1-Crear el grupo
+2-Enviar la invitacion (POST /groups/{groupId}/invite)
+3-Llamamos a invitations (GET /groups/invitations)
+4-Llamamos a accept (POST /groups/{groupId}/accept) 
+5- Si queremos rechazar la invitacion llamamos a reject (POST /groups/{groupId}/reject)
+
+Para ver que usuarios estan registrados en un grupo debemos llamar a:
+GET /groups/{groupId}/members
+
+6) Pruebas de “comportamiento” (para saber que está bien)
+   A) Antes de aceptar
+    Como invitado, prueba:
+    GET /groups/{groupId}/messages
+    ✅ Debe dar:
+    403 (no es accepted)
+    B) Después de aceptar
+    Como invitado, prueba:
+    GET /groups/{groupId}/messages → ✅ 200
+    POST /groups/{groupId}/messages con body { "body": "Hola" } → ✅ 201

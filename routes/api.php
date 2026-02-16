@@ -12,5 +12,6 @@ Route::middleware(['auth:api','setLocale','tenant','verified.email'])->prefix('v
     require base_path('routes/administration/user.php');
     require base_path('routes/administration/audit_log.php');
     require base_path('routes/administration/group_chat.php');
+    require base_path('routes/administration/direct_chat.php');
 });
 

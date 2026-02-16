@@ -45,7 +45,27 @@ class RolePerTenantSeeder extends Seeder
                 'Social login',
                 'Impersonate users',
                 'List audit_logs',
-                'Create audit_logs'
+                'Create audit_logs',
+                'Create groups',
+                'Invite users',
+                'List invitations',
+                'Accept users',
+                'Reject invitation_users',
+                'List member_users',
+                'Start chat_messages',
+                'List chat_messages',
+                'Send chat_messages',
+                'Read chat_messages',
+                'List chat_groups',
+                'Create chat_groups',
+                'Invite chat_group_users',
+                'List chat_group_invitations',
+                'Accept chat_group_users',
+                'Reject chat_group_invitation_users',
+                'List chat_group_member_users',
+                'List chat_group_messages',
+                'Send chat_group_messages',
+                'Read chat_group_messages'
             ],
         ];
 
