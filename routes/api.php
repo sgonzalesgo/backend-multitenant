@@ -1,17 +1,24 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 require __DIR__ . '/administration/auth.php';
 
-// Requieren por obligación un current tenant
-Route::middleware(['auth:api','setLocale','tenant','verified.email'])->prefix('v1')->group(function () {
+/**
+ * Rutas tenant-aware
+ * Aquí SÍ debe existir current tenant.
+ */
+Route::middleware([
+    'auth:api',
+    'setLocale',
+    'tenant',
+    'verified.email',
+])->prefix('v1')->group(function () {
     require base_path('routes/administration/role.php');
     require base_path('routes/administration/permission.php');
     require base_path('routes/administration/user.php');
     require base_path('routes/administration/audit_log.php');
     require base_path('routes/administration/group_chat.php');
     require base_path('routes/administration/direct_chat.php');
+    require base_path('routes/administration/tenant.php');
 });
-

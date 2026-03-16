@@ -10,12 +10,12 @@ class SetPermissionsTeamFromTenant
 {
     public function handle($request, Closure $next)
     {
-        if ($tenant = Tenant::current()) {
-            // Establece el team_id para Spatie Permission (roles/permisos “scoped”)
+        $tenant = Tenant::current();
+
+        if ($tenant) {
             app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->id);
         }
 
         return $next($request);
     }
 }
-

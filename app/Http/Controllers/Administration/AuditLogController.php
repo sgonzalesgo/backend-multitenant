@@ -18,12 +18,16 @@ class AuditLogController extends Controller
     {
         $data = $this->repo->list($request->validated());
 
-        return response()->json([
-            'code'    => Response::HTTP_OK,
-            'message' => __('messages.listed', ['entity' => 'audit logs']),
-            'data'    => $data,
-            'error'   => null,
-        ], Response::HTTP_OK);
+        try {
+            return response()->json([
+                'code' => Response::HTTP_OK,
+                'message' => __('messages.listed', ['entity' => 'audit logs']),
+                'data' => $data,
+                'error' => null,
+            ], Response::HTTP_OK);
+        } catch (\Exception $e) {
+
+        }
     }
 
     /** POST /v1/audits (opcional: logs ad-hoc de dominio) */

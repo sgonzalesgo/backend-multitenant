@@ -132,8 +132,14 @@ class AuthRepository
                 description: 'Error interno en login',
                 changes: ['old' => null, 'new' => null],
                 tenantId: Tenant::current()?->id,
-                meta: ['exception' => class_basename($e)]
+                meta: [
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]
             );
+
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -196,10 +202,7 @@ class AuthRepository
                 'created_at' => optional($user->created_at)?->toIso8601String(),
                 'updated_at' => optional($user->updated_at)?->toIso8601String(),
             ],
-            'current_tenant' => $tenant ? [
-                'id' => $tenant->id,
-                'name' => $tenant->name ?? null,
-            ] : null,
+            'current_tenant' => $tenant ?? null,
 
             'roles' => $roles,
             'permissions' => $tenantPermissions,
@@ -438,7 +441,7 @@ class AuthRepository
 
         return Tenant::query()
             ->whereIn('id', $tenantIds->all())
-            ->select('id', 'name')
+//            ->select('id', 'name')
             ->orderBy('name')
             ->get()
             ->toArray();

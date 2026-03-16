@@ -2,13 +2,15 @@
 
 namespace App\Models\Administration;
 
-use App\Traits\Uuid;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+// global import
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Multitenancy\Models\Tenant as BaseTenant;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+// local import
+use App\Traits\Uuid;
+
 
 class Tenant extends BaseTenant
 {
@@ -17,20 +19,36 @@ class Tenant extends BaseTenant
     protected $table = 'tenants';
     protected $primaryKey = 'id';
     public $incrementing = false;
-
     protected $keyType = 'string';
 
     protected $fillable = [
         'name',
-        'domain',   // o subdomain, o slug, lo que uses para resolver el tenant
-        'data',
+        'domain',
+        'logo',
+        'address',
+        'phone',
+        'email',
+        'legal_id',
+        'legal_id_type',
+        'is_active',
+        'business_name',
+        'campus_logo',
+        'campus_type',
+        'slogan',
+        'amie_code',
+        'city',
+        'state',
+        'country',
+        'country_logo',
+        'country_logo_position_right',
+        'zip',
     ];
 
     protected $casts = [
-        'data' => 'array',
+        'is_active' => 'boolean',
+        'country_logo_position_right' => 'boolean',
     ];
 
-    // Relaciones útiles
     public function users(): HasMany
     {
         return $this->hasMany(User::class);

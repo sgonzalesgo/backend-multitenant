@@ -1,0 +1,102 @@
+<?php
+
+return [
+    'entities' => [
+        'singular' => 'tenant',
+        'plural' => 'tenants',
+    ],
+
+    'messages' => [
+        'listed' => 'Tenants listados correctamente.',
+        'retrieved' => 'Tenant obtenido correctamente.',
+        'created' => 'Tenant creado correctamente.',
+        'updated' => 'Tenant actualizado correctamente.',
+        'not_found' => 'El tenant no fue encontrado.',
+        'not_found_plural' => 'No se encontraron tenants.',
+        'status_not_found' => 'No se encontraron tenants con el estado seleccionado.',
+        'exception' => 'Ocurrió un error interno del servidor.',
+    ],
+
+    'audit' => [
+        'created' => 'Se creó un nuevo tenant.',
+        'updated' => 'Se actualizó un tenant.',
+    ],
+
+    'validation' => [
+        'attributes' => [
+            'name' => 'nombre',
+            'domain' => 'dominio',
+            'logo' => 'logo',
+            'address' => 'dirección',
+            'phone' => 'teléfono',
+            'email' => 'correo electrónico',
+            'legal_id' => 'identificación legal',
+            'legal_id_type' => 'tipo de identificación legal',
+            'is_active' => 'estado',
+            'business_name' => 'razón social',
+            'campus_logo' => 'logo del plantel',
+            'campus_type' => 'tipo de plantel',
+            'slogan' => 'eslogan',
+            'amie_code' => 'código AMIE',
+            'city' => 'ciudad',
+            'state' => 'provincia/estado',
+            'country' => 'país',
+            'country_logo' => 'logo del país',
+            'country_logo_position_right' => 'posición del logo del país',
+            'zip' => 'código postal',
+        ],
+
+        'custom' => [
+            'name.required' => 'El campo :attribute es obligatorio.',
+            'name.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'name.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'name.unique' => 'El campo :attribute ya está en uso.',
+
+            'domain.required' => 'El campo :attribute es obligatorio.',
+            'domain.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'domain.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'domain.unique' => 'El campo :attribute ya está en uso.',
+
+            'logo.file' => 'El campo :attribute debe ser un archivo.',
+            'logo.mimes' => 'El campo :attribute debe ser un archivo de tipo: :values.',
+            'logo.max' => 'El campo :attribute no debe ser mayor que :max kilobytes.',
+
+            'campus_logo.file' => 'El campo :attribute debe ser un archivo.',
+            'campus_logo.mimes' => 'El campo :attribute debe ser un archivo de tipo: :values.',
+            'campus_logo.max' => 'El campo :attribute no debe ser mayor que :max kilobytes.',
+
+            'country_logo.file' => 'El campo :attribute debe ser un archivo.',
+            'country_logo.mimes' => 'El campo :attribute debe ser un archivo de tipo: :values.',
+            'country_logo.max' => 'El campo :attribute no debe ser mayor que :max kilobytes.',
+
+            'address.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'address.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'phone.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'phone.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'email.email' => 'El campo :attribute debe ser un correo electrónico válido.',
+            'email.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'legal_id.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'legal_id.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'legal_id_type.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'legal_id_type.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'is_active.boolean' => 'El campo :attribute debe ser verdadero o falso.',
+            'business_name.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'business_name.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'campus_type.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'campus_type.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'slogan.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'slogan.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'amie_code.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'amie_code.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'city.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'city.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'state.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'state.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'country.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'country.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+            'country_logo_position_right.boolean' => 'El campo :attribute debe ser verdadero o falso.',
+            'zip.string' => 'El campo :attribute debe ser una cadena de texto.',
+            'zip.max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+        ],
+    ],
+];

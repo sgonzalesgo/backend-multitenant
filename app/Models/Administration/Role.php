@@ -10,6 +10,8 @@ use Spatie\Permission\Models\Role as SpatieRole;
 class Role extends SpatieRole
 {
     use HasFactory, Uuid;
+
+    protected $table = 'roles';
     protected $primaryKey = 'id';
     public $incrementing = false;
     protected $keyType = 'string';

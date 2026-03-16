@@ -171,6 +171,9 @@ return [
 
     'enable_wildcard_permission' => false,
 
+    // esto es para el team_id del landlord
+    'landlord_team_id' => env('LANDLORD_TEAM_ID'),
+
     /*
      * The class to use for interpreting wildcard permissions.
      * If you need to modify delimiters, override the class and specify its name here.

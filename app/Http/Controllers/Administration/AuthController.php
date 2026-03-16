@@ -161,10 +161,32 @@ class AuthController extends Controller
             sameSite: 'Lax'
         );
 
-        return $this->ok($payload, __('messages.logged_in'))
+        // --- DEV/LOCAL: devolver tokens en el body ---
+        // En producción: NO devolver tokens en el body (solo cookies)
+        $includeTokensInBody = app()->environment(['local', 'development']); // ajusta si usas "staging" etc.
+
+        $responsePayload = $payload;
+
+        if ($includeTokensInBody) {
+            // inyecta tokens dentro del payload que ya devuelves
+            $responsePayload['_tokens'] = [
+                'access_token' => (string) ($tokens['access_token'] ?? ''),
+                'access_expires_at' => $tokens['access_expires_at'] ?? null,
+                'refresh_token' => (string) ($tokens['refresh_token'] ?? ''),
+                'refresh_expires_at' => $tokens['refresh_expires_at'] ?? null,
+            ];
+        }
+
+        return $this->ok($responsePayload, __('messages.logged_in'))
             ->withCookie($accessCookie)
             ->withCookie($refreshCookie)
             ->withCookie($xsrfCookie);
+
+//        // asi debe quedar cuando este en produccion y tenga el mismo multidominio
+//        return $this->ok($payload, __('messages.logged_in'))
+//            ->withCookie($accessCookie)
+//            ->withCookie($refreshCookie)
+//            ->withCookie($xsrfCookie);717n 71 6232
     }
 
     /**

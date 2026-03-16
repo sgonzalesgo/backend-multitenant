@@ -1,0 +1,102 @@
+<?php
+
+return [
+    'entities' => [
+        'singular' => 'tenant',
+        'plural' => 'tenants',
+    ],
+
+    'messages' => [
+        'listed' => 'Tenants listed successfully.',
+        'retrieved' => 'Tenant retrieved successfully.',
+        'created' => 'Tenant created successfully.',
+        'updated' => 'Tenant updated successfully.',
+        'not_found' => 'The tenant was not found.',
+        'not_found_plural' => 'No tenants were found.',
+        'status_not_found' => 'No tenants were found with the selected status.',
+        'exception' => 'An internal server error occurred.',
+    ],
+
+    'audit' => [
+        'created' => 'A new tenant was created.',
+        'updated' => 'A tenant was updated.',
+    ],
+
+    'validation' => [
+        'attributes' => [
+            'name' => 'name',
+            'domain' => 'domain',
+            'logo' => 'logo',
+            'address' => 'address',
+            'phone' => 'phone',
+            'email' => 'email',
+            'legal_id' => 'legal ID',
+            'legal_id_type' => 'legal ID type',
+            'is_active' => 'status',
+            'business_name' => 'business name',
+            'campus_logo' => 'campus logo',
+            'campus_type' => 'campus type',
+            'slogan' => 'slogan',
+            'amie_code' => 'AMIE code',
+            'city' => 'city',
+            'state' => 'state',
+            'country' => 'country',
+            'country_logo' => 'country logo',
+            'country_logo_position_right' => 'country logo position',
+            'zip' => 'zip code',
+        ],
+
+        'custom' => [
+            'name.required' => 'The :attribute field is required.',
+            'name.string' => 'The :attribute field must be a string.',
+            'name.max' => 'The :attribute field must not be greater than :max characters.',
+            'name.unique' => 'The :attribute has already been taken.',
+
+            'domain.required' => 'The :attribute field is required.',
+            'domain.string' => 'The :attribute field must be a string.',
+            'domain.max' => 'The :attribute field must not be greater than :max characters.',
+            'domain.unique' => 'The :attribute has already been taken.',
+
+            'logo.file' => 'The :attribute field must be a file.',
+            'logo.mimes' => 'The :attribute field must be a file of type: :values.',
+            'logo.max' => 'The :attribute field must not be greater than :max kilobytes.',
+
+            'campus_logo.file' => 'The :attribute field must be a file.',
+            'campus_logo.mimes' => 'The :attribute field must be a file of type: :values.',
+            'campus_logo.max' => 'The :attribute field must not be greater than :max kilobytes.',
+
+            'country_logo.file' => 'The :attribute field must be a file.',
+            'country_logo.mimes' => 'The :attribute field must be a file of type: :values.',
+            'country_logo.max' => 'The :attribute field must not be greater than :max kilobytes.',
+
+            'address.string' => 'The :attribute field must be a string.',
+            'address.max' => 'The :attribute field must not be greater than :max characters.',
+            'phone.string' => 'The :attribute field must be a string.',
+            'phone.max' => 'The :attribute field must not be greater than :max characters.',
+            'email.email' => 'The :attribute field must be a valid email address.',
+            'email.max' => 'The :attribute field must not be greater than :max characters.',
+            'legal_id.string' => 'The :attribute field must be a string.',
+            'legal_id.max' => 'The :attribute field must not be greater than :max characters.',
+            'legal_id_type.string' => 'The :attribute field must be a string.',
+            'legal_id_type.max' => 'The :attribute field must not be greater than :max characters.',
+            'is_active.boolean' => 'The :attribute field must be true or false.',
+            'business_name.string' => 'The :attribute field must be a string.',
+            'business_name.max' => 'The :attribute field must not be greater than :max characters.',
+            'campus_type.string' => 'The :attribute field must be a string.',
+            'campus_type.max' => 'The :attribute field must not be greater than :max characters.',
+            'slogan.string' => 'The :attribute field must be a string.',
+            'slogan.max' => 'The :attribute field must not be greater than :max characters.',
+            'amie_code.string' => 'The :attribute field must be a string.',
+            'amie_code.max' => 'The :attribute field must not be greater than :max characters.',
+            'city.string' => 'The :attribute field must be a string.',
+            'city.max' => 'The :attribute field must not be greater than :max characters.',
+            'state.string' => 'The :attribute field must be a string.',
+            'state.max' => 'The :attribute field must not be greater than :max characters.',
+            'country.string' => 'The :attribute field must be a string.',
+            'country.max' => 'The :attribute field must not be greater than :max characters.',
+            'country_logo_position_right.boolean' => 'The :attribute field must be true or false.',
+            'zip.string' => 'The :attribute field must be a string.',
+            'zip.max' => 'The :attribute field must not be greater than :max characters.',
+        ],
+    ],
+];
