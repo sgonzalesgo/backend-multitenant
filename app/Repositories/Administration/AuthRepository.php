@@ -47,7 +47,6 @@ class AuthRepository
      * Valida credenciales y retorna el User (sin token).
      * Usuarios: globales.
      */
-
     public function attemptLogin(string $email, string $password): array
     {
         try {
@@ -57,7 +56,7 @@ class AuthRepository
             // Credenciales inválidas
             if (!$user || !Hash::check($password, (string) $user->password)) {
                 $this->audit()->log(
-                    actor: $user, // puede ser null
+                    actor: $user,
                     event: 'auth.login.failed',
                     subject: $user ?: null,
                     description: 'Intento de login fallido',
@@ -97,19 +96,34 @@ class AuthRepository
                 throw new HttpException(403, __('auth.email_not_verified'));
             }
 
-            // 1) emitir tokens (centralizado)
-            $tokens = $this->issuePassportTokens($user, 'web-access');
+            // 1) Resolver tenant inicial del usuario
+            $initialTenant = $this->resolveInitialTenantFor($user);
 
-            // 2) devolver payload tipo /me (roles/permisos/tenants)
+            if ($initialTenant) {
+                $initialTenant->makeCurrent();
+
+                $registrar = app(PermissionRegistrar::class);
+                $registrar->setPermissionsTeamId($initialTenant->id);
+                $registrar->forgetCachedPermissions();
+            }
+
+            // 2) Emitir tokens
+            $tokens = $this->issuePassportTokens(
+                user: $user,
+                tokenName: 'web-access',
+                tenantId: $initialTenant?->id
+            );
+
+            // 3) Construir payload /me ya con el token y tenant correctos
             $me = $this->me($user);
 
-            // 3) para marcar el usuario como online
-            $tenantId = (string) (Tenant::current()?->id ?? ($me['current_tenant']['id'] ?? ''));
+
+            // 4) Marcar online
+            $tenantId = (string) ($initialTenant?->id ?? '');
             if ($tenantId !== '') {
                 $this->markOnline($user, $tenantId);
             }
 
-            // 4) retornar tokens y perfil
             return [
                 'me' => $me,
                 '_tokens' => [
@@ -120,7 +134,6 @@ class AuthRepository
                 ],
             ];
         } catch (HttpException $e) {
-            // Importante: no conviertas 401/403 en 403, re-lanza tal cual
             throw $e;
         } catch (\Throwable $e) {
             report($e);
@@ -216,13 +229,19 @@ class AuthRepository
      */
     protected function resolveInitialTenantFor(User $user): ?Tenant
     {
+        // 1) Si ya hay un tenant actual resuelto por Spatie, usarlo
         if ($current = Tenant::current()) {
             return $current;
         }
 
+        // 2) Si el token actual ya tiene tenant_id, usarlo
+        if ($tenantFromToken = $this->resolveTenantFromAccessToken($user)) {
+            return $tenantFromToken;
+        }
+
+        // 3) Fallback: primer tenant al que el usuario tiene acceso
         $teamFk = config('permission.team_foreign_key', 'tenant_id');
 
-        // Tenants donde el usuario tiene roles
         $tenantIds = DB::table('model_has_roles')
             ->where('model_type', User::class)
             ->where('model_id', $user->getKey())
@@ -243,6 +262,26 @@ class AuthRepository
     }
 
     /**
+     * Devuelve el tenant actual guardado en el access token del usuario.
+     */
+    protected function resolveTenantFromAccessToken(User $user): ?Tenant
+    {
+        $token = $user->token();
+
+        if (! $token) {
+            return null;
+        }
+
+        $tenantId = $token->tenant_id ?? null;
+
+        if (! $tenantId) {
+            return null;
+        }
+
+        return Tenant::query()->find($tenantId);
+    }
+
+    /**
      * POST /auth/switch-tenant
      */
     public function switchTenant(User $user, int|string $tenantId): array
@@ -260,8 +299,7 @@ class AuthRepository
                 ->where($teamFk, $tenant->id)
                 ->exists();
 
-        if (!$canSwitch) {
-            // Log de intento denegado antes del abort
+        if (! $canSwitch) {
             $this->audit()->log(
                 actor: $user,
                 event: 'Cambio de Tenant denegado',
@@ -271,16 +309,20 @@ class AuthRepository
                 tenantId: Tenant::current()?->id,
                 meta: ['target_tenant_id' => $tenant->id]
             );
+
             abort(403, 'No tienes acceso a este tenant.');
         }
 
-        // Activar tenant y sincronizar team scope
+        // Activar tenant actual en esta request
         $tenant->makeCurrent();
+
         $registrar = app(PermissionRegistrar::class);
         $registrar->setPermissionsTeamId($tenant->id);
         $registrar->forgetCachedPermissions();
 
-        // Reutilizar la misma vista de contexto
+        // ✅ Persistir tenant en el token actual
+        $this->persistTenantIdOnCurrentAccessToken($user, (string) $tenant->id);
+
         return $this->me($user);
     }
 
@@ -313,7 +355,9 @@ class AuthRepository
         $token->revoke();
 
         // 2) Revocar refresh tokens asociados
-        DB::table('oauth_refresh_tokens')
+        $conn = config('passport.connection');
+
+        DB::connection($conn)->table('oauth_refresh_tokens')
             ->where('access_token_id', $token->id)
             ->update(['revoked' => true]);
 
@@ -580,7 +624,9 @@ class AuthRepository
 
         // revocar access + refresh
         $token->revoke();
-        DB::table('oauth_refresh_tokens')
+        $conn = config('passport.connection');
+
+        DB::connection($conn)->table('oauth_refresh_tokens')
             ->where('access_token_id', $token->id)
             ->update(['revoked' => true]);
 
@@ -660,17 +706,27 @@ class AuthRepository
     }
 
     // para emitir tokens Passport (reutilizable)
-    public function issuePassportTokens(User $user, string $tokenName = 'web-access'): array
+    public function issuePassportTokens(User $user, string $tokenName = 'web-access', ?string $tenantId = null): array
     {
         $accessMinutes = (int) config('auth.tokens.access_minutes', 15);
         $refreshDays   = (int) config('auth.tokens.refresh_days', 30);
+        $conn = config('passport.connection');
 
         $access = $user->createToken($tokenName);
+
         $access->token->expires_at = now()->addMinutes($accessMinutes);
         $access->token->save();
 
+        if ($tenantId) {
+            DB::connection($conn)->table('oauth_access_tokens')
+                ->where('id', $access->token->id)
+                ->where('revoked', false)
+                ->update([
+                    'tenant_id' => $tenantId,
+                ]);
+        }
+
         $refreshId = Str::random(64);
-        $conn = config('passport.connection');
 
         DB::connection($conn)->table('oauth_refresh_tokens')->insert([
             'id' => $refreshId,
@@ -767,6 +823,41 @@ class AuthRepository
             // Si NO tienes last_seen_at, comenta esta línea
             $user->forceFill(['last_seen_at' => now()])->save();
         }
+    }
+
+    /**
+     * Devuelve el id del access token actual del usuario autenticado.
+     */
+    protected function resolveCurrentAccessTokenId(User $user): ?string
+    {
+        $token = $user->token();
+
+        if (! $token) {
+            return null;
+        }
+
+        return (string) $token->id;
+    }
+
+    /**
+     * Actualiza el tenant_id del access token actual directamente en oauth_access_tokens.
+     */
+    protected function persistTenantIdOnCurrentAccessToken(User $user, string $tenantId): void
+    {
+        $tokenId = $this->resolveCurrentAccessTokenId($user);
+
+        if (! $tokenId) {
+            return;
+        }
+
+        $conn = config('passport.connection');
+
+        DB::connection($conn)->table('oauth_access_tokens')
+            ->where('id', $tokenId)
+            ->where('revoked', false)
+            ->update([
+                'tenant_id' => $tenantId,
+            ]);
     }
 
 }

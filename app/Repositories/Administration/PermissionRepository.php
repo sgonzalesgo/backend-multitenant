@@ -29,22 +29,24 @@ class PermissionRepository
      */
     public function list(array $filters = []): LengthAwarePaginator
     {
-        $q       = Arr::get($filters, 'q');
+        $q       = trim((string) Arr::get($filters, 'q', ''));
         $sort    = Arr::get($filters, 'sort', 'name');
         $dir     = strtolower((string) Arr::get($filters, 'dir', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $perPage = (int) (Arr::get($filters, 'per_page', 15));
+        $perPage = (int) Arr::get($filters, 'per_page', 15);
 
-        $query = Permission::query();
-
-        if ($q) {
-            $query->where('name', 'like', "%{$q}%");
-        }
-
-        if (! in_array($sort, ['name','created_at','updated_at'], true)) {
+        if (! in_array($sort, ['name', 'guard_name', 'created_at', 'updated_at'], true)) {
             $sort = 'name';
         }
 
-        return$query->orderBy($sort, $dir)->paginate($perPage);
+        return Permission::query()
+            ->when($q !== '', function ($query) use ($q) {
+                $query->where(function ($query) use ($q) {
+                    $query->where('name', 'ilike', "%{$q}%")
+                        ->orWhere('guard_name', 'ilike', "%{$q}%");
+                });
+            })
+            ->orderBy($sort, $dir)
+            ->paginate($perPage);
     }
 
     /** Todos los permisos (ordenados). */
