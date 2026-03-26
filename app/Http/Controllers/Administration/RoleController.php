@@ -27,6 +27,7 @@ class RoleController extends Controller
     public function store(StoreRoleRequest $req): JsonResponse
     {
         $role = $this->repo->create($req->validated());
+
         return response()->json(['code'=>201,'message'=>__('messages.roles.created'),'data'=>$role,'error'=>null], Response::HTTP_CREATED);
     }
 
@@ -60,18 +61,19 @@ class RoleController extends Controller
         return response()->json(['code'=>200,'message'=>__('messages.roles.permissions_synced'),'data'=>$role,'error'=>null], Response::HTTP_OK);
     }
 
-    // Sync total de roles del usuario en tenant
+    // Sync total de roles del usuario en tenant actual
     public function syncUserRoles(SyncUserRolesInTenantRequest $req): JsonResponse
     {
         $ids = $this->repo->syncUserRolesInTenant(
             $req->input('user_id'),
-            $req->input('tenant_id'),
             $req->input('roles', [])
         );
 
         return response()->json([
-            'code'=>200,'message'=>__('messages.roles.assigned_to_user'),
-            'data'=>['role_ids'=>$ids],'error'=>null
+            'code' => 200,
+            'message' => __('messages.roles.assigned_to_user'),
+            'data' => ['role_ids' => $ids],
+            'error' => null
         ], Response::HTTP_OK);
     }
 }

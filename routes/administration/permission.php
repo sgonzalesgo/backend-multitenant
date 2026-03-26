@@ -11,13 +11,10 @@ Route::controller(PermissionController::class)->group(function () {
     Route::put('permissions/{permission}',    'update')->middleware('permission:Update permissions');
     Route::delete('permissions/{permission}', 'destroy')->middleware('permission:Delete permissions');
 
-    Route::get('roles/{role}/permissions',             'listRolePermissions')->middleware('permission:List permissions');
-    Route::post('roles/{role}/permissions/sync',       'syncRolePermissions')->middleware('permission:Update permissions');
+    // (Role) ↔ Permissions
+    Route::get('roles/{role}/permissions',       'listRolePermissions')->middleware('permission:List permissions');
+    Route::post('roles/{role}/permissions/sync', 'syncRolePermissions')->middleware('permission:Update permissions');
+
+    // (User) ↔ Permissions
+    Route::put('users/permissions/sync', 'syncModelPermissions')->middleware('permission:Update permissions');
 });
-
-
-
-
-
-
-

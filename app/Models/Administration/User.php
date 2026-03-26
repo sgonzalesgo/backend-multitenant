@@ -33,8 +33,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
         'facebook_id',
         'instagram_id',
         'locale',
-        'last_seen_at' => 'datetime',
-
+        'last_seen_at',
     ];
 
 

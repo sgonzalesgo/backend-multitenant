@@ -16,8 +16,7 @@ class AssignUserRolesRequest extends FormRequest
     {
         return [
             'user_id'    => ['required', 'uuid', Rule::exists('users', 'id')],
-            'tenant_id'  => ['required', Rule::exists('tenants', 'id')], // ajusta tipo (uuid/integer) a tu schema
-            'roles'      => ['required','array'],
+            'roles'      => ['nullable','array'],
             'roles.*'    => [Rule::exists('roles', 'id')],
             'detach_missing' => ['sometimes','boolean'], // true: reemplaza; false: agrega sin quitar
         ];

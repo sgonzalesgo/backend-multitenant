@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureEmailVerified;
+use App\Http\Middleware\ResolveTenantFromToken;
 use App\Http\Middleware\UseGlobalPermissions;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -29,7 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__ . '/../routes/web.php',
         api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
-        channels: __DIR__ . '/../routes/channels.php',
+//        channels: __DIR__ . '/../routes/channels.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'bearer_cookie'      => AttachBearerTokenFromCookie::class,
             'verified.email'     => EnsureEmailVerified::class,
             'global.permissions' => UseGlobalPermissions::class,
+            'resolve_tenant_from_token' => ResolveTenantFromToken::class,
         ]);
 
         $middleware->group('tenant', [

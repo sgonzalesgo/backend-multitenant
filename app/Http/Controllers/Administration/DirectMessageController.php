@@ -3,22 +3,27 @@
 namespace App\Http\Controllers\Administration;
 
 // Global import
-use App\Events\Chat\ChatConversationRead;
-use App\Events\Chat\ChatMessageCreated;
+use App\Events\Chat\ChatMessageDeleted;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 // local import
 use App\Http\Controllers\Controller;
 use App\Models\Administration\Tenant;
-use App\Events\Direct\DirectMessageSent;
-use App\Events\Direct\DirectConversationRead;
+use App\Events\Chat\ChatMessageCreated;
+use App\Events\Chat\ChatMessageUpdated;
+use App\Events\Chat\ChatConversationRead;
 use App\Repositories\Administration\DirectMessageRepository;
-
+use App\Services\Administration\NotificationService;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class DirectMessageController extends Controller
 {
-    public function __construct(private readonly DirectMessageRepository $dm) {}
+    public function __construct(
+        private readonly DirectMessageRepository $dm,
+        private readonly NotificationService $notificationService
+    ) {}
 
     /**
      * START: crea o retorna conversación DM con target_user_id (mismo tenant).
@@ -75,15 +80,16 @@ class DirectMessageController extends Controller
             'body' => ['required', 'string', 'max:5000'],
         ]);
 
-        $message = $this->dm->createMessage(
-            tenantId: (string) $tenant->id,
-            conversationId: $conversationId,
-            senderId: (string) $request->user()->id,
-            body: $data['body']
-        );
-
         $tenantId = (string) $tenant->id;
         $senderId = (string) $request->user()->id;
+        $senderName = (string) ($request->user()->name ?? 'Usuario');
+
+        $message = $this->dm->createMessage(
+            tenantId: $tenantId,
+            conversationId: $conversationId,
+            senderId: $senderId,
+            body: $data['body']
+        );
 
         $recipientId = $this->dm->getOtherUserId($tenantId, $conversationId, $senderId);
 
@@ -97,15 +103,31 @@ class DirectMessageController extends Controller
         // Emitir al inbox del receptor (para sidebar + unread en tiempo real)
         $channels = [
             "inbox.tenant.{$tenantId}.user.{$recipientId}",
+            "dm.{$conversationId}",
         ];
 
-        // (Opcional pero recomendado) emitir también al inbox del emisor para sincronizar varias pestañas
-        $channels[] = "inbox.tenant.{$tenantId}.user.{$senderId}";
-
-        // (Opcional) emitir al canal de la conversación, solo útil si el chat está abierto y escuchando dm.{id}
-        $channels[] = "dm.{$conversationId}";
-
         broadcast(new ChatMessageCreated($channels, $payload))->toOthers();
+
+        // Crear notificación persistente + realtime
+        $preview = trim((string) $data['body']);
+        $preview = mb_strimwidth($preview, 0, 120, '...');
+
+        $this->notificationService->sendToUser(
+            userId: $recipientId,
+            tenantId: $tenantId,
+            type: 'chat.dm.message',
+            title: 'Nuevo mensaje',
+            message: "{$senderName} te envió un mensaje: {$preview}",
+            module: 'chat',
+            route: 'apps/chat',
+            payload: [
+                'kind' => 'dm',
+                'conversation_id' => $conversationId,
+                'sender_id' => $senderId,
+                'sender_name' => $senderName,
+                'message_id' => $message['id'] ?? null,
+            ]
+        );
 
         return response()->json(['data' => $message], 201);
     }
@@ -134,6 +156,46 @@ class DirectMessageController extends Controller
      */
     public function read(Request $request, string $conversationId): JsonResponse
     {
+        try {
+            $tenant = Tenant::current();
+            abort_unless($tenant, 400, 'Tenant no inicializado.');
+
+            $userId = (string) $request->user()->id;
+            $tenantId = (string) $tenant->id;
+
+            $this->dm->assertParticipant($tenantId, $conversationId, $userId);
+
+            $lastReadAt = $this->dm->markReadAt($tenantId, $conversationId, $userId);
+            $otherUserId = $this->dm->getOtherUserId($tenantId, $conversationId, $userId);
+
+            $payload = [
+                'type' => 'dm',
+                'tenant_id' => $tenantId,
+                'conversation_id' => $conversationId,
+                'user_id' => $userId,
+                'last_read_at' => $lastReadAt,
+            ];
+
+            $channels = [
+                "inbox.tenant.{$tenantId}.user.{$userId}",
+                "inbox.tenant.{$tenantId}.user.{$otherUserId}",
+                "dm.{$conversationId}",
+            ];
+
+            broadcast(new ChatConversationRead($channels, $payload))->toOthers();
+
+            return response()->json([
+                'conversation_id' => $conversationId,
+                'user_id' => $userId,
+                'last_read_at' => $lastReadAt,
+            ]);
+        } catch (\Throwable $e) {
+            throw new HttpException(500, $e);
+        }
+    }
+
+    public function updateMessage(Request $request, string $conversationId, string $messageId): JsonResponse
+    {
         $tenant = Tenant::current();
         abort_unless($tenant, 400, 'Tenant no inicializado.');
 
@@ -142,41 +204,118 @@ class DirectMessageController extends Controller
 
         $this->dm->assertParticipant($tenantId, $conversationId, $userId);
 
-        $tenantId = (string) $tenant->id;
-        $userId   = (string) $request->user()->id;
+        $data = $request->validate([
+            'body' => ['required', 'string', 'max:5000'],
+        ]);
 
-        // ya validaste participante...
-        $lastReadAt = $this->dm->markReadAt($tenantId, $conversationId, $userId);
+        $message = $this->dm->updateMessage(
+            tenantId: $tenantId,
+            conversationId: $conversationId,
+            messageId: $messageId,
+            senderId: $userId,
+            body: $data['body']
+        );
 
-        // Necesitamos el otro user para actualizar su sidebar también
-        $otherUserId = $this->dm->getOtherUserId($tenantId, $conversationId, $userId);
+        $recipientId = $this->dm->getOtherUserId($tenantId, $conversationId, $userId);
 
         $payload = [
             'type' => 'dm',
             'tenant_id' => $tenantId,
             'conversation_id' => $conversationId,
-            'user_id' => $userId,
-            'last_read_at' => $lastReadAt,
+            'message_id' => $messageId,
+            'message' => $message,
         ];
 
-        // Canales a notificar
         $channels = [
-            // inbox del lector (para multi-tab y dejar unread=0 en todas las pestañas)
+            "inbox.tenant.{$tenantId}.user.{$recipientId}",
             "inbox.tenant.{$tenantId}.user.{$userId}",
-
-            // inbox del otro (para que su UI sepa que “ya leyeron” si decides mostrar seen)
-            "inbox.tenant.{$tenantId}.user.{$otherUserId}",
-
-            // canal de conversación si está abierta en otra pestaña
             "dm.{$conversationId}",
         ];
 
-        broadcast(new ChatConversationRead($channels, $payload))->toOthers();
+        broadcast(new ChatMessageUpdated($channels, $payload))->toOthers();
+
+        return response()->json(['data' => $message]);
+    }
+
+    public function deleteMessage(Request $request, string $conversationId, string $messageId): JsonResponse
+    {
+        $tenant = Tenant::current();
+        abort_unless($tenant, 400, 'Tenant no inicializado.');
+
+        $userId = (string) $request->user()->id;
+        $tenantId = (string) $tenant->id;
+
+        $this->dm->assertParticipant($tenantId, $conversationId, $userId);
+
+        $recipientId = $this->dm->getOtherUserId($tenantId, $conversationId, $userId);
+
+        $this->dm->deleteMessage(
+            tenantId: $tenantId,
+            conversationId: $conversationId,
+            messageId: $messageId,
+            senderId: $userId
+        );
+
+        $payload = [
+            'type' => 'dm',
+            'tenant_id' => $tenantId,
+            'conversation_id' => $conversationId,
+            'message_id' => $messageId,
+        ];
+
+        $channels = [
+            "inbox.tenant.{$tenantId}.user.{$recipientId}",
+            "inbox.tenant.{$tenantId}.user.{$userId}",
+            "dm.{$conversationId}",
+        ];
+
+        broadcast(new ChatMessageDeleted($channels, $payload))->toOthers();
+
+        return response()->json(['message' => 'Mensaje eliminado.']);
+    }
+
+    public function hide(Request $request, string $conversationId): JsonResponse
+    {
+        $tenant = Tenant::current();
+        abort_unless($tenant, 400, 'Tenant no inicializado.');
+
+        $this->dm->hideConversation(
+            tenantId: (string) $tenant->id,
+            conversationId: $conversationId,
+            userId: (string) $request->user()->id
+        );
 
         return response()->json([
-            'conversation_id' => $conversationId,
-            'user_id' => $userId,
-            'last_read_at' => $lastReadAt,
+            'message' => 'Conversación ocultada correctamente.'
+        ]);
+    }
+
+    public function unhide(Request $request, string $conversationId): JsonResponse
+    {
+        $tenant = Tenant::current();
+        abort_unless($tenant, 400, 'Tenant no inicializado.');
+
+        $this->dm->unhideConversation(
+            tenantId: (string) $tenant->id,
+            conversationId: $conversationId,
+            userId: (string) $request->user()->id
+        );
+
+        return response()->json([
+            'message' => 'Conversación restaurada correctamente.'
+        ]);
+    }
+    public function hidden(Request $request): JsonResponse
+    {
+        $tenant = Tenant::current();
+        abort_unless($tenant, 400);
+
+        return response()->json([
+            'data' => $this->dm->listHiddenConversations(
+                tenantId: (string) $tenant->id,
+                userId: (string) $request->user()->id
+            )
         ]);
     }
 }
+

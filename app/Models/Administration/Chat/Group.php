@@ -1,13 +1,14 @@
 <?php
 
-namespace App\Models\Administration;
+namespace App\Models\Administration\Chat;
 
+use App\Models\Administration\User;
+use App\Traits\Uuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 // local import
-use App\Traits\Uuid;
 
 class Group extends Model
 {

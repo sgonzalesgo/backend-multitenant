@@ -9,8 +9,10 @@ require __DIR__ . '/administration/auth.php';
  * Aquí SÍ debe existir current tenant.
  */
 Route::middleware([
+    'bearer_cookie',
     'auth:api',
     'setLocale',
+    'resolve_tenant_from_token',
     'tenant',
     'verified.email',
 ])->prefix('v1')->group(function () {
@@ -21,4 +23,6 @@ Route::middleware([
     require base_path('routes/administration/group_chat.php');
     require base_path('routes/administration/direct_chat.php');
     require base_path('routes/administration/tenant.php');
+    require base_path('routes/administration/notifications.php');
+    require base_path('routes/administration/chat_presence.php');
 });

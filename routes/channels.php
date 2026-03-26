@@ -9,7 +9,7 @@ use App\Models\Administration\User;
 | Broadcast Channels
 |--------------------------------------------------------------------------
 | Aquí defines quién puede suscribirse a canales privados/presence.
-| MUY IMPORTANTE en multi-tenant: siempre valida pertenencia al tenant.
+| IMPORTANTE en multi-tenant: siempre valida pertenencia al tenant.
 |--------------------------------------------------------------------------
 */
 
@@ -17,9 +17,6 @@ if (! function_exists('userBelongsToTenant')) {
     /**
      * Helper: valida si un usuario pertenece a un tenant (colegio).
      * En tu caso, lo estás modelando con Spatie Teams: model_has_roles + tenant_id.
-     *
-     * Si mañana cambias el mecanismo de pertenencia (ej: tenant_user),
-     * solo actualizas esta función.
      */
     function userBelongsToTenant(string $userId, string $tenantId): bool
     {
@@ -35,16 +32,18 @@ if (! function_exists('userBelongsToTenant')) {
 }
 
 /**
- * PRESENCE CHANNEL POR TENANT (COLEGIO)
+ * PRESENCE CHANNEL POR TENANT
  *
- * Canal: presence.tenant.{tenantId}
- * Objetivo: mostrar lista de usuarios conectados en ese colegio/tenant.
+ * Frontend:
+ *   echo.join(`tenant.${tenantId}`)
  *
- * Reglas:
- * - SOLO usuarios que pertenezcan a ese tenant pueden unirse al canal.
- * - El payload retornado aquí es lo que los demás verán en "here/joining/leaving".
+ * Request real hacia broadcasting/auth:
+ *   channel_name = presence-tenant.{tenantId}
  */
-Broadcast::channel('presence.tenant.{tenantId}', function ($user, $tenantId) {
+use Illuminate\Support\Facades\Log;
+
+Broadcast::channel('tenant.{tenantId}', function ($user, $tenantId) {
+
     $userId = (string) $user->id;
     $tenantId = (string) $tenantId;
 
@@ -61,13 +60,8 @@ Broadcast::channel('presence.tenant.{tenantId}', function ($user, $tenantId) {
 /**
  * PRIVATE CHANNEL PARA CHAT DE GRUPO
  *
- * Canal: group.{groupId}
- * Objetivo: recibir mensajes del grupo.
- *
- * Reglas:
- * - El grupo debe existir.
- * - El usuario debe pertenecer al tenant del grupo.
- * - El usuario debe ser owner del grupo o miembro accepted.
+ * Frontend:
+ *   echo.private(`group.${groupId}`)
  */
 Broadcast::channel('group.{groupId}', function ($user, $groupId) {
     $userId = (string) $user->id;
@@ -102,39 +96,40 @@ Broadcast::channel('group.{groupId}', function ($user, $groupId) {
 /**
  * PRIVATE CHANNEL PARA CHAT DIRECTO (DM 1-a-1)
  *
- * Canal: dm.{conversationId}
- * Objetivo: chat con un usuario en particular, sin grupo.
+ * Frontend:
+ *   echo.private(`dm.${conversationId}`)
+ *
+ * La conversación vive en la tabla direct_conversations
+ * con user_one_id / user_two_id.
  */
 Broadcast::channel('dm.{conversationId}', function ($user, $conversationId) {
     $userId = (string) $user->id;
     $conversationId = (string) $conversationId;
 
-    $conv = DB::table('direct_conversations')
+    $conversation = DB::table('direct_conversations')
         ->select(['id', 'tenant_id', 'user_one_id', 'user_two_id'])
         ->where('id', $conversationId)
         ->first();
 
-    if (! $conv) {
+    if (! $conversation) {
         return false;
     }
 
-    $tenantId = (string) $conv->tenant_id;
+    $tenantId = (string) $conversation->tenant_id;
 
     if (! userBelongsToTenant($userId, $tenantId)) {
         return false;
     }
 
-    return $userId === (string) $conv->user_one_id
-        || $userId === (string) $conv->user_two_id;
+    return $userId === (string) $conversation->user_one_id
+        || $userId === (string) $conversation->user_two_id;
 });
 
 /**
- * INBOX POR USUARIO Y TENANT
- * Canal: inbox.tenant.{tenantId}.user.{userId}
- * Sirve para:
- * - actualizar sidebar
- * - incrementar unread_count
- * - notificaciones realtime
+ * PRIVATE CHANNEL PARA INBOX POR USUARIO DENTRO DE UN TENANT
+ *
+ * Frontend:
+ *   echo.private(`inbox.tenant.${tenantId}.user.${userId}`)
  */
 Broadcast::channel('inbox.tenant.{tenantId}.user.{userId}', function ($user, $tenantId, $userId) {
     $authUserId = (string) $user->id;
@@ -146,4 +141,9 @@ Broadcast::channel('inbox.tenant.{tenantId}.user.{userId}', function ($user, $te
     }
 
     return userBelongsToTenant($authUserId, $tenantId);
+});
+
+// notifications.user.{userId}
+Broadcast::channel('notifications.user.{userId}', function ($user, $userId) {
+    return (string) $user->id === (string) $userId;
 });

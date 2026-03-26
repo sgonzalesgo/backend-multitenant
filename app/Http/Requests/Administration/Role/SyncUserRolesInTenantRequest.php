@@ -16,8 +16,7 @@ class SyncUserRolesInTenantRequest extends FormRequest
     {
         return [
             'user_id'   => ['required','uuid', Rule::exists('users','id')],
-            'tenant_id' => ['required', Rule::exists('tenants','id')],
-            'roles'     => ['required','array'],
+            'roles'     => ['nullable','array'],
             'roles.*'   => [Rule::exists('roles','id')],
         ];
     }

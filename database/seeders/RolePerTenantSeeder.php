@@ -61,11 +61,17 @@ class RolePerTenantSeeder extends Seeder
                 'Invite chat_group_users',
                 'List chat_group_invitations',
                 'Accept chat_group_users',
-                'Reject chat_group_invitation_users',
+                'Reject chat_group_invitations',
                 'List chat_group_member_users',
                 'List chat_group_messages',
                 'Send chat_group_messages',
-                'Read chat_group_messages'
+                'Read chat_group_messages',
+                'Edit chat_groups',
+                'Delete chat_groups',
+                'Leave chat_group_users',
+                'Remove chat_group_users',
+                'Edit chat_group_messages',
+                'Delete chat_group_messages',
             ],
         ];
 

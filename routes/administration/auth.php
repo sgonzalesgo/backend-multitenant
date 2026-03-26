@@ -5,38 +5,39 @@ use App\Http\Controllers\Administration\EmailVerificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-    // Público
+    /*
+    |--------------------------------------------------------------------------
+    | Públicas
+    |--------------------------------------------------------------------------
+    */
     Route::middleware(['setLocale'])->group(function () {
         Route::post('auth/login', [AuthController::class, 'login'])->name('login');
         Route::post('auth/register', [AuthController::class, 'register']);
         Route::post('auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:refresh');
         Route::post('auth/social/upsert', [AuthController::class, 'socialUpsert']);
         Route::post('auth/verify/request-code', [EmailVerificationController::class, 'requestCode']);
-        Route::post('auth/verify/confirm',      [EmailVerificationController::class, 'confirm']);
+        Route::post('auth/verify/confirm', [EmailVerificationController::class, 'confirm']);
         Route::post('auth/social/login', [AuthController::class, 'socialLogin']);
-
     });
 
-// Protegidas con Passport (cookies HttpOnly -> bearer_cookie -> auth:api)
+    /*
+    |--------------------------------------------------------------------------
+    | Auth protegida por cookie -> bearer -> auth:api
+    |--------------------------------------------------------------------------
+    */
     Route::middleware(['bearer_cookie', 'auth:api', 'setLocale'])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('me');
-        Route::post('auth/logout', [AuthController::class, 'logout']);
+        Route::post('auth/logout', [AuthController::class, 'logout'])->name('logout');
 
-        // Impersonate SIN middleware de permiso (permiso se valida en el repo, opción A)
-        Route::post('auth/impersonate', [AuthController::class, 'impersonate']);
-        Route::post('auth/impersonate/revert', [AuthController::class, 'revertImpersonation']);
-
-        // para verificar qué usuarios están online usando redis
-        Route::post('auth/ping', [AuthController::class, 'ping']);
-    });
-
-    // Si quieres que switch-company exija tenant
-    Route::middleware(['bearer_cookie', 'auth:api', 'setLocale', 'tenant'])->group(function () {
+        // Cambio de tenant: NO requiere middleware tenant
+        // El repositorio valida si el usuario puede cambiar al tenant solicitado.
         Route::post('auth/switch-company', [AuthController::class, 'switchTenant'])->name('switchTenant');
 
-        // >>> Alternativa si INSISTES en el middleware de permiso en ruta:
-        // Route::post('auth/impersonate', [AuthController::class, 'impersonate'])
-        //     ->middleware('permission:Impersonate users');
-    });
+        // Impersonación
+        Route::post('auth/impersonate', [AuthController::class, 'impersonate'])->name('impersonate');
+        Route::post('auth/impersonate/revert', [AuthController::class, 'revertImpersonation'])->name('revertImpersonation');
 
+        // Heartbeat / presencia
+        Route::post('auth/ping', [AuthController::class, 'ping'])->name('ping');
+    });
 });

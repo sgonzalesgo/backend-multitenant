@@ -2,50 +2,37 @@
 
 namespace App\Repositories\Administration;
 
-// global import
-use Illuminate\Auth\AuthenticationException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
-use Exception;
-use Illuminate\Support\Facades\Cache;
 
 // local import
-use App\Events\Presence\UserOffline;
-use App\Events\Presence\UserOnline;
+use App\Events\Presence\GroupMemberOffline;
+use App\Events\Presence\GroupMemberOnline;
+use App\Models\Administration\ImpersonationSession;
 use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
-use App\Events\Presence\GroupMemberOnline;
-use App\Events\Presence\GroupMemberOffline;
-
-
-/** Si tu AuditLogRepository está en este mismo namespace, no necesitas el use.
- *  Des-comenta el siguiente use si lo tienes en otro lado.
- */
-// use App\Repositories\Administration\AuditLogRepository;
 
 class AuthRepository
 {
     public function __construct(
         protected ?AuditLogRepository $audit = null
-    )
-    {
+    ) {
     }
 
-    /** Helper para obtener el repo de auditoría aunque no esté inyectado */
     protected function audit(): AuditLogRepository
     {
         return $this->audit ??= app(AuditLogRepository::class);
     }
 
     /**
-     * Valida credenciales y retorna el User (sin token).
-     * Usuarios: globales.
+     * Valida credenciales y retorna perfil + tokens.
      */
     public function attemptLogin(string $email, string $password): array
     {
@@ -53,7 +40,6 @@ class AuthRepository
             /** @var User|null $user */
             $user = User::query()->where('email', $email)->first();
 
-            // Credenciales inválidas
             if (!$user || !Hash::check($password, (string) $user->password)) {
                 $this->audit()->log(
                     actor: $user,
@@ -68,7 +54,6 @@ class AuthRepository
                 throw new HttpException(401, __('auth.invalid_credentials'));
             }
 
-            // Cuenta inactiva
             if ($user->is_active === false) {
                 $this->audit()->log(
                     actor: $user,
@@ -82,7 +67,6 @@ class AuthRepository
                 throw new HttpException(403, __('auth.account_inactive'));
             }
 
-            // Correo no verificado
             if (is_null($user->email_verified_at)) {
                 $this->audit()->log(
                     actor: $user,
@@ -96,29 +80,17 @@ class AuthRepository
                 throw new HttpException(403, __('auth.email_not_verified'));
             }
 
-            // 1) Resolver tenant inicial del usuario
             $initialTenant = $this->resolveInitialTenantFor($user);
+            $this->applyTenantContext($initialTenant);
 
-            if ($initialTenant) {
-                $initialTenant->makeCurrent();
-
-                $registrar = app(PermissionRegistrar::class);
-                $registrar->setPermissionsTeamId($initialTenant->id);
-                $registrar->forgetCachedPermissions();
-            }
-
-            // 2) Emitir tokens
             $tokens = $this->issuePassportTokens(
                 user: $user,
                 tokenName: 'web-access',
-                tenantId: $initialTenant?->id
+                tenantId: $initialTenant ? (string) $initialTenant->id : null
             );
 
-            // 3) Construir payload /me ya con el token y tenant correctos
-            $me = $this->me($user);
+            $me = $this->meWithImpersonation($user);
 
-
-            // 4) Marcar online
             $tenantId = (string) ($initialTenant?->id ?? '');
             if ($tenantId !== '') {
                 $this->markOnline($user, $tenantId);
@@ -135,7 +107,7 @@ class AuthRepository
             ];
         } catch (HttpException $e) {
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             $this->audit()->log(
@@ -159,24 +131,13 @@ class AuthRepository
 
     /**
      * Perfil + contexto tenant-aware.
-     * - Si hay Tenant::current(), se respeta.
-     * - Si no, se infiere uno en base a roles del usuario (team_id).
+     * Debe reflejar el tenant actual efectivo de la sesión.
      */
     public function me(User $user): array
     {
-        $tenant = $this->resolveInitialTenantFor($user);
-        $registrar = app(PermissionRegistrar::class);
+        $tenant = $this->resolveCurrentTenantFor($user);
+        $this->applyTenantContext($tenant);
 
-        if ($tenant) {
-            $tenant->makeCurrent();
-            $registrar->setPermissionsTeamId($tenant->id);
-            $registrar->forgetCachedPermissions();
-        } else {
-            $registrar->setPermissionsTeamId(null);
-            $registrar->forgetCachedPermissions();
-        }
-
-        // Evita relaciones “quedadas”
         $user->unsetRelation('roles');
         $user->unsetRelation('permissions');
 
@@ -190,19 +151,13 @@ class AuthRepository
             ? $user->getAllPermissions()->pluck('name')->unique()->values()->all()
             : [];
 
-        // Global
-        $registrar->setPermissionsTeamId(null);
-        $registrar->forgetCachedPermissions();
+        $this->applyTenantContext(null);
         $user->unsetRelation('roles');
         $user->unsetRelation('permissions');
 
         $globalPermissions = $user->getAllPermissions()->pluck('name')->unique()->values()->all();
 
-        // Restaurar team
-        if ($tenant) {
-            $registrar->setPermissionsTeamId($tenant->id);
-            $registrar->forgetCachedPermissions();
-        }
+        $this->applyTenantContext($tenant);
 
         $companies = $this->resolveCompaniesFor($user);
 
@@ -211,12 +166,11 @@ class AuthRepository
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'email_verified' => (bool)$user->email_verified_at,
+                'email_verified' => (bool) $user->email_verified_at,
                 'created_at' => optional($user->created_at)?->toIso8601String(),
                 'updated_at' => optional($user->updated_at)?->toIso8601String(),
             ],
-            'current_tenant' => $tenant ?? null,
-
+            'current_tenant' => $tenant,
             'roles' => $roles,
             'permissions' => $tenantPermissions,
             'global_permissions' => $globalPermissions,
@@ -224,22 +178,65 @@ class AuthRepository
         ];
     }
 
-    /**
-     * Deduce el tenant “actual” cuando no hay uno activo.
-     */
-    protected function resolveInitialTenantFor(User $user): ?Tenant
+    public function meWithImpersonation(User $user): array
     {
-        // 1) Si ya hay un tenant actual resuelto por Spatie, usarlo
+        return $this->withImpersonationContext($user, $this->me($user));
+    }
+
+    protected function resolveActiveImpersonationFor(User $user): ?ImpersonationSession
+    {
+        return ImpersonationSession::query()
+            ->active()
+            ->where('impersonated_id', $user->id)
+            ->latest('created_at')
+            ->first();
+    }
+
+    protected function withImpersonationContext(User $user, array $payload, ?ImpersonationSession $session = null): array
+    {
+        $session ??= $this->resolveActiveImpersonationFor($user);
+
+        $payload['impersonation'] = [
+            'active' => (bool) $session,
+            'session_id' => $session?->session_id,
+        ];
+
+        return $payload;
+    }
+
+    /**
+     * Tenant actual efectivo:
+     * 1) Tenant::current()
+     * 2) tenant_id guardado en el access token actual
+     * 3) fallback al primer tenant accesible
+     */
+    protected function resolveCurrentTenantFor(User $user): ?Tenant
+    {
         if ($current = Tenant::current()) {
             return $current;
         }
 
-        // 2) Si el token actual ya tiene tenant_id, usarlo
         if ($tenantFromToken = $this->resolveTenantFromAccessToken($user)) {
             return $tenantFromToken;
         }
 
-        // 3) Fallback: primer tenant al que el usuario tiene acceso
+        return $this->resolveFallbackTenantFor($user);
+    }
+
+    /**
+     * Tenant inicial para login.
+     */
+    protected function resolveInitialTenantFor(User $user): ?Tenant
+    {
+        if ($tenantFromToken = $this->resolveTenantFromAccessToken($user)) {
+            return $tenantFromToken;
+        }
+
+        return $this->resolveFallbackTenantFor($user);
+    }
+
+    protected function resolveFallbackTenantFor(User $user): ?Tenant
+    {
         $teamFk = config('permission.team_foreign_key', 'tenant_id');
 
         $tenantIds = DB::table('model_has_roles')
@@ -262,27 +259,42 @@ class AuthRepository
     }
 
     /**
-     * Devuelve el tenant actual guardado en el access token del usuario.
+     * Devuelve el tenant guardado en el access token actual.
      */
     protected function resolveTenantFromAccessToken(User $user): ?Tenant
     {
         $token = $user->token();
 
-        if (! $token) {
+        if (!$token) {
             return null;
         }
 
         $tenantId = $token->tenant_id ?? null;
 
-        if (! $tenantId) {
+        if (!$tenantId) {
             return null;
         }
 
         return Tenant::query()->find($tenantId);
     }
 
+    protected function applyTenantContext(?Tenant $tenant): void
+    {
+        $registrar = app(PermissionRegistrar::class);
+
+        if ($tenant) {
+            $tenant->makeCurrent();
+            $registrar->setPermissionsTeamId($tenant->id);
+        } else {
+            Tenant::forgetCurrent();
+            $registrar->setPermissionsTeamId(null);
+        }
+
+        $registrar->forgetCachedPermissions();
+    }
+
     /**
-     * POST /auth/switch-tenant
+     * Cambiar tenant actual de la sesión/token.
      */
     public function switchTenant(User $user, int|string $tenantId): array
     {
@@ -299,7 +311,7 @@ class AuthRepository
                 ->where($teamFk, $tenant->id)
                 ->exists();
 
-        if (! $canSwitch) {
+        if (!$canSwitch) {
             $this->audit()->log(
                 actor: $user,
                 event: 'Cambio de Tenant denegado',
@@ -313,28 +325,20 @@ class AuthRepository
             abort(403, 'No tienes acceso a este tenant.');
         }
 
-        // Activar tenant actual en esta request
-        $tenant->makeCurrent();
-
-        $registrar = app(PermissionRegistrar::class);
-        $registrar->setPermissionsTeamId($tenant->id);
-        $registrar->forgetCachedPermissions();
-
-        // ✅ Persistir tenant en el token actual
+        $this->applyTenantContext($tenant);
         $this->persistTenantIdOnCurrentAccessToken($user, (string) $tenant->id);
 
-        return $this->me($user);
+        return $this->meWithImpersonation($user);
     }
 
     /**
-     * Revoca el access token actual (y sus refresh tokens si existieran).
+     * Logout.
      */
     public function logout(User $user): void
     {
         $token = $user->token();
 
         if (!$token) {
-            // Log “idempotente” sin token asociado
             $this->audit()->log(
                 actor: $user,
                 event: 'Error en el cierre de Session',
@@ -343,6 +347,7 @@ class AuthRepository
                 changes: ['old' => null, 'new' => null],
                 tenantId: Tenant::current()?->id
             );
+
             $tenantId = (string) (Tenant::current()?->id ?? '');
             if ($tenantId !== '') {
                 $this->markOffline($user, $tenantId);
@@ -351,23 +356,19 @@ class AuthRepository
             return;
         }
 
-        // 1) Revocar access token
         $token->revoke();
 
-        // 2) Revocar refresh tokens asociados
         $conn = config('passport.connection');
 
         DB::connection($conn)->table('oauth_refresh_tokens')
             ->where('access_token_id', $token->id)
             ->update(['revoked' => true]);
 
-        // 3)marcar el usuario como offline
-        $tenantId = (string) (Tenant::current()?->id ?? '');
+        $tenantId = (string) ($token->tenant_id ?? Tenant::current()?->id ?? '');
         if ($tenantId !== '') {
             $this->markOffline($user, $tenantId);
         }
 
-        // Log de logout
         $this->audit()->log(
             actor: $user,
             event: 'Cierre de sesión exitoso',
@@ -390,8 +391,8 @@ class AuthRepository
             ->userFromToken($accessToken);
 
         $providerId = (string) $socialUser->getId();
-        $email  = $socialUser->getEmail() ?: ($hints['email'] ?? null);
-        $name   = $socialUser->getName() ?: ($hints['name'] ?? 'User');
+        $email = $socialUser->getEmail() ?: ($hints['email'] ?? null);
+        $name = $socialUser->getName() ?: ($hints['name'] ?? 'User');
         $avatar = $socialUser->getAvatar() ?: ($hints['avatar'] ?? null);
         $locale = $hints['locale'] ?? app()->getLocale();
 
@@ -399,7 +400,7 @@ class AuthRepository
 
         if ($provider === 'google') {
             $query->where('google_id', $providerId);
-        } else { // facebook
+        } else {
             $query->where('facebook_id', $providerId);
         }
 
@@ -454,7 +455,7 @@ class AuthRepository
     }
 
     /**
-     * Tenants a los que el usuario puede acceder.
+     * Tenants disponibles para el usuario.
      */
     protected function resolveCompaniesFor(User $user): array
     {
@@ -485,42 +486,81 @@ class AuthRepository
 
         return Tenant::query()
             ->whereIn('id', $tenantIds->all())
-//            ->select('id', 'name')
             ->orderBy('name')
             ->get()
             ->toArray();
     }
 
     /**
-     * Impersonar por email: emite tokens para el usuario objetivo y
-     * tokens de respaldo para el admin (para poder revertir).
-     *
-     * @throws HttpException
+     * Impersonación.
      */
     public function impersonateByEmail(User $actor, string $email): array
     {
-        // Seguridad: permiso global o en cualquier tenant
+        $registrar = app(PermissionRegistrar::class);
+
+        $actorTenant = $this->resolveTenantFromAccessToken($actor) ?? $this->resolveCurrentTenantFor($actor);
+        $this->applyTenantContext($actorTenant);
+
+        $actor->unsetRelation('roles');
+        $actor->unsetRelation('permissions');
+
         abort_unless($this->actorCanImpersonate($actor), 403, __('errors.impersonation_forbidden'));
 
         /** @var User $target */
         $target = User::query()->where('email', $email)->firstOrFail();
 
-        // Evitar suplantarse a sí mismo (opcional, pero recomendable)
         if ($actor->getKey() === $target->getKey()) {
             abort(422, __('errors.impersonation_same_user'));
         }
 
         try {
-            // Config
-            $conn = config('passport.connection'); // conexión de oauth_*
-            $refreshDays = (int)config('auth.tokens.refresh_days', 30);
-            $impMinutes = (int)config('auth.tokens.impersonation_minutes', 60);
-            $backupMinutes = (int)config('auth.tokens.backup_minutes', 120);
+            $conn = config('passport.connection');
+            $refreshDays = (int) config('auth.tokens.refresh_days', 30);
+            $impMinutes = (int) config('auth.tokens.impersonation_minutes', 60);
+            $backupMinutes = (int) config('auth.tokens.backup_minutes', 120);
 
-            // 1) Emitir TOKEN BACKUP para el admin (para revertir)
+            $actorCurrentTenantId = (string) ($actorTenant?->id ?? '');
+
+            $teamFk = config('permission.team_foreign_key', 'tenant_id');
+
+            $targetTenantIds = DB::table('model_has_roles')
+                ->where('model_type', User::class)
+                ->where('model_id', $target->getKey())
+                ->whereNotNull($teamFk)
+                ->pluck($teamFk)
+                ->unique()
+                ->filter()
+                ->values();
+
+            $effectiveTargetTenant = null;
+
+            if ($targetTenantIds->isNotEmpty()) {
+                if ($actorCurrentTenantId !== '' && $targetTenantIds->contains($actorCurrentTenantId)) {
+                    $effectiveTargetTenant = Tenant::query()->find($actorCurrentTenantId);
+                }
+
+                if (!$effectiveTargetTenant) {
+                    $effectiveTargetTenant = Tenant::query()
+                        ->whereIn('id', $targetTenantIds->all())
+                        ->orderBy('name')
+                        ->first();
+                }
+            }
+
+            $effectiveTargetTenantId = (string) ($effectiveTargetTenant?->id ?? '');
+
             $backupAccess = $actor->createToken('impersonation-backup');
             $backupAccess->token->expires_at = now()->addMinutes($backupMinutes);
             $backupAccess->token->save();
+
+            if ($actorCurrentTenantId !== '') {
+                DB::connection($conn)->table('oauth_access_tokens')
+                    ->where('id', $backupAccess->token->id)
+                    ->where('revoked', false)
+                    ->update([
+                        'tenant_id' => $actorCurrentTenantId,
+                    ]);
+            }
 
             $backupRefreshId = Str::random(64);
             DB::connection($conn)->table('oauth_refresh_tokens')->insert([
@@ -530,10 +570,31 @@ class AuthRepository
                 'expires_at' => now()->addDays($refreshDays),
             ]);
 
-            // 2) Emitir TOKEN del usuario suplantado
+            $impersonationSessionId = (string) Str::uuid();
+
+            $createdImpersonationSession = ImpersonationSession::query()->create([
+                'session_id' => $impersonationSessionId,
+                'impersonator_id' => $actor->id,
+                'impersonated_id' => $target->id,
+                'actor_tenant_id' => $actorCurrentTenantId !== '' ? $actorCurrentTenantId : null,
+                'backup_access_token' => $backupAccess->accessToken,
+                'backup_refresh_token' => $backupRefreshId,
+                'started_at' => now(),
+                'expires_at' => now()->addMinutes($backupMinutes),
+            ]);
+
             $impAccess = $target->createToken('impersonation');
             $impAccess->token->expires_at = now()->addMinutes($impMinutes);
             $impAccess->token->save();
+
+            if ($effectiveTargetTenantId !== '') {
+                DB::connection($conn)->table('oauth_access_tokens')
+                    ->where('id', $impAccess->token->id)
+                    ->where('revoked', false)
+                    ->update([
+                        'tenant_id' => $effectiveTargetTenantId,
+                    ]);
+            }
 
             $impRefreshId = Str::random(64);
             DB::connection($conn)->table('oauth_refresh_tokens')->insert([
@@ -543,74 +604,155 @@ class AuthRepository
                 'expires_at' => now()->addDays($refreshDays),
             ]);
 
-            // 3) Auditoría (no guardamos tokens)
+            $this->applyTenantContext($effectiveTargetTenant);
+
+            $target->unsetRelation('roles');
+            $target->unsetRelation('permissions');
+
+            $me = $this->withImpersonationContext($target, $this->me($target), $createdImpersonationSession);
+
+            $this->applyTenantContext($actorTenant);
+
             $this->audit()->log(
                 actor: $actor,
                 event: 'auth.impersonate.start',
                 subject: $target,
                 description: __('audit.auth.impersonate.start'),
                 changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id,
+                tenantId: $actorCurrentTenantId !== '' ? $actorCurrentTenantId : null,
                 meta: [
                     'impersonator_id' => $actor->id,
                     'impersonated_id' => $target->id,
                     'backup_access_token_id' => $backupAccess->token->id,
                     'imp_access_token_id' => $impAccess->token->id,
                     'imp_minutes' => $impMinutes,
+                    'actor_tenant_id' => $actorCurrentTenantId !== '' ? $actorCurrentTenantId : null,
+                    'effective_target_tenant_id' => $effectiveTargetTenantId !== '' ? $effectiveTargetTenantId : null,
+                    'impersonation_session_id' => $impersonationSessionId,
                 ]
             );
 
-            // 4) Devolver también el “me” del usuario suplantado
-            $me = $this->me($target);
-
             return [
-                'user' => [
-                    'id' => $target->id,
-                    'name' => $target->name,
-                    'email' => $target->email,
-                ],
                 'me' => $me,
-
-                // Tokens del usuario suplantado (para setear en cookies principales)
                 '_tokens' => [
                     'access_token' => $impAccess->accessToken,
                     'access_expires_at' => optional($impAccess->token->expires_at)?->toIso8601String(),
                     'refresh_token' => $impRefreshId,
                     'refresh_expires_at' => now()->addDays($refreshDays)->toIso8601String(),
                 ],
-
-                // Tokens BACKUP del admin (guárdalos aparte para “desimpersonar”)
-                '_revert_tokens' => [
-                    'access_token' => $backupAccess->accessToken,
-                    'access_expires_at' => optional($backupAccess->token->expires_at)?->toIso8601String(),
-                    'refresh_token' => $backupRefreshId,
-                    'refresh_expires_at' => now()->addDays($refreshDays)->toIso8601String(),
-                ],
             ];
         } catch (Throwable $e) {
             report($e);
+
+            $this->applyTenantContext($actorTenant);
+
             $this->audit()->log(
                 actor: $actor,
                 event: 'auth.impersonate.error',
                 subject: ['type' => 'Auth', 'id' => 'impersonateByEmail'],
                 description: __('audit.auth.impersonate.error'),
                 changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id,
-                meta: ['exception' => class_basename($e)]
+                tenantId: $actorTenant?->id,
+                meta: [
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]
             );
+
+            throw new HttpException(500, __('errors.server_error'));
+        }
+    }
+
+    public function revertImpersonationBySession(User $currentImpersonatedUser, string $sessionId): array
+    {
+        /** @var ImpersonationSession $session */
+        $session = ImpersonationSession::query()
+            ->with(['impersonator', 'actorTenant'])
+            ->active()
+            ->where('session_id', $sessionId)
+            ->where('impersonated_id', $currentImpersonatedUser->id)
+            ->firstOrFail();
+
+        /** @var User|null $impersonator */
+        $impersonator = $session->impersonator;
+
+        if (!$impersonator) {
+            throw new HttpException(404, __('errors.user_not_found'));
+        }
+
+        try {
+            $this->stopImpersonation($currentImpersonatedUser);
+
+            $tenant = $session->actorTenant;
+            $this->applyTenantContext($tenant);
+
+            $impersonator->unsetRelation('roles');
+            $impersonator->unsetRelation('permissions');
+
+            $me = $this->me($impersonator);
+            $me['impersonation'] = [
+                'active' => false,
+                'session_id' => null,
+            ];
+
+            $session->markEnded();
+
+            $this->audit()->log(
+                actor: $impersonator,
+                event: 'auth.impersonate.stop',
+                subject: $currentImpersonatedUser,
+                description: __('audit.auth.impersonate.stop'),
+                changes: ['old' => null, 'new' => null],
+                tenantId: $tenant?->id,
+                meta: [
+                    'impersonation_session_id' => $session->session_id,
+                    'impersonator_id' => $impersonator->id,
+                    'impersonated_id' => $currentImpersonatedUser->id,
+                ]
+            );
+
+            return [
+                'me' => $me,
+                '_restore_tokens' => [
+                    'access_token' => $session->backup_access_token,
+                    'refresh_token' => $session->backup_refresh_token,
+                ],
+            ];
+        } catch (HttpException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+
+            $this->audit()->log(
+                actor: $impersonator,
+                event: 'auth.impersonate.revert.error',
+                subject: ['type' => 'Auth', 'id' => 'revertImpersonationBySession'],
+                description: __('audit.auth.impersonate.error'),
+                changes: ['old' => null, 'new' => null],
+                tenantId: $session->actor_tenant_id,
+                meta: [
+                    'impersonation_session_id' => $session->session_id,
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]
+            );
+
             throw new HttpException(500, __('errors.server_error'));
         }
     }
 
     /**
-     * Finaliza una sesión de suplantación revocando el token actual.
-     * Úsalo antes de restaurar los cookies con los _revert_tokens del admin.
+     * Finaliza impersonación actual.
      */
     public function stopImpersonation(User $current): void
     {
         $token = $current->token();
+
         if (!$token) {
-            // idempotente
             $this->audit()->log(
                 actor: $current,
                 event: 'auth.impersonate.stop',
@@ -622,8 +764,8 @@ class AuthRepository
             return;
         }
 
-        // revocar access + refresh
         $token->revoke();
+
         $conn = config('passport.connection');
 
         DB::connection($conn)->table('oauth_refresh_tokens')
@@ -642,14 +784,11 @@ class AuthRepository
     }
 
     /**
-     * Verifica si el actor tiene "Impersonate users" globalmente
-     * o en cualquier tenant donde tenga roles.
+     * Verifica si el actor puede impersonar.
      */
     protected function actorCanImpersonate(User $actor): bool
     {
         $registrar = app(PermissionRegistrar::class);
-
-        // Guardar y luego restaurar
         $prevTeamId = Tenant::current()?->id;
 
         $resetActor = function () use ($actor) {
@@ -657,18 +796,23 @@ class AuthRepository
             $actor->unsetRelation('permissions');
         };
 
-        // 1) Global (team_id = null)
         $registrar->setPermissionsTeamId(null);
         $registrar->forgetCachedPermissions();
         $resetActor();
+
         if ($actor->can('Impersonate users')) {
             if ($prevTeamId) {
                 $registrar->setPermissionsTeamId($prevTeamId);
+            } else {
+                $registrar->setPermissionsTeamId(null);
             }
+
+            $registrar->forgetCachedPermissions();
+            $resetActor();
+
             return true;
         }
 
-        // 2) En cualquier tenant donde tenga rol
         $teamFk = config('permission.team_foreign_key', 'tenant_id');
         $tenantIds = DB::table('model_has_roles')
             ->where('model_type', User::class)
@@ -684,32 +828,40 @@ class AuthRepository
             $registrar->setPermissionsTeamId($tid);
             $registrar->forgetCachedPermissions();
             $resetActor();
+
             if ($actor->can('Impersonate users')) {
-                // restaurar y permitir
                 if ($prevTeamId) {
                     $registrar->setPermissionsTeamId($prevTeamId);
                 } else {
                     $registrar->setPermissionsTeamId(null);
                 }
+
+                $registrar->forgetCachedPermissions();
+                $resetActor();
+
                 return true;
             }
         }
 
-        // restaurar
         if ($prevTeamId) {
             $registrar->setPermissionsTeamId($prevTeamId);
         } else {
             $registrar->setPermissionsTeamId(null);
         }
 
+        $registrar->forgetCachedPermissions();
+        $resetActor();
+
         return false;
     }
 
-    // para emitir tokens Passport (reutilizable)
+    /**
+     * Emite tokens Passport.
+     */
     public function issuePassportTokens(User $user, string $tokenName = 'web-access', ?string $tenantId = null): array
     {
         $accessMinutes = (int) config('auth.tokens.access_minutes', 15);
-        $refreshDays   = (int) config('auth.tokens.refresh_days', 30);
+        $refreshDays = (int) config('auth.tokens.refresh_days', 30);
         $conn = config('passport.connection');
 
         $access = $user->createToken($tokenName);
@@ -745,7 +897,9 @@ class AuthRepository
         ];
     }
 
-    // accepted groups for user
+    /**
+     * Groups accepted por el usuario en el tenant.
+     */
     protected function acceptedGroupIdsFor(User $user, string $tenantId): array
     {
         return DB::table('group_members as gm')
@@ -754,13 +908,12 @@ class AuthRepository
             ->where('gm.status', 'accepted')
             ->where('g.tenant_id', $tenantId)
             ->pluck('gm.group_id')
-            ->map(fn($v) => (string) $v)
+            ->map(fn ($v) => (string) $v)
             ->all();
     }
 
     /**
-     * Marca al usuario como online en cache con TTL.
-     * Usa Redis (CACHE_DRIVER=redis).
+     * Marca usuario online.
      */
     public function markOnline(User $user, string $tenantId, ?int $ttlSeconds = null): void
     {
@@ -771,7 +924,7 @@ class AuthRepository
 
         Cache::put($key, true, $ttlSeconds);
 
-        if (! $wasOnline) {
+        if (!$wasOnline) {
             foreach ($this->acceptedGroupIdsFor($user, $tenantId) as $groupId) {
                 event(new GroupMemberOnline($groupId, (string) $user->id));
             }
@@ -779,7 +932,7 @@ class AuthRepository
     }
 
     /**
-     * Marca al usuario como offline (borra flag).
+     * Marca usuario offline.
      */
     public function markOffline(User $user, string $tenantId): void
     {
@@ -795,44 +948,34 @@ class AuthRepository
         }
     }
 
-    /**
-     * Devuelve true si está online (según TTL).
-     */
     public function isOnline(string $tenantId, string $userId): bool
     {
         return Cache::has($this->onlineKey($tenantId, $userId));
     }
 
-    // MARK: Online users
     protected function onlineKey(string $tenantId, string $userId): string
     {
         return "presence:online:{$tenantId}:{$userId}";
     }
 
-    /**
-     * (Opcional) Guardar last_seen_at con throttle (cada N segundos).
-     * Requiere columna users.last_seen_at si lo quieres.
-     */
     protected function touchLastSeen(User $user, bool $force = false): void
     {
         $throttleSeconds = (int) config('presence.last_seen_throttle_seconds', 120);
-
         $lockKey = "presence:last_seen_lock:{$user->id}";
 
         if ($force || Cache::add($lockKey, true, $throttleSeconds)) {
-            // Si NO tienes last_seen_at, comenta esta línea
             $user->forceFill(['last_seen_at' => now()])->save();
         }
     }
 
     /**
-     * Devuelve el id del access token actual del usuario autenticado.
+     * Devuelve el id del access token actual.
      */
     protected function resolveCurrentAccessTokenId(User $user): ?string
     {
         $token = $user->token();
 
-        if (! $token) {
+        if (!$token) {
             return null;
         }
 
@@ -840,13 +983,13 @@ class AuthRepository
     }
 
     /**
-     * Actualiza el tenant_id del access token actual directamente en oauth_access_tokens.
+     * Persiste tenant_id en oauth_access_tokens.
      */
     protected function persistTenantIdOnCurrentAccessToken(User $user, string $tenantId): void
     {
         $tokenId = $this->resolveCurrentAccessTokenId($user);
 
-        if (! $tokenId) {
+        if (!$tokenId) {
             return;
         }
 
@@ -860,4 +1003,128 @@ class AuthRepository
             ]);
     }
 
+    public function refresh(Request $request): array
+    {
+        try {
+            $refreshToken = (string) $request->cookie((string) config('auth.refresh_cookie', 'refresh_token'));
+
+            if ($refreshToken === '') {
+                throw new HttpException(401, __('auth.unauthenticated'));
+            }
+
+            $conn = config('passport.connection');
+
+            $refreshRow = DB::connection($conn)
+                ->table('oauth_refresh_tokens')
+                ->where('id', $refreshToken)
+                ->first();
+
+            if (!$refreshRow) {
+                throw new HttpException(401, __('auth.unauthenticated'));
+            }
+
+            if ((bool) $refreshRow->revoked) {
+                throw new HttpException(401, __('auth.unauthenticated'));
+            }
+
+            if (!empty($refreshRow->expires_at) && now()->greaterThan($refreshRow->expires_at)) {
+                throw new HttpException(401, __('auth.unauthenticated'));
+            }
+
+            $accessRow = DB::connection($conn)
+                ->table('oauth_access_tokens')
+                ->where('id', $refreshRow->access_token_id)
+                ->first();
+
+            if (!$accessRow) {
+                throw new HttpException(401, __('auth.unauthenticated'));
+            }
+
+            if ((bool) $accessRow->revoked) {
+                throw new HttpException(401, __('auth.unauthenticated'));
+            }
+
+            $user = User::query()->find($accessRow->user_id);
+
+            if (!$user) {
+                throw new HttpException(401, __('auth.unauthenticated'));
+            }
+
+            $tenantId = !empty($accessRow->tenant_id) ? (string) $accessRow->tenant_id : null;
+
+            // Revocación del par anterior
+            DB::connection($conn)->table('oauth_refresh_tokens')
+                ->where('id', $refreshToken)
+                ->update(['revoked' => true]);
+
+            DB::connection($conn)->table('oauth_access_tokens')
+                ->where('id', $accessRow->id)
+                ->update(['revoked' => true]);
+
+            // Restaurar contexto tenant para el nuevo token y para el payload /me
+            if ($tenantId) {
+                $tenant = Tenant::query()->find($tenantId);
+                $this->applyTenantContext($tenant);
+            } else {
+                $this->applyTenantContext(null);
+            }
+
+            $tokens = $this->issuePassportTokens(
+                user: $user,
+                tokenName: 'web-access',
+                tenantId: $tenantId
+            );
+
+            $me = $this->meWithImpersonation($user);
+
+            if ($tenantId) {
+                $this->markOnline($user, $tenantId);
+            }
+
+            $this->audit()->log(
+                actor: $user,
+                event: 'auth.refresh.success',
+                subject: $user,
+                description: 'Refresh de token exitoso',
+                changes: ['old' => null, 'new' => null],
+                tenantId: $tenantId,
+                meta: [
+                    'old_access_token_id' => $accessRow->id,
+                    'new_access_expires_at' => $tokens['access_expires_at'] ?? null,
+                    'refresh_expires_at' => $tokens['refresh_expires_at'] ?? null,
+                ]
+            );
+
+            return [
+                'me' => $me,
+                '_tokens' => [
+                    'access_token' => $tokens['access_token'],
+                    'access_expires_at' => $tokens['access_expires_at'],
+                    'refresh_token' => $tokens['refresh_token'],
+                    'refresh_expires_at' => $tokens['refresh_expires_at'],
+                ],
+            ];
+        } catch (HttpException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+
+            $this->audit()->log(
+                actor: null,
+                event: 'auth.refresh.error',
+                subject: ['type' => 'Auth', 'id' => 'refresh'],
+                description: 'Error interno en refresh',
+                changes: ['old' => null, 'new' => null],
+                tenantId: Tenant::current()?->id,
+                meta: [
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]
+            );
+
+            throw new HttpException(500, __('errors.server_error'));
+        }
+    }
 }

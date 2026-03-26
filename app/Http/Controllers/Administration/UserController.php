@@ -9,38 +9,81 @@ use App\Models\Administration\User;
 use App\Repositories\Administration\UserRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
 {
-    public function __construct(private UserRepository $repo) {}
+    public function __construct(private UserRepository $repo)
+    {
+    }
+
+    protected function getValidatedPayloadWithAvatar(Request $req): array
+    {
+        $data = $req->validated();
+
+        if ($req->hasFile('avatar') && $req->file('avatar') instanceof UploadedFile) {
+            $data['avatar'] = $req->file('avatar')->store('users/avatars', 'public');
+        }
+
+        return $data;
+    }
 
     public function index(Request $req): JsonResponse
     {
-        $data = $this->repo->list($req->only(['q','sort','dir','per_page']));
-        return response()->json(['code'=>200,'message'=>__('messages.users.listed'),'data'=>$data,'error'=>null], Response::HTTP_OK);
+        $data = $this->repo->list($req->only(['q', 'sort', 'dir', 'per_page']));
+
+        return response()->json([
+            'code'    => 200,
+            'message' => __('messages.users.listed'),
+            'data'    => $data,
+            'error'   => null,
+        ], Response::HTTP_OK);
     }
 
     public function store(StoreUserRequest $req): JsonResponse
     {
-        $user = $this->repo->create($req->validated());
-        return response()->json(['code'=>201,'message'=>__('messages.users.created'),'data'=>$user,'error'=>null], Response::HTTP_CREATED);
+        $user = $this->repo->create($this->getValidatedPayloadWithAvatar($req));
+
+        return response()->json([
+            'code'    => 201,
+            'message' => __('messages.users.created'),
+            'data'    => $user,
+            'error'   => null,
+        ], Response::HTTP_CREATED);
     }
 
     public function show(User $user): JsonResponse
     {
-        return response()->json(['code'=>200,'message'=>__('messages.users.shown'),'data'=>$user,'error'=>null], Response::HTTP_OK);
+        return response()->json([
+            'code'    => 200,
+            'message' => __('messages.users.shown'),
+            'data'    => $user,
+            'error'   => null,
+        ], Response::HTTP_OK);
     }
 
     public function update(UpdateUserRequest $req, User $user): JsonResponse
     {
-        $user = $this->repo->update($user, $req->validated());
-        return response()->json(['code'=>200,'message'=>__('messages.users.updated'),'data'=>$user,'error'=>null], Response::HTTP_OK);
+        $user = $this->repo->update($user, $this->getValidatedPayloadWithAvatar($req));
+
+        return response()->json([
+            'code'    => 200,
+            'message' => __('messages.users.updated'),
+            'data'    => $user,
+            'error'   => null,
+        ], Response::HTTP_OK);
     }
 
     public function destroy(User $user): JsonResponse
     {
         $this->repo->delete($user);
-        return response()->json(['code'=>200,'message'=>__('messages.users.deleted'),'data'=>null,'error'=>null], Response::HTTP_OK);
+
+        return response()->json([
+            'code'    => 200,
+            'message' => __('messages.users.deleted'),
+            'data'    => null,
+            'error'   => null,
+        ], Response::HTTP_OK);
     }
 }

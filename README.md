@@ -86,6 +86,8 @@ php artisan queue:work
 //emitir eventos en tiempo real (broadcast)
 //Sin Reverb corriendo, no hay “tiempo real” aunque el evento se dispare.
 php artisan reverb:start
+ --- o ----
+php artisan reverb:start --host=0.0.0.0 --port=8080 --debug
 
 3) OJO CRÍTICO: tus cookies están en secure=true (en local HTTP no se guardan)
 Aunque CORS esté perfecto, si tu backend setea cookies con secure=true y estás en http://localhost, el navegador NO las guarda.
