@@ -1,5 +1,3 @@
-{{-- resources/views/mail/verify/code_plain.blade.php --}}
-
 {{ __('verify.mail.subject') }} - {{ $appName }}
 
 {{ __('verify.mail.greeting', ['name' => $user->name]) }}
@@ -23,7 +21,7 @@
 
 {{ __('verify.mail.line4') }}
 
-{{ __('verify.mail.open_app') }}: {{ $appUrl }}
+{{ __('verify.mail.open_app') }}: {{ $actionUrl }}
 
 {{ __('verify.mail.need_help') }}
 @if($helpUrl)

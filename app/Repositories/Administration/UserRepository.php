@@ -294,6 +294,7 @@
 
 namespace App\Repositories\Administration;
 
+use App\Http\Requests\Administration\User\RegisterRequest;
 use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -302,7 +303,12 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\PermissionRegistrar;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use App\Http\Requests\Administration\User\StoreUserRequest;
+use App\Http\Requests\Administration\User\UpdateUserRequest;
 
 class UserRepository
 {
@@ -358,7 +364,7 @@ class UserRepository
     /**
      * Aplica el scoping de visibilidad por tenant.
      *
-     * Regla:
+     * Regla (esto ya no va porque puedo tener usuarios con roles en otros tenants):
      * - si hay tenant actual:
      *   - usuarios con roles en ese tenant
      *   - o usuarios con permisos directos en ese tenant
@@ -382,27 +388,40 @@ class UserRepository
                 $modelHasPermissionsTable
             ) {
                 $qb
+                    // Ya tiene roles en este tenant
                     ->whereExists(function ($sub) use ($usersTable, $tenantId, $teamFk, $modelHasRolesTable) {
                         $sub->from($modelHasRolesTable . ' as mhr')
                             ->where('mhr.model_type', User::class)
                             ->whereColumn('mhr.model_id', "{$usersTable}.id")
                             ->where("mhr.{$teamFk}", $tenantId);
                     })
+
+                    // Ya tiene permisos directos en este tenant
                     ->orWhereExists(function ($sub) use ($usersTable, $tenantId, $teamFk, $modelHasPermissionsTable) {
                         $sub->from($modelHasPermissionsTable . ' as mhp')
                             ->where('mhp.model_type', User::class)
                             ->whereColumn('mhp.model_id', "{$usersTable}.id")
                             ->where("mhp.{$teamFk}", $tenantId);
                     })
-                    ->orWhere(function ($subQ) use ($usersTable, $modelHasRolesTable, $modelHasPermissionsTable) {
-                        $subQ->whereNotExists(function ($sub) use ($usersTable, $modelHasRolesTable) {
+
+                    // NO tiene nada asignado todavía en este tenant
+                    ->orWhere(function ($subQ) use (
+                        $usersTable,
+                        $tenantId,
+                        $teamFk,
+                        $modelHasRolesTable,
+                        $modelHasPermissionsTable
+                    ) {
+                        $subQ->whereNotExists(function ($sub) use ($usersTable, $tenantId, $teamFk, $modelHasRolesTable) {
                             $sub->from($modelHasRolesTable . ' as mhr2')
                                 ->where('mhr2.model_type', User::class)
-                                ->whereColumn('mhr2.model_id', "{$usersTable}.id");
-                        })->whereNotExists(function ($sub) use ($usersTable, $modelHasPermissionsTable) {
+                                ->whereColumn('mhr2.model_id', "{$usersTable}.id")
+                                ->where("mhr2.{$teamFk}", $tenantId);
+                        })->whereNotExists(function ($sub) use ($usersTable, $tenantId, $teamFk, $modelHasPermissionsTable) {
                             $sub->from($modelHasPermissionsTable . ' as mhp2')
                                 ->where('mhp2.model_type', User::class)
-                                ->whereColumn('mhp2.model_id', "{$usersTable}.id");
+                                ->whereColumn('mhp2.model_id', "{$usersTable}.id")
+                                ->where("mhp2.{$teamFk}", $tenantId);
                         });
                     });
             });
@@ -620,14 +639,23 @@ class UserRepository
         return $query->firstOrFail();
     }
 
-    public function create(array $data): User
+    public function create(StoreUserRequest $req): User
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($req) {
+            $data = $req->validated();
+
+            $avatarPath = null;
+            $avatarFile = $req->file('avatar');
+
+            if ($avatarFile instanceof UploadedFile) {
+                $avatarPath = $this->storeAvatar($avatarFile);
+            }
+
             $user = new User();
             $user->name = $data['name'];
             $user->email = $data['email'];
             $user->password = Hash::make($data['password']);
-            $user->avatar = $data['avatar'] ?? null;
+            $user->avatar = $avatarPath;
             $user->locale = $data['locale'] ?? app()->getLocale();
             $user->is_active = true;
             $user->email_verified_at = now();
@@ -650,9 +678,10 @@ class UserRepository
         });
     }
 
-    public function update(User $user, array $data): User
+    public function update(User $user, UpdateUserRequest $req): User
     {
-        return DB::transaction(function () use ($user, $data) {
+        return DB::transaction(function () use ($user, $req) {
+            $data = $req->validated();
             $old = Arr::only($user->getOriginal(), ['name', 'email', 'locale', 'avatar', 'is_active']);
 
             if (array_key_exists('name', $data)) {
@@ -667,16 +696,19 @@ class UserRepository
                 $user->locale = $data['locale'];
             }
 
-            if (array_key_exists('avatar', $data)) {
-                $user->avatar = $data['avatar'];
-            }
-
             if (array_key_exists('is_active', $data)) {
-                $user->is_active = (bool)$data['is_active'];
+                $user->is_active = (bool) $data['is_active'];
             }
 
             if (!empty($data['password'])) {
                 $user->password = Hash::make($data['password']);
+            }
+
+            $avatarFile = $req->file('avatar');
+
+
+            if ($avatarFile instanceof UploadedFile) {
+                $user->avatar = $this->replaceAvatar($user->avatar, $avatarFile);
             }
 
             $user->save();
@@ -703,6 +735,10 @@ class UserRepository
         DB::transaction(function () use ($user) {
             $snapshot = Arr::only($user->toArray(), ['id', 'name', 'email', 'locale', 'avatar', 'is_active']);
 
+            if (!empty($user->avatar)) {
+                $this->deleteAvatar($user->avatar);
+            }
+
             $user->delete();
 
             $this->audit()->log(
@@ -714,29 +750,6 @@ class UserRepository
                 tenantId: $this->resolveCurrentTenantId()
             );
         });
-    }
-
-    public function register(array $data): array
-    {
-        $user = $this->create($data);
-
-        $user->is_active = false;
-        $user->email_verified_at = null;
-        $user->save();
-
-        app(EmailVerificationRepository::class)
-            ->issueCode($user, 'verify_email', request()->ip(), request()->userAgent());
-
-        $this->audit()->log(
-            actor: auth()->user(),
-            event: 'users.register',
-            subject: $user,
-            description: __('audit.users.register'),
-            changes: ['old' => null, 'new' => ['id' => $user->id, 'email' => $user->email]],
-            tenantId: $this->resolveCurrentTenantId()
-        );
-
-        return $this->issueTokenPayload($user);
     }
 
     protected function issueTokenPayload(User $user): array
@@ -833,5 +846,31 @@ class UserRepository
 
             return $fresh;
         });
+    }
+
+    private function storeAvatar(UploadedFile $file): string
+    {
+        return $file->store('users/avatars', 'public');
+    }
+
+    private function deleteAvatar(?string $path): void
+    {
+        if (!$path) {
+            return;
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+    private function replaceAvatar(?string $currentPath, UploadedFile $file): string
+    {
+        $newPath = $this->storeAvatar($file);
+
+        if ($currentPath && $currentPath !== $newPath) {
+            $this->deleteAvatar($currentPath);
+        }
+
+        return $newPath;
     }
 }

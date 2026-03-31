@@ -29,5 +29,7 @@ return [
         'registered' => 'Registration completed successfully.',
         'social_ok'  => 'Social sign-in succeeded.',
         'social_upsert' => 'User upserted from provider successfully.',
+        'password_reset_code_sent' => 'If an account exists for that email, we have sent a recovery code.',
+        'password_reset_success' => 'The password was updated successfully.',
     ],
 ];

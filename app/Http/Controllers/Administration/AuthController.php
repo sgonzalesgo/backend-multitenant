@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Http\Requests\Administration\User\StoreUserRequest;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +21,6 @@ use App\Repositories\Administration\AuthRepository;
 use App\Repositories\Administration\UserRepository;
 use App\Http\Requests\Administration\User\RegisterRequest;
 use App\Http\Requests\Administration\User\SocialLoginRequest;
-use App\Http\Requests\Administration\User\SocialUpsertRequest;
 
 class AuthController extends Controller
 {
@@ -122,98 +124,65 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        $payload = $this->user->register($request->validated());
+        $payload = $this->repo->register($request);
 
-        return response()
-            ->json([
-                'code' => Response::HTTP_CREATED,
-                'message' => __('messages.auth.registered'),
-                'data' => $payload,
-                'error' => null,
-            ], Response::HTTP_CREATED)
-            ->withCookie(
-                $this->makeAccessCookie((string) data_get($payload, 'access_token', ''))
-            );
-    }
-
-    /**
-     * POST /auth/social
-     */
-    public function social(SocialLoginRequest $request): JsonResponse
-    {
-        $payload = $this->user->socialLoginOrRegister(
-            $request->input('provider'),
-            $request->input('token')
-        );
-
-        return response()
-            ->json([
-                'code' => Response::HTTP_OK,
-                'message' => __('messages.auth.social_ok'),
-                'data' => $payload,
-                'error' => null,
-            ], Response::HTTP_OK)
-            ->withCookie(
-                $this->makeAccessCookie((string) data_get($payload, 'access_token', ''))
-            );
-    }
-
-    /**
-     * POST /auth/social/upsert
-     */
-    public function socialUpsert(SocialUpsertRequest $request): JsonResponse
-    {
-        $user = $this->repo->upsertFromSocialAccessToken(
-            $request->input('provider'),
-            $request->input('access_token'),
-            $request->only(['email', 'name', 'avatar', 'locale'])
-        );
+        $httpCode = (int) ($payload['_http_code'] ?? Response::HTTP_CREATED);
+        unset($payload['_http_code']);
 
         return response()->json([
-            'code' => Response::HTTP_OK,
-            'message' => __('messages.auth.social_upsert'),
-            'data' => [
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'avatar' => $user->avatar,
-                    'locale' => $user->locale,
-                ],
-            ],
+            'code' => $httpCode,
+            'message' => __($payload['message_key'] ?? 'messages.auth.registered'),
+            'data' => $payload,
             'error' => null,
-        ], Response::HTTP_OK);
+        ], $httpCode);
     }
 
     /**
      * POST /auth/social/login
      */
-    public function socialLogin(SocialUpsertRequest $request): JsonResponse
+    public function socialLogin(SocialLoginRequest $request): JsonResponse
     {
-        $provider = $request->input('provider');
-        $accessToken = $request->input('access_token');
-        $hints = $request->only(['email', 'name', 'avatar', 'locale']);
+        $result = $this->repo->socialLogin(
+            $request->input('provider'),
+            $request->input('access_token'),
+            $request->only(['email', 'name', 'avatar', 'locale'])
+        );
 
-        $user = $this->repo->upsertFromSocialAccessToken($provider, $accessToken, $hints);
-
-        if ($user->email && is_null($user->email_verified_at)) {
-            $user->forceFill(['email_verified_at' => now()])->save();
-            $user = $user->refresh();
-        }
-
-        $tokens = $this->repo->issuePassportTokens($user, 'web-access');
-        $payload = $this->repo->meWithImpersonation($user);
-
-        $tenantId = (string) data_get($payload, 'current_tenant.id', '');
-        if ($tenantId !== '') {
-            $this->repo->markOnline($user, $tenantId);
-        }
+        $tokens = $result['_tokens'] ?? [];
+        $payload = $result['me'] ?? $result;
 
         return $this->ok($payload, __('messages.logged_in'))
             ->withCookie($this->makeAccessCookie((string) ($tokens['access_token'] ?? '')))
             ->withCookie($this->makeRefreshCookie((string) ($tokens['refresh_token'] ?? '')))
             ->withCookie($this->makeXsrfCookie());
     }
+
+    //------------------- METODO NUEVOS PARA EL LOGIN CON GOOGLE Y FACEBOOK ---------------------  ---------------------
+    public function socialRedirect(string $provider): RedirectResponse
+    {
+        $url = $this->repo->socialRedirect($provider);
+
+        return redirect()->away($url);
+    }
+
+    public function socialCallback(Request $request, string $provider)
+    {
+        $result = $this->repo->socialCallback($provider);
+
+        $tokens = $result['_tokens'] ?? [];
+        $payload = $result['me'] ?? $result;
+
+        $frontendUrl = rtrim((string) config('app.frontend_url'), '/');
+        $locale = app()->getLocale();
+
+        $redirectTo = "{$frontendUrl}/{$locale}";
+
+        return redirect()->to($redirectTo)
+            ->withCookie($this->makeAccessCookie((string) ($tokens['access_token'] ?? '')))
+            ->withCookie($this->makeRefreshCookie((string) ($tokens['refresh_token'] ?? '')))
+            ->withCookie($this->makeXsrfCookie());
+    }
+    //------------------- FIN ---------------------  ---------------------
 
     /**
      * POST /auth/impersonate

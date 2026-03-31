@@ -19,6 +19,9 @@ return [
     'invalid_credentials' => 'Credenciales incorrectas.',
     'account_inactive'   => 'Cuenta inactiva.',
     'email_not_verified' => 'Correo electrónico no verificado.',
+    'email_already_registered' => 'El correo ya esta siendo usado por otra cuenta',
+    'pending_verification' => 'El correo esta pendiente de verificación',
+    'registered' => 'Registro exitoso.',
     'logout_success' => 'Cierre de sesión exitoso.',
     'resolve_initial_tenant' => 'Resolver el colegio inicial.',
     'me' => 'Perfil de usuario'

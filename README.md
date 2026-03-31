@@ -145,3 +145,8 @@ GET /groups/{groupId}/members
     Como invitado, prueba:
     GET /groups/{groupId}/messages → ✅ 200
     POST /groups/{groupId}/messages con body { "body": "Hola" } → ✅ 201
+
+
+## setear la zona horaria en postgres (esto es importante para que funcione el datetime)
+SET TIME ZONE 'UTC';
+SHOW timezone;

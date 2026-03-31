@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Administration\AuthController;
 use App\Http\Controllers\Administration\EmailVerificationController;
+use App\Http\Controllers\Administration\ForgotPasswordController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -13,12 +14,27 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['setLocale'])->group(function () {
         Route::post('auth/login', [AuthController::class, 'login'])->name('login');
         Route::post('auth/register', [AuthController::class, 'register']);
-        Route::post('auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:refresh');
-        Route::post('auth/social/upsert', [AuthController::class, 'socialUpsert']);
         Route::post('auth/verify/request-code', [EmailVerificationController::class, 'requestCode']);
         Route::post('auth/verify/confirm', [EmailVerificationController::class, 'confirm']);
-        Route::post('auth/social/login', [AuthController::class, 'socialLogin']);
+//        Route::post('auth/social/login', [AuthController::class, 'socialLogin']);
+        Route::post('auth/password/forgot/request-code', [ForgotPasswordController::class, 'requestCode']);
+        Route::post('auth/password/forgot/confirm', [ForgotPasswordController::class, 'confirm']);
+
+//         auth google and facebook
+        Route::get('auth/social/{provider}/redirect', [AuthController::class, 'socialRedirect'])
+            ->where('provider', 'google|facebook');
+
+        Route::get('auth/social/{provider}/callback', [AuthController::class, 'socialCallback'])
+            ->where('provider', 'google|facebook');
     });
+
+    /*
+|--------------------------------------------------------------------------
+| Social OAuth (Backend-driven)
+|--------------------------------------------------------------------------
+*/
+    Route::get('auth/social/{provider}/redirect', [AuthController::class, 'socialRedirect']);
+    Route::get('auth/social/{provider}/callback', [AuthController::class, 'socialCallback']);
 
     /*
     |--------------------------------------------------------------------------

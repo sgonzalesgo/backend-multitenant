@@ -29,5 +29,7 @@ return [
         'registered' => 'Registro completado correctamente.',
         'social_ok'  => 'Inicio de sesión social exitoso.',
         'social_upsert' => 'Usuario actualizado/creado a partir del proveedor correctamente.',
+        'password_reset_code_sent' => 'Si existe una cuenta asociada a ese correo, te enviamos un código de recuperación.',
+        'password_reset_success' => 'La contraseña fue actualizada correctamente.',
     ],
 ];

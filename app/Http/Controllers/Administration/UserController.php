@@ -18,17 +18,6 @@ class UserController extends Controller
     {
     }
 
-    protected function getValidatedPayloadWithAvatar(Request $req): array
-    {
-        $data = $req->validated();
-
-        if ($req->hasFile('avatar') && $req->file('avatar') instanceof UploadedFile) {
-            $data['avatar'] = $req->file('avatar')->store('users/avatars', 'public');
-        }
-
-        return $data;
-    }
-
     public function index(Request $req): JsonResponse
     {
         $data = $this->repo->list($req->only(['q', 'sort', 'dir', 'per_page']));
@@ -43,7 +32,7 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $req): JsonResponse
     {
-        $user = $this->repo->create($this->getValidatedPayloadWithAvatar($req));
+        $user = $this->repo->create($req);
 
         return response()->json([
             'code'    => 201,
@@ -65,7 +54,7 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $req, User $user): JsonResponse
     {
-        $user = $this->repo->update($user, $this->getValidatedPayloadWithAvatar($req));
+        $user = $this->repo->update($user, $req);
 
         return response()->json([
             'code'    => 200,

@@ -2,22 +2,27 @@
 
 namespace App\Repositories\Administration;
 
+use Illuminate\Http\UploadedFile;
+use Throwable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
+use Laravel\Socialite\Facades\Socialite;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
-use Throwable;
 
 // local import
-use App\Events\Presence\GroupMemberOffline;
-use App\Events\Presence\GroupMemberOnline;
-use App\Models\Administration\ImpersonationSession;
-use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
+use App\Models\Administration\Tenant;
+use App\Events\Presence\GroupMemberOnline;
+use App\Events\Presence\GroupMemberOffline;
+use App\Models\Administration\ImpersonationSession;
+use App\Http\Requests\Administration\User\RegisterRequest;
 
 class AuthRepository
 {
@@ -166,6 +171,7 @@ class AuthRepository
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'avatar' => $user->avatar,
                 'email_verified' => (bool) $user->email_verified_at,
                 'created_at' => optional($user->created_at)?->toIso8601String(),
                 'updated_at' => optional($user->updated_at)?->toIso8601String(),
@@ -380,78 +386,317 @@ class AuthRepository
         );
     }
 
-    public function upsertFromSocialAccessToken(string $provider, string $accessToken, array $hints = []): User
+    public function register(RegisterRequest $request): array
     {
-        if (!in_array($provider, ['google', 'facebook'], true)) {
-            throw new HttpException(422, 'Proveedor social no soportado.');
-        }
+        return DB::transaction(function () use ($request) {
+            $data = $request->validated();
 
-        $socialUser = \Laravel\Socialite\Facades\Socialite::driver($provider)
-            ->stateless()
-            ->userFromToken($accessToken);
+            /** @var User|null $existing */
+            $existing = User::query()
+                ->where('email', $data['email'])
+                ->first();
 
-        $providerId = (string) $socialUser->getId();
-        $email = $socialUser->getEmail() ?: ($hints['email'] ?? null);
-        $name = $socialUser->getName() ?: ($hints['name'] ?? 'User');
-        $avatar = $socialUser->getAvatar() ?: ($hints['avatar'] ?? null);
-        $locale = $hints['locale'] ?? app()->getLocale();
+            if ($existing) {
+                // Caso 1: ya existe y está verificado
+                if (!is_null($existing->email_verified_at)) {
+                    throw new HttpException(
+                        Response::HTTP_CONFLICT,
+                        __('auth.email_already_registered')
+                    );
+                }
 
-        $query = User::query();
+                // Caso 2: ya existe pero sigue sin verificar
+                $verificationRepo = app(EmailVerificationRepository::class);
 
-        if ($provider === 'google') {
-            $query->where('google_id', $providerId);
-        } else {
-            $query->where('facebook_id', $providerId);
-        }
+                $resent = false;
+                $cooldownRemaining = $verificationRepo->cooldownRemainingSeconds($existing, 'verify_email');
 
-        $user = $query->first();
+                if ($cooldownRemaining <= 0) {
+                    $verificationRepo->issueCode(
+                        $existing,
+                        'verify_email',
+                        $request->ip(),
+                        $request->userAgent()
+                    );
 
-        if (!$user && $email) {
-            $user = User::query()->where('email', $email)->first();
-        }
+                    $resent = true;
+                }
 
-        $created = !$user;
-
-        return DB::transaction(function () use ($user, $provider, $providerId, $email, $name, $avatar, $locale, $created) {
-            if (!$user) {
-                $user = new User();
-                $user->email = $email ?: "user_{$provider}_{$providerId}@example.local";
-                $user->password = Hash::make(Str::random(40));
+                return [
+                    '_http_code' => Response::HTTP_ACCEPTED,
+                    'status' => 'PENDING_VERIFICATION',
+                    'message_key' => 'auth.pending_verification',
+                    'user' => [
+                        'id' => $existing->id,
+                        'name' => $existing->name,
+                        'email' => $existing->email,
+                        'avatar' => $existing->avatar,
+                        'locale' => $existing->locale,
+                        'is_active' => (bool) $existing->is_active,
+                        'email_verified_at' => optional($existing->email_verified_at)?->toIso8601String(),
+                    ],
+                    'requires_verification' => true,
+                    'verification_sent' => $resent,
+                    'resend_available_in' => $cooldownRemaining > 0 ? $cooldownRemaining : 0,
+                    'next_step' => 'verify_email',
+                ];
             }
 
-            $user->name = $name ?: $user->name;
-            $user->avatar = $avatar ?: $user->avatar;
-            $user->locale = $locale ?: $user->locale;
-            $user->is_active = true;
+            // Caso 3: usuario nuevo
+            $avatarPath = null;
+            $avatarFile = $request->file('avatar');
 
-            if ($provider === 'google') {
-                $user->google_id = $providerId;
-            } else {
-                $user->facebook_id = $providerId;
+            if ($avatarFile instanceof UploadedFile) {
+                $avatarPath = $avatarFile->store('users/avatars', 'public');
             }
 
-            if ($email && (!$user->email || str_ends_with($user->email, '@example.local'))) {
-                $user->email = $email;
-            }
-
+            $user = new User();
+            $user->name = $data['name'];
+            $user->email = $data['email'];
+            $user->password = Hash::make($data['password']);
+            $user->avatar = $avatarPath;
+            $user->locale = $data['locale'] ?? app()->getLocale();
+            $user->is_active = false;
+            $user->email_verified_at = null;
             $user->save();
-            $fresh = $user->refresh();
+
+            // asignar permisos por defecto al nuevo usuario ( no lo uso porque model_hos_permissions necesita un tenant_id y el usuario nuevo no lo tiene)
+//            $this->assignDefaultPermissionsToNewUser($user);
+
+            app(EmailVerificationRepository::class)
+                ->issueCode($user, 'verify_email', $request->ip(), $request->userAgent());
 
             $this->audit()->log(
-                actor: auth()->user(),
-                event: 'users.social.upsert',
-                subject: $fresh,
-                description: $created ? __('audit.users.social.created') : __('audit.users.social.updated'),
+                actor: null,
+                event: 'users.register',
+                subject: $user,
+                description: __('audit.users.register'),
                 changes: [
                     'old' => null,
-                    'new' => Arr::only($fresh->toArray(), ['id', 'email', 'name', 'locale', 'is_active'])
+                    'new' => ['id' => $user->id, 'email' => $user->email],
                 ],
-                tenantId: Tenant::current()?->id,
-                meta: ['provider' => $provider, 'linked' => true]
+                tenantId: null
             );
 
-            return $fresh;
+            return [
+                '_http_code' => Response::HTTP_CREATED,
+                'status' => 'PENDING_VERIFICATION',
+                'message_key' => 'auth.registered',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar' => $user->avatar,
+                    'locale' => $user->locale,
+                    'is_active' => (bool) $user->is_active,
+                    'email_verified_at' => null,
+                ],
+                'requires_verification' => true,
+                'verification_sent' => true,
+                'resend_available_in' => 0,
+                'next_step' => 'verify_email',
+            ];
         });
+    }
+
+    public function requestPasswordResetCode(string $email, ?string $ip = null, ?string $userAgent = null): array
+    {
+        try {
+            /** @var User|null $user */
+            $user = User::query()->where('email', $email)->first();
+
+            $sent = false;
+            $cooldownRemaining = 0;
+
+            if ($user) {
+                $verificationRepo = app(EmailVerificationRepository::class);
+
+                $cooldownRemaining = $verificationRepo->cooldownRemainingSeconds($user, 'forgot_password');
+
+                if ($cooldownRemaining <= 0) {
+                    $verificationRepo->issueCode(
+                        $user,
+                        'forgot_password',
+                        $ip,
+                        $userAgent
+                    );
+
+                    $sent = true;
+                }
+
+                $this->audit()->log(
+                    actor: null,
+                    event: 'auth.password_reset.request_code',
+                    subject: $user,
+                    description: 'Solicitud de código para recuperación de contraseña',
+                    changes: ['old' => null, 'new' => null],
+                    tenantId: null,
+                    meta: [
+                        'email' => $email,
+                        'sent' => $sent,
+                        'cooldown_remaining' => $cooldownRemaining,
+                    ]
+                );
+            } else {
+                $this->audit()->log(
+                    actor: null,
+                    event: 'auth.password_reset.request_code.unknown_email',
+                    subject: ['type' => 'User', 'id' => $email],
+                    description: 'Solicitud de recuperación de contraseña para email no registrado',
+                    changes: ['old' => null, 'new' => null],
+                    tenantId: null,
+                    meta: [
+                        'email' => $email,
+                    ]
+                );
+            }
+
+            return [
+                '_http_code' => Response::HTTP_OK,
+                'message_key' => 'messages.auth.password_reset_code_sent',
+                'status' => 'PASSWORD_RESET_PENDING',
+                'sent' => true, // siempre true para no revelar existencia
+                'cooldown_remaining' => 0, // neutral
+                'next_step' => 'confirm_code_and_reset_password',
+            ];
+        } catch (HttpException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+
+            $this->audit()->log(
+                actor: null,
+                event: 'auth.password_reset.request_code.error',
+                subject: ['type' => 'Auth', 'id' => 'requestPasswordResetCode'],
+                description: 'Error interno al solicitar código de recuperación de contraseña',
+                changes: ['old' => null, 'new' => null],
+                tenantId: null,
+                meta: [
+                    'email' => $email,
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]
+            );
+
+            throw new HttpException(500, __('errors.server_error'));
+        }
+    }
+
+    public function resetPasswordWithCode(string $email, string $code, string $password): array
+    {
+        try {
+            /** @var User|null $user */
+            $user = User::query()->where('email', $email)->first();
+
+            if (!$user) {
+                throw new HttpException(422, __('verify.invalid'));
+            }
+
+            $verificationRepo = app(EmailVerificationRepository::class);
+
+            $ok = $verificationRepo->verifyCode($user, $code, 'forgot_password');
+
+            if (!$ok) {
+                $this->audit()->log(
+                    actor: null,
+                    event: 'auth.password_reset.confirm.invalid_code',
+                    subject: $user,
+                    description: 'Código inválido en recuperación de contraseña',
+                    changes: ['old' => null, 'new' => null],
+                    tenantId: null,
+                    meta: [
+                        'email' => $email,
+                    ]
+                );
+
+                throw new HttpException(422, __('verify.invalid'));
+            }
+
+            $user->forceFill([
+                'password' => Hash::make($password),
+            ])->save();
+
+            $user = $user->fresh();
+
+            $this->revokeAllTokensForUser($user);
+
+            $this->audit()->log(
+                actor: null,
+                event: 'auth.password_reset.success',
+                subject: $user,
+                description: 'Contraseña actualizada correctamente mediante código de recuperación',
+                changes: [
+                    'old' => null,
+                    'new' => ['password_reset' => true],
+                ],
+                tenantId: null,
+                meta: [
+                    'email' => $email,
+                ]
+            );
+
+            return [
+                '_http_code' => Response::HTTP_OK,
+                'message_key' => 'messages.auth.password_reset_success',
+                'status' => 'PASSWORD_RESET_COMPLETED',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar' => $user->avatar,
+                    'locale' => $user->locale,
+                    'is_active' => (bool) $user->is_active,
+                    'email_verified_at' => optional($user->email_verified_at)?->toIso8601String(),
+                    'created_at' => optional($user->created_at)?->toIso8601String(),
+                    'updated_at' => optional($user->updated_at)?->toIso8601String(),
+                ],
+            ];
+        } catch (HttpException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+
+            $this->audit()->log(
+                actor: null,
+                event: 'auth.password_reset.confirm.error',
+                subject: ['type' => 'Auth', 'id' => 'resetPasswordWithCode'],
+                description: 'Error interno al confirmar recuperación de contraseña',
+                changes: ['old' => null, 'new' => null],
+                tenantId: null,
+                meta: [
+                    'email' => $email,
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]
+            );
+
+            throw new HttpException(500, __('errors.server_error'));
+        }
+    }
+
+    protected function revokeAllTokensForUser(User $user): void
+    {
+        $conn = config('passport.connection');
+
+        $tokenIds = DB::connection($conn)->table('oauth_access_tokens')
+            ->where('user_id', $user->id)
+            ->where('revoked', false)
+            ->pluck('id')
+            ->all();
+
+        if (!empty($tokenIds)) {
+            DB::connection($conn)->table('oauth_access_tokens')
+                ->whereIn('id', $tokenIds)
+                ->update(['revoked' => true]);
+
+            DB::connection($conn)->table('oauth_refresh_tokens')
+                ->whereIn('access_token_id', $tokenIds)
+                ->update(['revoked' => true]);
+        }
     }
 
     /**
@@ -958,16 +1203,6 @@ class AuthRepository
         return "presence:online:{$tenantId}:{$userId}";
     }
 
-    protected function touchLastSeen(User $user, bool $force = false): void
-    {
-        $throttleSeconds = (int) config('presence.last_seen_throttle_seconds', 120);
-        $lockKey = "presence:last_seen_lock:{$user->id}";
-
-        if ($force || Cache::add($lockKey, true, $throttleSeconds)) {
-            $user->forceFill(['last_seen_at' => now()])->save();
-        }
-    }
-
     /**
      * Devuelve el id del access token actual.
      */
@@ -1124,6 +1359,589 @@ class AuthRepository
                 ]
             );
 
+            throw new HttpException(500, __('errors.server_error'));
+        }
+    }
+
+    // -------------- Metodos para el login con redes sociales y google ------------------
+    public function socialLogin(string $provider, string $accessToken, array $hints = []): array
+    {
+        try {
+            $provider = strtolower(trim($provider));
+
+            if (!in_array($provider, ['google', 'facebook'], true)) {
+                throw new HttpException(
+                    Response::HTTP_UNPROCESSABLE_ENTITY,
+                    'Proveedor social no soportado.'
+                );
+            }
+
+            try {
+                $socialUser = Socialite::driver($provider)
+                    ->stateless()
+                    ->userFromToken($accessToken);
+            } catch (Throwable $e) {
+                $this->audit()->log(
+                    actor: null,
+                    event: 'auth.social.invalid_token',
+                    subject: ['type' => 'Auth', 'id' => 'socialLogin'],
+                    description: 'Token social inválido o expirado',
+                    changes: ['old' => null, 'new' => null],
+                    tenantId: null,
+                    meta: [
+                        'provider' => $provider,
+                        'exception' => class_basename($e),
+                        'message' => $e->getMessage(),
+                    ]
+                );
+
+                throw new HttpException(
+                    Response::HTTP_UNPROCESSABLE_ENTITY,
+                    'El token social es inválido o ha expirado.'
+                );
+            }
+
+            $providerId = (string) $socialUser->getId();
+            $email = $socialUser->getEmail() ?: ($hints['email'] ?? null);
+            $name = $socialUser->getName() ?: ($hints['name'] ?? 'User');
+            $avatar = $socialUser->getAvatar() ?: ($hints['avatar'] ?? null);
+            $locale = $hints['locale'] ?? app()->getLocale();
+
+            // Regla 1: si no hay email, se rechaza
+            if (!$email) {
+                $this->audit()->log(
+                    actor: null,
+                    event: 'auth.social.blocked.missing_email',
+                    subject: ['type' => 'Auth', 'id' => 'socialLogin'],
+                    description: 'Login social bloqueado: proveedor sin email',
+                    changes: ['old' => null, 'new' => null],
+                    tenantId: null,
+                    meta: [
+                        'provider' => $provider,
+                        'provider_id' => $providerId,
+                    ]
+                );
+
+                throw new HttpException(
+                    Response::HTTP_UNPROCESSABLE_ENTITY,
+                    'No fue posible obtener el correo electrónico desde el proveedor social.'
+                );
+            }
+
+            $providerColumn = $this->providerColumn($provider);
+
+            /** @var User|null $userByProvider */
+            $userByProvider = User::query()
+                ->where($providerColumn, $providerId)
+                ->first();
+
+            /** @var User|null $userByEmail */
+            $userByEmail = User::query()
+                ->where('email', $email)
+                ->first();
+
+            // Regla 2: si provider_id ya está ligado a una cuenta y además
+            // el email corresponde a otra diferente, se bloquea
+            if (
+                $userByProvider &&
+                $userByEmail &&
+                $userByProvider->getKey() !== $userByEmail->getKey()
+            ) {
+                $this->audit()->log(
+                    actor: null,
+                    event: 'auth.social.blocked.provider_conflict',
+                    subject: ['type' => 'User', 'id' => $email],
+                    description: 'Conflicto entre provider_id y email en login social',
+                    changes: ['old' => null, 'new' => null],
+                    tenantId: null,
+                    meta: [
+                        'provider' => $provider,
+                        'provider_id' => $providerId,
+                        'email' => $email,
+                        'provider_user_id' => $userByProvider->id,
+                        'email_user_id' => $userByEmail->id,
+                    ]
+                );
+
+                throw new HttpException(
+                    Response::HTTP_CONFLICT,
+                    'La cuenta social ya está vinculada a otro usuario.'
+                );
+            }
+
+            $user = $userByProvider ?: $userByEmail;
+            $created = false;
+
+            if (!$user) {
+                $user = new User();
+                $user->email = $email;
+                $user->password = Hash::make(Str::random(40));
+                $created = true;
+            }
+
+            // Regla 3: si la cuenta existe y está inactiva, se bloquea
+            if ($user->exists && $user->is_active === false) {
+                $this->audit()->log(
+                    actor: $user,
+                    event: 'auth.social.blocked.inactive',
+                    subject: $user,
+                    description: 'Login social bloqueado: cuenta inactiva',
+                    changes: ['old' => null, 'new' => null],
+                    tenantId: null,
+                    meta: [
+                        'provider' => $provider,
+                        'provider_id' => $providerId,
+                        'email' => $email,
+                    ]
+                );
+
+                throw new HttpException(
+                    Response::HTTP_FORBIDDEN,
+                    __('auth.account_inactive')
+                );
+            }
+
+            DB::transaction(function () use (
+                &$user,
+                $provider,
+                $providerColumn,
+                $providerId,
+                $email,
+                $name,
+                $avatar,
+                $locale,
+                $created
+            ) {
+                $user->name = $name ?: $user->name;
+
+                if (!$user->email) {
+                    $user->email = $email;
+                }
+
+                $user->avatar = $avatar ?: $user->avatar;
+                $user->locale = $locale ?: $user->locale;
+
+                // Regla 4: si el email viene del proveedor, se considera verificado
+                if ($email && is_null($user->email_verified_at)) {
+                    $user->email_verified_at = now();
+                }
+
+                // Para usuarios nuevos, activar
+                if (!$user->exists) {
+                    $user->is_active = true;
+                }
+
+                // Vincular provider
+                $user->{$providerColumn} = $providerId;
+
+                $user->save();
+                $user = $user->fresh();
+
+                // asignar permisos por defecto al nuevo usuario ( no lo uso porque model_hos_permissions necesita un tenant_id y el usuario nuevo no lo tiene)
+//                if ($created) {
+//                    $this->assignDefaultPermissionsToNewUser($user);
+//                }
+
+                $this->audit()->log(
+                    actor: null,
+                    event: $created ? 'users.social.created' : 'users.social.linked',
+                    subject: $user,
+                    description: $created
+                        ? 'Usuario creado mediante login social'
+                        : 'Cuenta social vinculada o autenticada',
+                    changes: [
+                        'old' => null,
+                        'new' => Arr::only($user->toArray(), [
+                            'id',
+                            'name',
+                            'email',
+                            'locale',
+                            'is_active',
+                            'email_verified_at',
+                            'google_id',
+                            'facebook_id',
+                        ]),
+                    ],
+                    tenantId: null,
+                    meta: [
+                        'provider' => $provider,
+                        'provider_id' => $providerId,
+                    ]
+                );
+            });
+
+            $initialTenant = $this->resolveInitialTenantFor($user);
+            $this->applyTenantContext($initialTenant);
+
+            $tokens = $this->issuePassportTokens(
+                user: $user,
+                tokenName: 'web-access',
+                tenantId: $initialTenant ? (string) $initialTenant->id : null
+            );
+
+            $me = $this->meWithImpersonation($user);
+
+            $tenantId = (string) ($initialTenant?->id ?? '');
+            if ($tenantId !== '') {
+                $this->markOnline($user, $tenantId);
+            }
+
+            return [
+                'me' => $me,
+                '_tokens' => [
+                    'access_token' => $tokens['access_token'],
+                    'access_expires_at' => $tokens['access_expires_at'],
+                    'refresh_token' => $tokens['refresh_token'],
+                    'refresh_expires_at' => $tokens['refresh_expires_at'],
+                ],
+            ];
+        } catch (HttpException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+
+            $this->audit()->log(
+                actor: null,
+                event: 'auth.social.error',
+                subject: ['type' => 'Auth', 'id' => 'socialLogin'],
+                description: 'Error interno en login social',
+                changes: ['old' => null, 'new' => null],
+                tenantId: Tenant::current()?->id,
+                meta: [
+                    'provider' => $provider ?? null,
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]
+            );
+
+            throw new HttpException(500, __('errors.server_error'));
+        }
+    }
+
+    protected function providerColumn(string $provider): string
+    {
+        return match ($provider) {
+            'google' => 'google_id',
+            'facebook' => 'facebook_id',
+            default => throw new HttpException(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                'Proveedor social no soportado.'
+            ),
+        };
+    }
+
+    // NUEVOS---------------
+    public function socialRedirect(string $provider): string
+    {
+        $provider = strtolower(trim($provider));
+
+        if (!in_array($provider, ['google', 'facebook'], true)) {
+            throw new HttpException(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                'Proveedor social no soportado.'
+            );
+        }
+
+        return Socialite::driver($provider)
+            ->stateless()
+            ->redirect()
+            ->getTargetUrl();
+    }
+
+    public function socialCallback(string $provider): array
+    {
+        try {
+            $provider = strtolower(trim($provider));
+
+            if (!in_array($provider, ['google', 'facebook'], true)) {
+                throw new HttpException(
+                    Response::HTTP_UNPROCESSABLE_ENTITY,
+                    'Proveedor social no soportado.'
+                );
+            }
+
+            try {
+                $socialUser = Socialite::driver($provider)
+                    ->stateless()
+                    ->user();
+            } catch (Throwable $e) {
+                $this->audit()->log(
+                    actor: null,
+                    event: 'auth.social.callback.invalid',
+                    subject: ['type' => 'Auth', 'id' => 'socialCallback'],
+                    description: 'Callback social inválido o expirado',
+                    changes: ['old' => null, 'new' => null],
+                    tenantId: null,
+                    meta: [
+                        'provider' => $provider,
+                        'exception' => class_basename($e),
+                        'message' => $e->getMessage(),
+                    ]
+                );
+
+                throw new HttpException(
+                    Response::HTTP_UNPROCESSABLE_ENTITY,
+                    'No fue posible completar la autenticación social.'
+                );
+            }
+
+            return $this->socialLoginFromSocialiteUser($provider, $socialUser);
+        } catch (HttpException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            report($e);
+
+            $this->audit()->log(
+                actor: null,
+                event: 'auth.social.callback.error',
+                subject: ['type' => 'Auth', 'id' => 'socialCallback'],
+                description: 'Error interno en callback social',
+                changes: ['old' => null, 'new' => null],
+                tenantId: Tenant::current()?->id,
+                meta: [
+                    'provider' => $provider ?? null,
+                    'exception' => class_basename($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]
+            );
+
+            throw new HttpException(500, __('errors.server_error'));
+        }
+    }
+
+    protected function socialLoginFromSocialiteUser(string $provider, $socialUser, array $hints = []): array
+    {
+        $providerId = (string) $socialUser->getId();
+        $email = $socialUser->getEmail() ?: ($hints['email'] ?? null);
+        $name = $socialUser->getName() ?: ($hints['name'] ?? 'User');
+        $avatar = $socialUser->getAvatar() ?: ($hints['avatar'] ?? null);
+        $locale = $hints['locale'] ?? app()->getLocale();
+
+        if (!$email) {
+            $this->audit()->log(
+                actor: null,
+                event: 'auth.social.blocked.missing_email',
+                subject: ['type' => 'Auth', 'id' => 'socialLoginFromSocialiteUser'],
+                description: 'Login social bloqueado: proveedor sin email',
+                changes: ['old' => null, 'new' => null],
+                tenantId: null,
+                meta: [
+                    'provider' => $provider,
+                    'provider_id' => $providerId,
+                ]
+            );
+
+            throw new HttpException(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                'No fue posible obtener el correo electrónico desde el proveedor social.'
+            );
+        }
+
+        $providerColumn = $this->providerColumn($provider);
+
+        $userByProvider = User::query()
+            ->where($providerColumn, $providerId)
+            ->first();
+
+        $userByEmail = User::query()
+            ->where('email', $email)
+            ->first();
+
+        if (
+            $userByProvider &&
+            $userByEmail &&
+            $userByProvider->getKey() !== $userByEmail->getKey()
+        ) {
+            $this->audit()->log(
+                actor: null,
+                event: 'auth.social.blocked.provider_conflict',
+                subject: ['type' => 'User', 'id' => $email],
+                description: 'Conflicto entre provider_id y email en login social',
+                changes: ['old' => null, 'new' => null],
+                tenantId: null,
+                meta: [
+                    'provider' => $provider,
+                    'provider_id' => $providerId,
+                    'email' => $email,
+                    'provider_user_id' => $userByProvider->id,
+                    'email_user_id' => $userByEmail->id,
+                ]
+            );
+
+            throw new HttpException(
+                Response::HTTP_CONFLICT,
+                'La cuenta social ya está vinculada a otro usuario.'
+            );
+        }
+
+        $user = $userByProvider ?: $userByEmail;
+        $created = false;
+
+        if (!$user) {
+            $user = new User();
+            $user->email = $email;
+            $user->password = Hash::make(Str::random(40));
+            $created = true;
+        }
+
+        if ($user->exists && $user->is_active === false) {
+            $this->audit()->log(
+                actor: $user,
+                event: 'auth.social.blocked.inactive',
+                subject: $user,
+                description: 'Login social bloqueado: cuenta inactiva',
+                changes: ['old' => null, 'new' => null],
+                tenantId: null,
+                meta: [
+                    'provider' => $provider,
+                    'provider_id' => $providerId,
+                    'email' => $email,
+                ]
+            );
+
+            throw new HttpException(
+                Response::HTTP_FORBIDDEN,
+                __('auth.account_inactive')
+            );
+        }
+
+        DB::transaction(function () use (
+            &$user,
+            $provider,
+            $providerColumn,
+            $providerId,
+            $email,
+            $name,
+            $avatar,
+            $locale,
+            $created
+        ) {
+            $user->name = $name ?: $user->name;
+
+            if (!$user->email) {
+                $user->email = $email;
+            }
+
+            $user->avatar = $avatar ?: $user->avatar;
+            $user->locale = $locale ?: $user->locale;
+
+            if ($email && is_null($user->email_verified_at)) {
+                $user->email_verified_at = now();
+            }
+
+            if (!$user->exists) {
+                $user->is_active = true;
+            }
+
+            $user->{$providerColumn} = $providerId;
+
+            $user->save();
+            $user = $user->fresh();
+
+            // asignar permisos por defecto al nuevo usuario ( no lo uso porque model_hos_permissions necesita un tenant_id y el usuario nuevo no lo tiene)
+            if ($created) {
+                $this->assignDefaultPermissionsToNewUser($user);
+            }
+
+            $this->audit()->log(
+                actor: null,
+                event: $created ? 'users.social.created' : 'users.social.linked',
+                subject: $user,
+                description: $created
+                    ? 'Usuario creado mediante login social'
+                    : 'Cuenta social vinculada o autenticada',
+                changes: [
+                    'old' => null,
+                    'new' => Arr::only($user->toArray(), [
+                        'id',
+                        'name',
+                        'email',
+                        'locale',
+                        'is_active',
+                        'email_verified_at',
+                        'google_id',
+                        'facebook_id',
+                    ]),
+                ],
+                tenantId: null,
+                meta: [
+                    'provider' => $provider,
+                    'provider_id' => $providerId,
+                ]
+            );
+        });
+
+        $initialTenant = $this->resolveInitialTenantFor($user);
+        $this->applyTenantContext($initialTenant);
+
+        $tokens = $this->issuePassportTokens(
+            user: $user,
+            tokenName: 'web-access',
+            tenantId: $initialTenant ? (string) $initialTenant->id : null
+        );
+
+        $me = $this->meWithImpersonation($user);
+
+        $tenantId = (string) ($initialTenant?->id ?? '');
+        if ($tenantId !== '') {
+            $this->markOnline($user, $tenantId);
+        }
+
+        return [
+            'me' => $me,
+            '_tokens' => [
+                'access_token' => $tokens['access_token'],
+                'access_expires_at' => $tokens['access_expires_at'],
+                'refresh_token' => $tokens['refresh_token'],
+                'refresh_expires_at' => $tokens['refresh_expires_at'],
+            ],
+        ];
+    }
+
+    // -------------- Fin de los metodos para el login con redes sociales y google ------------------
+
+    // este metodo es para asignar permisos por defecto a los usuarios que se creen una cuenta por primera vez
+    public function assignDefaultPermissionsToSocialUsers(string $provider): void
+    {
+        $provider = strtolower(trim($provider));
+    }
+    protected function assignDefaultPermissionsToNewUser(User $user): void
+    {
+        try {
+            $permissions = config('default_permissions.user_register', []);
+
+            if (empty($permissions)) {
+                return;
+            }
+
+            $permissions = collect($permissions)
+                ->filter(fn ($permission) => is_string($permission) && trim($permission) !== '')
+                ->map(fn ($permission) => trim($permission))
+                ->unique()
+                ->values();
+
+            if ($permissions->isEmpty()) {
+                return;
+            }
+
+            $guardName = 'api';
+
+            $existingPermissions = Permission::query()
+                ->where('guard_name', $guardName)
+                ->whereIn('name', $permissions->all())
+                ->pluck('name')
+                ->all();
+
+            if (empty($existingPermissions)) {
+                return;
+            }
+
+            $user->givePermissionTo($existingPermissions);
+        } catch (Throwable $e) {
             throw new HttpException(500, __('errors.server_error'));
         }
     }

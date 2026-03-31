@@ -24,7 +24,7 @@ return [
     |--------------------------------------------------------------------------
     | IMPORTANTE: No uses '*' si supports_credentials = true
     */
-    'allowed_origins' => ['http://localhost:3000'],
+    'allowed_origins' => ['https://app.eduolivo.test'],
 
     'allowed_origins_patterns' => [],
 

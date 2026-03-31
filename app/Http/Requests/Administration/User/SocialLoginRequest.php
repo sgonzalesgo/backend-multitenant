@@ -16,7 +16,11 @@ class SocialLoginRequest extends FormRequest
     {
         return [
             'provider' => ['required', Rule::in(['google', 'facebook'])],
-            'token'    => ['required', 'string', 'min:10'],
+            'access_token'    => ['required', 'string', 'min:10'],
+            'email' => ['nullable', 'email'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'avatar' => ['nullable', 'url', 'max:2048'],
+            'locale' => ['nullable', 'string', 'max:10'],
         ];
     }
 
