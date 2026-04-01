@@ -72,6 +72,19 @@ class RolePerTenantSeeder extends Seeder
                 'Remove chat_group_users',
                 'Edit chat_group_messages',
                 'Delete chat_group_messages',
+                'Send manual_notifications',
+                'List manual_notifications',
+                'Archive manual_notifications',
+                'Unarchive manual_notifications',
+                'List events',
+                'Store events',
+                'Show events',
+                'Update events',
+                'Delete events',
+                'Store events',
+                'Show events_type',
+                'Update event_types',
+                'Delete event_types'
             ],
         ];
 

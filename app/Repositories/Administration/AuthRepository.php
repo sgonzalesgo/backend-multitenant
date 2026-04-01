@@ -1162,7 +1162,7 @@ class AuthRepository
      */
     public function markOnline(User $user, string $tenantId, ?int $ttlSeconds = null): void
     {
-        $ttlSeconds ??= 120;
+        $ttlSeconds ??= (int) config('auth.presence_ttl_seconds', 300);
 
         $key = $this->onlineKey($tenantId, (string) $user->id);
         $wasOnline = Cache::has($key);

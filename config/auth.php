@@ -103,6 +103,8 @@ return [
     'refresh_cookie' => env('AUTH_REFRESH_COOKIE', 'refresh_token'),
     'tenant_cookie' => env('AUTH_TENANT_COOKIE', 'tenant_id'),
 
+    //
+    'presence_ttl_seconds'=> (int) env('PRESENCE_TTL_SECONDS', 300),
     /*
     |--------------------------------------------------------------------------
     | Token Lifetimes

@@ -25,4 +25,7 @@ Route::middleware([
     require base_path('routes/administration/tenant.php');
     require base_path('routes/administration/notifications.php');
     require base_path('routes/administration/chat_presence.php');
+    require base_path('routes/administration/manual_notifications.php');
+    require base_path('routes/calendar/calendar.php');
+    require base_path('routes/calendar/calendar_event_type.php');
 });

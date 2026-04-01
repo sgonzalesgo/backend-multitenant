@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Calendar\CalendarEventTypeSeeder;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,6 +14,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             RolePerTenantSeeder::class,
             UserSeeder::class,
+            CalendarEventTypeSeeder::class
         ]);
     }
 }

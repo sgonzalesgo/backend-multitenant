@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Administration;
 
 use App\Http\Requests\Administration\User\StoreUserRequest;
+use App\Models\Administration\Tenant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -103,8 +104,10 @@ class AuthController extends Controller
         $user = $request->user();
 
         $this->repo->logout($user);
+        $tenantId = (string) (Tenant::current()?->id ?? '');
 
-        cache()->forget("presence:online:{$user->id}");
+//        cache()->forget("presence:online:{$user->id}");
+        cache()->forget("presence:online:{$tenantId}:{$user->id}");
         event(new UserOffline($user->id));
 
         return response()->json([
@@ -251,10 +254,22 @@ class AuthController extends Controller
     /**
      * POST /auth/ping
      */
+//    public function ping(Request $request): JsonResponse
+//    {
+//        $user = $request->user();
+//        $tenantId = (string) data_get($this->repo->me($user), 'current_tenant.id', '');
+//
+//        if ($tenantId !== '') {
+//            $this->repo->markOnline($user, $tenantId);
+//        }
+//
+//        return response()->json(['ok' => true]);
+//    }
+
     public function ping(Request $request): JsonResponse
     {
         $user = $request->user();
-        $tenantId = (string) data_get($this->repo->me($user), 'current_tenant.id', '');
+        $tenantId = (string) (Tenant::current()?->id ?? '');
 
         if ($tenantId !== '') {
             $this->repo->markOnline($user, $tenantId);
@@ -367,7 +382,7 @@ class AuthController extends Controller
 
     protected function cookieSameSite(): string
     {
-        return ucfirst((string) config('session.same_site', 'lax'));
+        return (string) config('session.same_site', 'lax');
     }
 
     public function refresh(Request $request): JsonResponse

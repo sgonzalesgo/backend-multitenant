@@ -147,3 +147,12 @@ Broadcast::channel('inbox.tenant.{tenantId}.user.{userId}', function ($user, $te
 Broadcast::channel('notifications.user.{userId}', function ($user, $userId) {
     return (string) $user->id === (string) $userId;
 });
+
+//----------------------------- calendar module --------------------------------------------
+Broadcast::channel('tenant.{tenantId}.calendar', function (User $user, string $tenantId) {
+    if (method_exists($user, 'tenants')) {
+        return $user->tenants()->where('id', $tenantId)->exists();
+    }
+
+    return true;
+});
