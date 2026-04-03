@@ -307,7 +307,7 @@ class CalendarEventTypeSeeder extends Seeder
                 'is_system' => true,
                 'is_active' => true,
                 'settings' => [
-                    'category' => 'general',
+                    'category' => 'General',
                     'requires_location' => false,
                     'requires_audience' => false,
                     'supports_attendance' => true,

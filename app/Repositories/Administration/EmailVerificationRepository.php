@@ -93,7 +93,7 @@ class EmailVerificationRepository
 
                 if ($purpose === 'verify_email') {
                     $user->email_verified_at = now();
-                    $user->is_active = true;
+                    $user->status = 'active';
                     $user->save();
 
                     app(AuditLogRepository::class)->log(

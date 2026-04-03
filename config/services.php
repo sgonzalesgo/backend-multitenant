@@ -47,5 +47,9 @@ return [
         'redirect' => env('FACEBOOK_REDIRECT_URI'),
     ],
 
+    'dinardap' => [
+        'base_url' => env('DINARDAP_BASE_URL', 'https://geoapi.esmeraldas.gob.ec/new/dinardap'),
+        'codigo_paquete' => env('DINARDAP_CODIGO_PAQUETE',3789),
+    ],
 
 ];

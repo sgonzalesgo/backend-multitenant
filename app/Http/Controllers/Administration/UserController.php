@@ -9,7 +9,6 @@ use App\Models\Administration\User;
 use App\Repositories\Administration\UserRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
@@ -47,7 +46,7 @@ class UserController extends Controller
         return response()->json([
             'code'    => 200,
             'message' => __('messages.users.shown'),
-            'data'    => $user,
+            'data'    => $user->load('person'),
             'error'   => null,
         ], Response::HTTP_OK);
     }

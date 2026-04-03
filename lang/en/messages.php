@@ -32,4 +32,39 @@ return [
         'password_reset_code_sent' => 'If an account exists for that email, we have sent a recovery code.',
         'password_reset_success' => 'The password was updated successfully.',
     ],
+    'persons' => [
+        'listed' => 'Persons listed successfully.',
+        'created' => 'Person created successfully.',
+        'shown' => 'Person retrieved successfully.',
+        'updated' => 'Person updated successfully.',
+        'deleted' => 'Person deleted successfully.',
+        'lookup_found' => 'Person found.',
+        'lookup_not_found' => 'Person not found.',
+    ],
+    'instructors' => [
+        'listed' => 'Instructors listed successfully.',
+        'created' => 'Instructor created successfully.',
+        'shown' => 'Instructor retrieved successfully.',
+        'updated' => 'Instructor updated successfully.',
+        'deleted' => 'Instructor deleted successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+        'code_generation_failed' => 'A unique code for the instructor could not be generated.',
+    ],
+    'history' => [
+        'listed' => 'History listed successfully',
+        'invalid_type' => 'The selected audit type is invalid.',
+        'invalid' => 'Invalid audit'
+    ],
+    'actions' => [
+        'created' => 'Created',
+        'updated' => 'Updated',
+        'deleted' => 'Deleted',
+        'description_created' => 'Record created',
+        'description_updated' => 'Record updated',
+        'description_deleted' => 'Record deleted',
+    ],
+
+    'tenants' => [
+        'tenant_not_found' => 'The current tenant could not be resolved.'
+    ],
 ];

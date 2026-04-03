@@ -9,6 +9,9 @@ return [
         'updated' => 'Permission updated.',
         'deleted' => 'Permission deleted.',
         'user_in_tenant' => 'User effective permissions in tenant.',
+        'permission_names' => 'Permission names.',
+        'sync_permission' => 'Permissions assigned to role.',
+        'sync_permission_model' => 'Permissions synchronized for user.',
     ],
     'roles_permissions' => [
         'list' => 'Role current permissions.',
@@ -16,6 +19,7 @@ return [
         'revoke' => 'Permissions revoked from role.',
         'sync' => 'Role permissions synchronized.',
     ],
+
     'roles' => [
         'list'   => 'Roles list.',
         'all'    => 'Full roles list.',
@@ -30,6 +34,7 @@ return [
             'sync' => 'Role permissions synchronized.',
         ],
     ],
+
     'users' => [
         'list'    => 'Users list.',
         'all'     => 'Full users list.',
@@ -47,6 +52,16 @@ return [
             'sync_in_tenant' => 'User roles synchronized in tenant.',
         ],
     ],
+
+    'persons' => [
+        'list'    => 'Persons list.',
+        'all'     => 'Full persons list.',
+        'show'    => 'Person detail.',
+        'created' => 'Person created.',
+        'updated' => 'Person updated.',
+        'deleted' => 'Person deleted.',
+    ],
+
     'auth' => [
         'impersonate' => [
             'start'         => 'Impersonation started.',

@@ -3,17 +3,16 @@
 namespace App\Models\Administration;
 
 // global import
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Permission\Models\Permission as SpatiePermission;
 
-// local import
-use App\Traits\Uuid;
-
 class Permission extends SpatiePermission
 {
-    use HasFactory, Uuid;
+    use HasFactory, HasUuids, Notifiable;
 
     protected $primaryKey = 'id';
     public $incrementing = false;

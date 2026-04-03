@@ -83,7 +83,20 @@ class PermissionSeeder extends Seeder
             'Show events_type',
             'Update event_types',
             'Update event_types',
-            'Delete event_types'
+            'Delete event_types',
+            'List persons',
+            'Store persons',
+            'Show persons',
+            'Update persons',
+            'Delete persons',
+            'List instructors',
+            'Store instructors',
+            'Show instructors',
+            'Update instructors',
+            'Delete instructors',
+            'List notifications',
+            'Read notifications',
+
         ];
 
         foreach ($perms as $name) {

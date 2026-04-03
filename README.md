@@ -150,3 +150,10 @@ GET /groups/{groupId}/members
 ## setear la zona horaria en postgres (esto es importante para que funcione el datetime)
 SET TIME ZONE 'UTC';
 SHOW timezone;
+
+
+[//]: # (listado de permisos que debe tener por defecto un usuario
+List audit_logs
+List notifications
+Read notifications
+

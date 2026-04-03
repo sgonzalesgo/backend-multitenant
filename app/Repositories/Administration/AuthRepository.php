@@ -2,16 +2,14 @@
 
 namespace App\Repositories\Administration;
 
-use Illuminate\Http\UploadedFile;
 use Throwable;
-use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Support\Arr;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Socialite\Facades\Socialite;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -46,42 +44,14 @@ class AuthRepository
             $user = User::query()->where('email', $email)->first();
 
             if (!$user || !Hash::check($password, (string) $user->password)) {
-                $this->audit()->log(
-                    actor: $user,
-                    event: 'auth.login.failed',
-                    subject: $user ?: null,
-                    description: 'Intento de login fallido',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: Tenant::current()?->id,
-                    meta: ['email' => $email, 'reason' => 'invalid_credentials']
-                );
-
                 throw new HttpException(401, __('auth.invalid_credentials'));
             }
 
-            if ($user->is_active === false) {
-                $this->audit()->log(
-                    actor: $user,
-                    event: 'auth.login.blocked.inactive',
-                    subject: $user,
-                    description: 'Login bloqueado: cuenta inactiva',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: Tenant::current()?->id
-                );
-
+            if ($user->status === 'inactive') {
                 throw new HttpException(403, __('auth.account_inactive'));
             }
 
             if (is_null($user->email_verified_at)) {
-                $this->audit()->log(
-                    actor: $user,
-                    event: 'auth.login.blocked.unverified',
-                    subject: $user,
-                    description: 'Login bloqueado: email no verificado',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: Tenant::current()?->id
-                );
-
                 throw new HttpException(403, __('auth.email_not_verified'));
             }
 
@@ -114,22 +84,6 @@ class AuthRepository
             throw $e;
         } catch (Throwable $e) {
             report($e);
-
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.login.error',
-                subject: ['type' => 'Auth', 'id' => 'attemptLogin'],
-                description: 'Error interno en login',
-                changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id,
-                meta: [
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]
-            );
-
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -318,17 +272,7 @@ class AuthRepository
                 ->exists();
 
         if (!$canSwitch) {
-            $this->audit()->log(
-                actor: $user,
-                event: 'Cambio de Tenant denegado',
-                subject: $tenant,
-                description: 'Cambio de tenant denegado',
-                changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id,
-                meta: ['target_tenant_id' => $tenant->id]
-            );
-
-            abort(403, 'No tienes acceso a este tenant.');
+            abort(403, __('auth.no_access'));
         }
 
         $this->applyTenantContext($tenant);
@@ -345,14 +289,6 @@ class AuthRepository
         $token = $user->token();
 
         if (!$token) {
-            $this->audit()->log(
-                actor: $user,
-                event: 'Error en el cierre de Session',
-                subject: $user,
-                description: 'Logout sin token asociado al request',
-                changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id
-            );
 
             $tenantId = (string) (Tenant::current()?->id ?? '');
             if ($tenantId !== '') {
@@ -374,16 +310,6 @@ class AuthRepository
         if ($tenantId !== '') {
             $this->markOffline($user, $tenantId);
         }
-
-        $this->audit()->log(
-            actor: $user,
-            event: 'Cierre de sesión exitoso',
-            subject: $user,
-            description: 'Cierre de sesión',
-            changes: ['old' => null, 'new' => null],
-            tenantId: Tenant::current()?->id,
-            meta: ['access_token_id' => $token->id]
-        );
     }
 
     public function register(RegisterRequest $request): array
@@ -432,7 +358,7 @@ class AuthRepository
                         'email' => $existing->email,
                         'avatar' => $existing->avatar,
                         'locale' => $existing->locale,
-                        'is_active' => (bool) $existing->is_active,
+                        'status' => $existing->status,
                         'email_verified_at' => optional($existing->email_verified_at)?->toIso8601String(),
                     ],
                     'requires_verification' => true,
@@ -456,27 +382,12 @@ class AuthRepository
             $user->password = Hash::make($data['password']);
             $user->avatar = $avatarPath;
             $user->locale = $data['locale'] ?? app()->getLocale();
-            $user->is_active = false;
+            $user->status = 'inactive';
             $user->email_verified_at = null;
             $user->save();
 
-            // asignar permisos por defecto al nuevo usuario ( no lo uso porque model_hos_permissions necesita un tenant_id y el usuario nuevo no lo tiene)
-//            $this->assignDefaultPermissionsToNewUser($user);
-
             app(EmailVerificationRepository::class)
                 ->issueCode($user, 'verify_email', $request->ip(), $request->userAgent());
-
-            $this->audit()->log(
-                actor: null,
-                event: 'users.register',
-                subject: $user,
-                description: __('audit.users.register'),
-                changes: [
-                    'old' => null,
-                    'new' => ['id' => $user->id, 'email' => $user->email],
-                ],
-                tenantId: null
-            );
 
             return [
                 '_http_code' => Response::HTTP_CREATED,
@@ -488,7 +399,7 @@ class AuthRepository
                     'email' => $user->email,
                     'avatar' => $user->avatar,
                     'locale' => $user->locale,
-                    'is_active' => (bool) $user->is_active,
+                    'staus' => $user->status,
                     'email_verified_at' => null,
                 ],
                 'requires_verification' => true,
@@ -523,32 +434,6 @@ class AuthRepository
 
                     $sent = true;
                 }
-
-                $this->audit()->log(
-                    actor: null,
-                    event: 'auth.password_reset.request_code',
-                    subject: $user,
-                    description: 'Solicitud de código para recuperación de contraseña',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: null,
-                    meta: [
-                        'email' => $email,
-                        'sent' => $sent,
-                        'cooldown_remaining' => $cooldownRemaining,
-                    ]
-                );
-            } else {
-                $this->audit()->log(
-                    actor: null,
-                    event: 'auth.password_reset.request_code.unknown_email',
-                    subject: ['type' => 'User', 'id' => $email],
-                    description: 'Solicitud de recuperación de contraseña para email no registrado',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: null,
-                    meta: [
-                        'email' => $email,
-                    ]
-                );
             }
 
             return [
@@ -563,23 +448,6 @@ class AuthRepository
             throw $e;
         } catch (Throwable $e) {
             report($e);
-
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.password_reset.request_code.error',
-                subject: ['type' => 'Auth', 'id' => 'requestPasswordResetCode'],
-                description: 'Error interno al solicitar código de recuperación de contraseña',
-                changes: ['old' => null, 'new' => null],
-                tenantId: null,
-                meta: [
-                    'email' => $email,
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]
-            );
-
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -599,18 +467,6 @@ class AuthRepository
             $ok = $verificationRepo->verifyCode($user, $code, 'forgot_password');
 
             if (!$ok) {
-                $this->audit()->log(
-                    actor: null,
-                    event: 'auth.password_reset.confirm.invalid_code',
-                    subject: $user,
-                    description: 'Código inválido en recuperación de contraseña',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: null,
-                    meta: [
-                        'email' => $email,
-                    ]
-                );
-
                 throw new HttpException(422, __('verify.invalid'));
             }
 
@@ -622,21 +478,6 @@ class AuthRepository
 
             $this->revokeAllTokensForUser($user);
 
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.password_reset.success',
-                subject: $user,
-                description: 'Contraseña actualizada correctamente mediante código de recuperación',
-                changes: [
-                    'old' => null,
-                    'new' => ['password_reset' => true],
-                ],
-                tenantId: null,
-                meta: [
-                    'email' => $email,
-                ]
-            );
-
             return [
                 '_http_code' => Response::HTTP_OK,
                 'message_key' => 'messages.auth.password_reset_success',
@@ -647,7 +488,7 @@ class AuthRepository
                     'email' => $user->email,
                     'avatar' => $user->avatar,
                     'locale' => $user->locale,
-                    'is_active' => (bool) $user->is_active,
+                    'status' => $user->status,
                     'email_verified_at' => optional($user->email_verified_at)?->toIso8601String(),
                     'created_at' => optional($user->created_at)?->toIso8601String(),
                     'updated_at' => optional($user->updated_at)?->toIso8601String(),
@@ -657,23 +498,6 @@ class AuthRepository
             throw $e;
         } catch (Throwable $e) {
             report($e);
-
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.password_reset.confirm.error',
-                subject: ['type' => 'Auth', 'id' => 'resetPasswordWithCode'],
-                description: 'Error interno al confirmar recuperación de contraseña',
-                changes: ['old' => null, 'new' => null],
-                tenantId: null,
-                meta: [
-                    'email' => $email,
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]
-            );
-
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -858,24 +682,24 @@ class AuthRepository
 
             $this->applyTenantContext($actorTenant);
 
-            $this->audit()->log(
-                actor: $actor,
-                event: 'auth.impersonate.start',
-                subject: $target,
-                description: __('audit.auth.impersonate.start'),
-                changes: ['old' => null, 'new' => null],
-                tenantId: $actorCurrentTenantId !== '' ? $actorCurrentTenantId : null,
-                meta: [
-                    'impersonator_id' => $actor->id,
-                    'impersonated_id' => $target->id,
-                    'backup_access_token_id' => $backupAccess->token->id,
-                    'imp_access_token_id' => $impAccess->token->id,
-                    'imp_minutes' => $impMinutes,
-                    'actor_tenant_id' => $actorCurrentTenantId !== '' ? $actorCurrentTenantId : null,
-                    'effective_target_tenant_id' => $effectiveTargetTenantId !== '' ? $effectiveTargetTenantId : null,
-                    'impersonation_session_id' => $impersonationSessionId,
-                ]
-            );
+//            $this->audit()->log(
+//                actor: $actor,
+//                event: 'auth.impersonate.start',
+//                subject: $target,
+//                description: __('audit.auth.impersonate.start'),
+//                changes: ['old' => null, 'new' => null],
+//                tenantId: $actorCurrentTenantId !== '' ? $actorCurrentTenantId : null,
+//                meta: [
+//                    'impersonator_id' => $actor->id,
+//                    'impersonated_id' => $target->id,
+//                    'backup_access_token_id' => $backupAccess->token->id,
+//                    'imp_access_token_id' => $impAccess->token->id,
+//                    'imp_minutes' => $impMinutes,
+//                    'actor_tenant_id' => $actorCurrentTenantId !== '' ? $actorCurrentTenantId : null,
+//                    'effective_target_tenant_id' => $effectiveTargetTenantId !== '' ? $effectiveTargetTenantId : null,
+//                    'impersonation_session_id' => $impersonationSessionId,
+//                ]
+//            );
 
             return [
                 'me' => $me,
@@ -888,24 +712,7 @@ class AuthRepository
             ];
         } catch (Throwable $e) {
             report($e);
-
             $this->applyTenantContext($actorTenant);
-
-            $this->audit()->log(
-                actor: $actor,
-                event: 'auth.impersonate.error',
-                subject: ['type' => 'Auth', 'id' => 'impersonateByEmail'],
-                description: __('audit.auth.impersonate.error'),
-                changes: ['old' => null, 'new' => null],
-                tenantId: $actorTenant?->id,
-                meta: [
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]
-            );
-
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -944,20 +751,6 @@ class AuthRepository
 
             $session->markEnded();
 
-            $this->audit()->log(
-                actor: $impersonator,
-                event: 'auth.impersonate.stop',
-                subject: $currentImpersonatedUser,
-                description: __('audit.auth.impersonate.stop'),
-                changes: ['old' => null, 'new' => null],
-                tenantId: $tenant?->id,
-                meta: [
-                    'impersonation_session_id' => $session->session_id,
-                    'impersonator_id' => $impersonator->id,
-                    'impersonated_id' => $currentImpersonatedUser->id,
-                ]
-            );
-
             return [
                 'me' => $me,
                 '_restore_tokens' => [
@@ -969,23 +762,6 @@ class AuthRepository
             throw $e;
         } catch (Throwable $e) {
             report($e);
-
-            $this->audit()->log(
-                actor: $impersonator,
-                event: 'auth.impersonate.revert.error',
-                subject: ['type' => 'Auth', 'id' => 'revertImpersonationBySession'],
-                description: __('audit.auth.impersonate.error'),
-                changes: ['old' => null, 'new' => null],
-                tenantId: $session->actor_tenant_id,
-                meta: [
-                    'impersonation_session_id' => $session->session_id,
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]
-            );
-
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -998,14 +774,6 @@ class AuthRepository
         $token = $current->token();
 
         if (!$token) {
-            $this->audit()->log(
-                actor: $current,
-                event: 'auth.impersonate.stop',
-                subject: $current,
-                description: __('audit.auth.impersonate.stop_no_token'),
-                changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id
-            );
             return;
         }
 
@@ -1016,16 +784,6 @@ class AuthRepository
         DB::connection($conn)->table('oauth_refresh_tokens')
             ->where('access_token_id', $token->id)
             ->update(['revoked' => true]);
-
-        $this->audit()->log(
-            actor: $current,
-            event: 'auth.impersonate.stop',
-            subject: $current,
-            description: __('audit.auth.impersonate.stop'),
-            changes: ['old' => null, 'new' => null],
-            tenantId: Tenant::current()?->id,
-            meta: ['revoked_access_token_id' => $token->id]
-        );
     }
 
     /**
@@ -1316,20 +1074,6 @@ class AuthRepository
                 $this->markOnline($user, $tenantId);
             }
 
-            $this->audit()->log(
-                actor: $user,
-                event: 'auth.refresh.success',
-                subject: $user,
-                description: 'Refresh de token exitoso',
-                changes: ['old' => null, 'new' => null],
-                tenantId: $tenantId,
-                meta: [
-                    'old_access_token_id' => $accessRow->id,
-                    'new_access_expires_at' => $tokens['access_expires_at'] ?? null,
-                    'refresh_expires_at' => $tokens['refresh_expires_at'] ?? null,
-                ]
-            );
-
             return [
                 'me' => $me,
                 '_tokens' => [
@@ -1343,22 +1087,6 @@ class AuthRepository
             throw $e;
         } catch (Throwable $e) {
             report($e);
-
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.refresh.error',
-                subject: ['type' => 'Auth', 'id' => 'refresh'],
-                description: 'Error interno en refresh',
-                changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id,
-                meta: [
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]
-            );
-
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -1372,7 +1100,7 @@ class AuthRepository
             if (!in_array($provider, ['google', 'facebook'], true)) {
                 throw new HttpException(
                     Response::HTTP_UNPROCESSABLE_ENTITY,
-                    'Proveedor social no soportado.'
+                    __('auth.invalid_provider')
                 );
             }
 
@@ -1381,23 +1109,9 @@ class AuthRepository
                     ->stateless()
                     ->userFromToken($accessToken);
             } catch (Throwable $e) {
-                $this->audit()->log(
-                    actor: null,
-                    event: 'auth.social.invalid_token',
-                    subject: ['type' => 'Auth', 'id' => 'socialLogin'],
-                    description: 'Token social inválido o expirado',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: null,
-                    meta: [
-                        'provider' => $provider,
-                        'exception' => class_basename($e),
-                        'message' => $e->getMessage(),
-                    ]
-                );
-
                 throw new HttpException(
                     Response::HTTP_UNPROCESSABLE_ENTITY,
-                    'El token social es inválido o ha expirado.'
+                    __('auth.error_social_token')
                 );
             }
 
@@ -1409,22 +1123,9 @@ class AuthRepository
 
             // Regla 1: si no hay email, se rechaza
             if (!$email) {
-                $this->audit()->log(
-                    actor: null,
-                    event: 'auth.social.blocked.missing_email',
-                    subject: ['type' => 'Auth', 'id' => 'socialLogin'],
-                    description: 'Login social bloqueado: proveedor sin email',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: null,
-                    meta: [
-                        'provider' => $provider,
-                        'provider_id' => $providerId,
-                    ]
-                );
-
                 throw new HttpException(
                     Response::HTTP_UNPROCESSABLE_ENTITY,
-                    'No fue posible obtener el correo electrónico desde el proveedor social.'
+                    __('auth.error_email')
                 );
             }
 
@@ -1442,30 +1143,11 @@ class AuthRepository
 
             // Regla 2: si provider_id ya está ligado a una cuenta y además
             // el email corresponde a otra diferente, se bloquea
-            if (
-                $userByProvider &&
-                $userByEmail &&
-                $userByProvider->getKey() !== $userByEmail->getKey()
+            if ($userByProvider && $userByEmail && $userByProvider->getKey() !== $userByEmail->getKey()
             ) {
-                $this->audit()->log(
-                    actor: null,
-                    event: 'auth.social.blocked.provider_conflict',
-                    subject: ['type' => 'User', 'id' => $email],
-                    description: 'Conflicto entre provider_id y email en login social',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: null,
-                    meta: [
-                        'provider' => $provider,
-                        'provider_id' => $providerId,
-                        'email' => $email,
-                        'provider_user_id' => $userByProvider->id,
-                        'email_user_id' => $userByEmail->id,
-                    ]
-                );
-
                 throw new HttpException(
                     Response::HTTP_CONFLICT,
-                    'La cuenta social ya está vinculada a otro usuario.'
+                    __('auth.error_provider_email_conflict')
                 );
             }
 
@@ -1480,20 +1162,7 @@ class AuthRepository
             }
 
             // Regla 3: si la cuenta existe y está inactiva, se bloquea
-            if ($user->exists && $user->is_active === false) {
-                $this->audit()->log(
-                    actor: $user,
-                    event: 'auth.social.blocked.inactive',
-                    subject: $user,
-                    description: 'Login social bloqueado: cuenta inactiva',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: null,
-                    meta: [
-                        'provider' => $provider,
-                        'provider_id' => $providerId,
-                        'email' => $email,
-                    ]
-                );
+            if ($user->exists && $user->status === 'inactive') {
 
                 throw new HttpException(
                     Response::HTTP_FORBIDDEN,
@@ -1528,7 +1197,7 @@ class AuthRepository
 
                 // Para usuarios nuevos, activar
                 if (!$user->exists) {
-                    $user->is_active = true;
+                    $user->status = 'active';
                 }
 
                 // Vincular provider
@@ -1536,38 +1205,6 @@ class AuthRepository
 
                 $user->save();
                 $user = $user->fresh();
-
-                // asignar permisos por defecto al nuevo usuario ( no lo uso porque model_hos_permissions necesita un tenant_id y el usuario nuevo no lo tiene)
-//                if ($created) {
-//                    $this->assignDefaultPermissionsToNewUser($user);
-//                }
-
-                $this->audit()->log(
-                    actor: null,
-                    event: $created ? 'users.social.created' : 'users.social.linked',
-                    subject: $user,
-                    description: $created
-                        ? 'Usuario creado mediante login social'
-                        : 'Cuenta social vinculada o autenticada',
-                    changes: [
-                        'old' => null,
-                        'new' => Arr::only($user->toArray(), [
-                            'id',
-                            'name',
-                            'email',
-                            'locale',
-                            'is_active',
-                            'email_verified_at',
-                            'google_id',
-                            'facebook_id',
-                        ]),
-                    ],
-                    tenantId: null,
-                    meta: [
-                        'provider' => $provider,
-                        'provider_id' => $providerId,
-                    ]
-                );
             });
 
             $initialTenant = $this->resolveInitialTenantFor($user);
@@ -1599,23 +1236,6 @@ class AuthRepository
             throw $e;
         } catch (Throwable $e) {
             report($e);
-
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.social.error',
-                subject: ['type' => 'Auth', 'id' => 'socialLogin'],
-                description: 'Error interno en login social',
-                changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id,
-                meta: [
-                    'provider' => $provider ?? null,
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]
-            );
-
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -1627,7 +1247,7 @@ class AuthRepository
             'facebook' => 'facebook_id',
             default => throw new HttpException(
                 Response::HTTP_UNPROCESSABLE_ENTITY,
-                'Proveedor social no soportado.'
+                __('auth.invalid_provider')
             ),
         };
     }
@@ -1640,7 +1260,7 @@ class AuthRepository
         if (!in_array($provider, ['google', 'facebook'], true)) {
             throw new HttpException(
                 Response::HTTP_UNPROCESSABLE_ENTITY,
-                'Proveedor social no soportado.'
+                __('auth.invalid_provider')
             );
         }
 
@@ -1658,7 +1278,7 @@ class AuthRepository
             if (!in_array($provider, ['google', 'facebook'], true)) {
                 throw new HttpException(
                     Response::HTTP_UNPROCESSABLE_ENTITY,
-                    'Proveedor social no soportado.'
+                    __('auth.invalid_provider')
                 );
             }
 
@@ -1667,23 +1287,9 @@ class AuthRepository
                     ->stateless()
                     ->user();
             } catch (Throwable $e) {
-                $this->audit()->log(
-                    actor: null,
-                    event: 'auth.social.callback.invalid',
-                    subject: ['type' => 'Auth', 'id' => 'socialCallback'],
-                    description: 'Callback social inválido o expirado',
-                    changes: ['old' => null, 'new' => null],
-                    tenantId: null,
-                    meta: [
-                        'provider' => $provider,
-                        'exception' => class_basename($e),
-                        'message' => $e->getMessage(),
-                    ]
-                );
-
                 throw new HttpException(
                     Response::HTTP_UNPROCESSABLE_ENTITY,
-                    'No fue posible completar la autenticación social.'
+                    __('auth.error_social_register')
                 );
             }
 
@@ -1692,23 +1298,6 @@ class AuthRepository
             throw $e;
         } catch (Throwable $e) {
             report($e);
-
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.social.callback.error',
-                subject: ['type' => 'Auth', 'id' => 'socialCallback'],
-                description: 'Error interno en callback social',
-                changes: ['old' => null, 'new' => null],
-                tenantId: Tenant::current()?->id,
-                meta: [
-                    'provider' => $provider ?? null,
-                    'exception' => class_basename($e),
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                ]
-            );
-
             throw new HttpException(500, __('errors.server_error'));
         }
     }
@@ -1722,22 +1311,9 @@ class AuthRepository
         $locale = $hints['locale'] ?? app()->getLocale();
 
         if (!$email) {
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.social.blocked.missing_email',
-                subject: ['type' => 'Auth', 'id' => 'socialLoginFromSocialiteUser'],
-                description: 'Login social bloqueado: proveedor sin email',
-                changes: ['old' => null, 'new' => null],
-                tenantId: null,
-                meta: [
-                    'provider' => $provider,
-                    'provider_id' => $providerId,
-                ]
-            );
-
             throw new HttpException(
                 Response::HTTP_UNPROCESSABLE_ENTITY,
-                'No fue posible obtener el correo electrónico desde el proveedor social.'
+                __('auth.error_email')
             );
         }
 
@@ -1751,30 +1327,11 @@ class AuthRepository
             ->where('email', $email)
             ->first();
 
-        if (
-            $userByProvider &&
-            $userByEmail &&
-            $userByProvider->getKey() !== $userByEmail->getKey()
+        if ($userByProvider && $userByEmail && $userByProvider->getKey() !== $userByEmail->getKey()
         ) {
-            $this->audit()->log(
-                actor: null,
-                event: 'auth.social.blocked.provider_conflict',
-                subject: ['type' => 'User', 'id' => $email],
-                description: 'Conflicto entre provider_id y email en login social',
-                changes: ['old' => null, 'new' => null],
-                tenantId: null,
-                meta: [
-                    'provider' => $provider,
-                    'provider_id' => $providerId,
-                    'email' => $email,
-                    'provider_user_id' => $userByProvider->id,
-                    'email_user_id' => $userByEmail->id,
-                ]
-            );
-
             throw new HttpException(
                 Response::HTTP_CONFLICT,
-                'La cuenta social ya está vinculada a otro usuario.'
+                __('auth.error_provider_email_conflict')
             );
         }
 
@@ -1788,21 +1345,7 @@ class AuthRepository
             $created = true;
         }
 
-        if ($user->exists && $user->is_active === false) {
-            $this->audit()->log(
-                actor: $user,
-                event: 'auth.social.blocked.inactive',
-                subject: $user,
-                description: 'Login social bloqueado: cuenta inactiva',
-                changes: ['old' => null, 'new' => null],
-                tenantId: null,
-                meta: [
-                    'provider' => $provider,
-                    'provider_id' => $providerId,
-                    'email' => $email,
-                ]
-            );
-
+        if ($user->exists && $user->status === 'inactive') {
             throw new HttpException(
                 Response::HTTP_FORBIDDEN,
                 __('auth.account_inactive')
@@ -1834,7 +1377,7 @@ class AuthRepository
             }
 
             if (!$user->exists) {
-                $user->is_active = true;
+                $user->status = 'active';
             }
 
             $user->{$providerColumn} = $providerId;
@@ -1842,37 +1385,6 @@ class AuthRepository
             $user->save();
             $user = $user->fresh();
 
-            // asignar permisos por defecto al nuevo usuario ( no lo uso porque model_hos_permissions necesita un tenant_id y el usuario nuevo no lo tiene)
-            if ($created) {
-                $this->assignDefaultPermissionsToNewUser($user);
-            }
-
-            $this->audit()->log(
-                actor: null,
-                event: $created ? 'users.social.created' : 'users.social.linked',
-                subject: $user,
-                description: $created
-                    ? 'Usuario creado mediante login social'
-                    : 'Cuenta social vinculada o autenticada',
-                changes: [
-                    'old' => null,
-                    'new' => Arr::only($user->toArray(), [
-                        'id',
-                        'name',
-                        'email',
-                        'locale',
-                        'is_active',
-                        'email_verified_at',
-                        'google_id',
-                        'facebook_id',
-                    ]),
-                ],
-                tenantId: null,
-                meta: [
-                    'provider' => $provider,
-                    'provider_id' => $providerId,
-                ]
-            );
         });
 
         $initialTenant = $this->resolveInitialTenantFor($user);
@@ -1900,49 +1412,5 @@ class AuthRepository
                 'refresh_expires_at' => $tokens['refresh_expires_at'],
             ],
         ];
-    }
-
-    // -------------- Fin de los metodos para el login con redes sociales y google ------------------
-
-    // este metodo es para asignar permisos por defecto a los usuarios que se creen una cuenta por primera vez
-    public function assignDefaultPermissionsToSocialUsers(string $provider): void
-    {
-        $provider = strtolower(trim($provider));
-    }
-    protected function assignDefaultPermissionsToNewUser(User $user): void
-    {
-        try {
-            $permissions = config('default_permissions.user_register', []);
-
-            if (empty($permissions)) {
-                return;
-            }
-
-            $permissions = collect($permissions)
-                ->filter(fn ($permission) => is_string($permission) && trim($permission) !== '')
-                ->map(fn ($permission) => trim($permission))
-                ->unique()
-                ->values();
-
-            if ($permissions->isEmpty()) {
-                return;
-            }
-
-            $guardName = 'api';
-
-            $existingPermissions = Permission::query()
-                ->where('guard_name', $guardName)
-                ->whereIn('name', $permissions->all())
-                ->pluck('name')
-                ->all();
-
-            if (empty($existingPermissions)) {
-                return;
-            }
-
-            $user->givePermissionTo($existingPermissions);
-        } catch (Throwable $e) {
-            throw new HttpException(500, __('errors.server_error'));
-        }
     }
 }

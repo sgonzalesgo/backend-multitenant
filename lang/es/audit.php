@@ -9,6 +9,10 @@ return [
         'updated' => 'Permiso actualizado.',
         'deleted' => 'Permiso eliminado.',
         'user_in_tenant' => 'Permisos efectivos del usuario en el tenant.',
+        'permission_names' => 'Nombres de permisos.',
+        'sync_permission' => 'Permisos asignados al rol.',
+        'sync_permission_model' => 'Permisos sincronizados en usuario'
+
     ],
     'roles_permissions' => [
         'list' => 'Permisos actuales del rol.',
@@ -31,6 +35,7 @@ return [
             'sync' => 'Permisos del rol sincronizados.',
         ],
     ],
+
     'users' => [
         'list'    => 'Listado de usuarios.',
         'all'     => 'Listado completo de usuarios.',
@@ -48,6 +53,16 @@ return [
             'sync_in_tenant' => 'Roles de usuario sincronizados en el tenant.',
         ],
     ],
+
+    'persons' => [
+        'list'    => 'Listado de personas.',
+        'all'     => 'Listado completo de personas.',
+        'show'    => 'Detalle de persona.',
+        'created' => 'Persona creada.',
+        'updated' => 'Persona actualizada.',
+        'deleted' => 'Persona eliminada.',
+    ],
+
     'auth' => [
         'impersonate' => [
             'start'         => 'Suplantación iniciada.',

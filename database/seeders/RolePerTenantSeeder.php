@@ -84,7 +84,19 @@ class RolePerTenantSeeder extends Seeder
                 'Store events',
                 'Show events_type',
                 'Update event_types',
-                'Delete event_types'
+                'Delete event_types',
+                'List persons',
+                'Store persons',
+                'Show persons',
+                'Update persons',
+                'Delete persons',
+                'List notifications',
+                'Read notifications',
+                'List instructors',
+                'Store instructors',
+                'Show instructors',
+                'Update instructors',
+                'Delete instructors',
             ],
         ];
 

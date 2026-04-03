@@ -15,21 +15,27 @@ class StoreUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:8'],
-            'locale'   => ['sometimes', 'string', 'max:10'],
-            'avatar'   => ['sometimes', 'nullable', 'file', 'image', 'max:2048'],
+            'person_id' => ['nullable', 'uuid', 'exists:persons,id', 'unique:users,person_id'],
+            'name'      => ['required', 'string', 'max:255'],
+            'email'     => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'password'  => ['required', 'string', 'min:8'],
+            'status'    => ['sometimes', 'string', 'max:50'],
+            'locale'    => ['sometimes', 'string', 'max:10'],
+            'avatar'    => ['sometimes', 'nullable', 'file', 'image', 'max:2048'],
         ];
     }
 
     public function messages(): array
     {
-        return __('validation/administration/user.custom');
+        $messages = trans('validation/administration/user.custom');
+
+        return is_array($messages) ? $messages : [];
     }
 
     public function attributes(): array
     {
-        return __('validation/administration/user.attributes');
+        $attributes = trans('validation/administration/user.attributes');
+
+        return is_array($attributes) ? $attributes : [];
     }
 }

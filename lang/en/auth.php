@@ -24,5 +24,11 @@ return [
     'invalid_credentials' => 'Invalid credentials.',
     'logout_success' => 'Logout successful.',
     'resolve_initial_tenant' => 'Resolve initial tenant.',
-    'me' => 'Profile'
+    'me' => 'Profile',
+    'no_access' => 'You do not have access to this resource.',
+    'invalid_provider' => 'We do not support this provider.',
+    'error_social_token' => 'The social token is invalid or has expired.',
+    'error_email' => 'Could not retrieve the email address from the social provider.',
+    'error_provider_email_conflict' => 'The social account is already linked to another user.',
+    'error_social_register' => 'Could not complete social authentication.'
 ];

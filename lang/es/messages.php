@@ -32,4 +32,38 @@ return [
         'password_reset_code_sent' => 'Si existe una cuenta asociada a ese correo, te enviamos un código de recuperación.',
         'password_reset_success' => 'La contraseña fue actualizada correctamente.',
     ],
+    'persons' => [
+        'listed' => 'Personas listadas correctamente.',
+        'created' => 'Persona creada correctamente.',
+        'shown' => 'Persona obtenida correctamente.',
+        'updated' => 'Persona actualizada correctamente.',
+        'deleted' => 'Persona eliminada correctamente.',
+        'lookup_found' => 'Persona encontrada.',
+        'lookup_not_found' => 'Persona no encontrada.',
+    ],
+    'instructors' => [
+        'listed' => 'Instructores listados correctamente.',
+        'created' => 'Instructor creado correctamente.',
+        'shown' => 'Instructor obtenido correctamente.',
+        'updated' => 'Instructor actualizado correctamente.',
+        'deleted' => 'Instructor eliminado correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+        'code_generation_failed' => 'No se pudo generar un código único para el instructor.',
+    ],
+    'history' => [
+        'listed' => 'Historial listado correctamente.',
+        'invalid_type' => 'El tipo de auditoría seleccionado no es válido.',
+        'invalid' => 'Auditoría invalida'
+    ],
+    'actions' => [
+        'created' => 'Creado',
+        'updated' => 'Actualizado',
+        'deleted' => 'Eliminado',
+        'description_created' => 'Registro creado',
+        'description_updated' => 'Registro actualizado',
+        'description_deleted' => 'Registro eliminado',
+    ],
+    'tenants' => [
+        'tenant_not_found' => 'No se pudo resolver el tenant actual.'
+    ],
 ];

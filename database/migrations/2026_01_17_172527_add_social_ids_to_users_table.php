@@ -10,8 +10,6 @@ return new class extends Migration {
     {
         Schema::table('users', function (Blueprint $table) {
 
-            // Si tienes usuarios con is_active null, cambia a true
-            DB::table('users')->whereNull('is_active')->update(['is_active' => true]);
 
             // Agregar columnas
             $table->string('google_id')->nullable()->unique()->after('email');
@@ -19,9 +17,6 @@ return new class extends Migration {
 
             // Solo si vas a tratar instagram como provider distinto:
             $table->string('instagram_id')->nullable()->unique()->after('facebook_id');
-
-            // Recomendado: is_active con default true (hoy es nullable)
-            $table->boolean('is_active')->default(true)->change();
 
             // opcional: agregar locale
             $table->string('locale', 10)->nullable()->after('avatar');
@@ -36,9 +31,6 @@ return new class extends Migration {
             $table->dropUnique(['instagram_id']);
 
             $table->dropColumn(['google_id', 'facebook_id', 'instagram_id']);
-
-            // opcional: volver a nullable si quieres
-            $table->boolean('is_active')->nullable()->change();
         });
     }
 };

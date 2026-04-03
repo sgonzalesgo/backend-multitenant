@@ -12,9 +12,9 @@ class AuditableObserver
     {
         app(AuditLogRepository::class)->log(
             actor: auth()->user(),
-            event: 'created',
+            event: __('messages.actions.created'),
             subject: $model,
-            description: 'Registro creado',
+            description: __('messages.actions.description_created'),
             changes: [
                 'old' => null,
                 'new' => $this->visibleAttributes($model->getAttributes(), $model),
@@ -31,9 +31,9 @@ class AuditableObserver
 
         app(AuditLogRepository::class)->log(
             actor: auth()->user(),
-            event: 'updated',
+            event: __('messages.actions.updated'),
             subject: $model,
-            description: 'Registro actualizado',
+            description: __('messages.actions.description_updated'),
             changes: compact('old', 'new'),
             tenantId: Tenant::current()?->id
         );
@@ -43,9 +43,9 @@ class AuditableObserver
     {
         app(AuditLogRepository::class)->log(
             actor: auth()->user(),
-            event: 'deleted',
+            event: __('messages.actions.deleted'),
             subject: $model,
-            description: 'Registro eliminado',
+            description: __('messages.actions.description_deleted'),
             changes: [
                 'old' => $this->visibleAttributes($model->getOriginal(), $model),
                 'new' => null,
