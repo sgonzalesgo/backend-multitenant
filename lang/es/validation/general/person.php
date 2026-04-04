@@ -25,17 +25,14 @@ return [
             'string' => 'El campo :attribute debe ser una cadena de texto.',
             'max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
         ],
-        'city' => [
-            'string' => 'El campo :attribute debe ser una cadena de texto.',
-            'max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+        'country_id' => [
+            'integer' => 'El campo :attribute debe ser un número entero.',
         ],
-        'state' => [
-            'string' => 'El campo :attribute debe ser una cadena de texto.',
-            'max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+        'state_id' => [
+            'integer' => 'El campo :attribute debe ser un número entero.',
         ],
-        'country' => [
-            'string' => 'El campo :attribute debe ser una cadena de texto.',
-            'max' => 'El campo :attribute no debe ser mayor que :max caracteres.',
+        'city_id' => [
+            'integer' => 'El campo :attribute debe ser un número entero.',
         ],
         'zip' => [
             'string' => 'El campo :attribute debe ser una cadena de texto.',
@@ -81,7 +78,6 @@ return [
         'status_changed_at' => [
             'date' => 'El campo :attribute debe ser una fecha válida.',
         ],
-
         'has_user' => [
             'boolean' => 'El campo :attribute debe ser verdadero o falso.',
         ],
@@ -112,9 +108,9 @@ return [
         'email' => 'correo electrónico',
         'phone' => 'teléfono',
         'address' => 'dirección',
-        'city' => 'ciudad',
-        'state' => 'provincia',
-        'country' => 'país',
+        'country_id' => 'país',
+        'state_id' => 'provincia',
+        'city_id' => 'ciudad',
         'zip' => 'código postal',
         'legal_id' => 'identificación',
         'legal_id_type' => 'tipo de identificación',
@@ -126,7 +122,6 @@ return [
         'status' => 'estado',
         'deceased_at' => 'fecha de fallecimiento',
         'status_changed_at' => 'fecha de cambio de estado',
-
         'has_user' => 'crear usuario',
         'user_name' => 'nombre del usuario',
         'user_email' => 'correo del usuario',

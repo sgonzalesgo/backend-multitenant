@@ -3,8 +3,12 @@
 namespace App\Models\General;
 
 use App\Models\Administration\User;
+use App\Models\General\Country;
+use App\Models\General\State;
+use App\Models\General\City;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -24,9 +28,9 @@ class Person extends Model
         'email',
         'phone',
         'address',
-        'city',
-        'state',
-        'country',
+        'country_id',
+        'state_id',
+        'city_id',
         'zip',
         'legal_id',
         'legal_id_type',
@@ -40,11 +44,28 @@ class Person extends Model
     ];
 
     protected $casts = [
-        'birthday' => 'date'
+        'birthday' => 'date',
+        'deceased_at' => 'datetime',
+        'status_changed_at' => 'datetime',
     ];
 
     public function user(): HasOne
     {
         return $this->hasOne(User::class);
+    }
+
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    public function state(): BelongsTo
+    {
+        return $this->belongsTo(State::class);
+    }
+
+    public function city(): BelongsTo
+    {
+        return $this->belongsTo(City::class);
     }
 }

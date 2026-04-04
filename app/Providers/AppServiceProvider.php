@@ -2,10 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\Administration\ManualNotification;
 use App\Models\Administration\Permission;
 use App\Models\Administration\Role;
 use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
+use App\Models\Calendar\CalendarEvent;
+use App\Models\Calendar\CalendarEventType;
+use App\Models\General\Person;
 use App\Observers\AuditableObserver;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
@@ -29,10 +33,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        User::observe(AuditableObserver::class);
-        Role::observe(AuditableObserver::class);
-        Permission::observe(AuditableObserver::class);
-        Tenant::observe(AuditableObserver::class);
+        foreach (config('audit.subjects', []) as $modelClass) {
+            $modelClass::observe(AuditableObserver::class);
+        }
+
 
         RateLimiter::for('refresh', function (Request $request) {
             return Limit::perMinute(10)->by(

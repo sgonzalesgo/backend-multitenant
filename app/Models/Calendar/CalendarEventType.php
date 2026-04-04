@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Administration\Tenant;
+use Illuminate\Notifications\Notifiable;
 
 class CalendarEventType extends Model
 {
-    use HasUuids, SoftDeletes;
+    use HasUuids, SoftDeletes, Notifiable;
 
     protected $table = 'calendar_event_types';
 

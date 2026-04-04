@@ -13,6 +13,7 @@ class PersonLookupService
     public function lookup(string $legalId): array
     {
         $person = Person::query()
+            ->with('user')
             ->where('legal_id', $legalId)
             ->first();
 

@@ -51,7 +51,7 @@ class PersonRepository
 
     public function list(array $filters = []): LengthAwarePaginator
     {
-        $rawQ = trim((string) Arr::get($filters, 'q', ''));
+        $rawQ = Arr::get($filters, 'q', '');
         $sort = Arr::get($filters, 'sort', 'full_name');
         $dir = strtolower((string) Arr::get($filters, 'dir', 'asc')) === 'desc' ? 'desc' : 'asc';
         $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
@@ -67,31 +67,30 @@ class PersonRepository
             $sort = 'full_name';
         }
 
-        $global = '';
-        $fullName = '';
-        $email = '';
-        $phone = '';
-        $legalId = '';
-        $createdAt = '';
+        $decodedQ = [];
 
-        if ($rawQ !== '') {
+        if (is_string($rawQ) && trim($rawQ) !== '') {
             $decoded = json_decode($rawQ, true);
-
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $global = trim((string) Arr::get($decoded, 'global', ''));
-                $fullName = trim((string) Arr::get($decoded, 'columns.full_name', ''));
-                $email = trim((string) Arr::get($decoded, 'columns.email', ''));
-                $phone = trim((string) Arr::get($decoded, 'columns.phone', ''));
-                $legalId = trim((string) Arr::get($decoded, 'columns.legal_id', ''));
-                $createdAt = trim((string) Arr::get($decoded, 'columns.created_at', ''));
-            } else {
-                $global = $rawQ;
-            }
+            $decodedQ = is_array($decoded) ? $decoded : [];
+        } elseif (is_array($rawQ)) {
+            $decodedQ = $rawQ;
         }
+
+        $global = trim((string) Arr::get($decodedQ, 'global', ''));
+        $columns = Arr::get($decodedQ, 'columns', []);
+
+        $fullName = trim((string) Arr::get($columns, 'full_name', ''));
+        $email = trim((string) Arr::get($columns, 'email', ''));
+        $phone = trim((string) Arr::get($columns, 'phone', ''));
+        $legalId = trim((string) Arr::get($columns, 'legal_id', ''));
+        $createdAt = trim((string) Arr::get($columns, 'created_at', ''));
 
         return Person::query()
             ->with([
                 'user:id,person_id,name,email,avatar,status',
+                'country:id,code,name',
+                'state:id,country_id,code,name',
+                'city:id,state_id,name',
             ])
             ->when($global !== '', function ($query) use ($global) {
                 $query->where(function ($q) use ($global) {
@@ -110,6 +109,16 @@ class PersonRepository
             ->paginate($perPage);
     }
 
+    public function find(Person $person): Person
+    {
+        return $person->load([
+            'user:id,person_id,name,email,avatar,status',
+            'country:id,code,name',
+            'state:id,country_id,code,name',
+            'city:id,state_id,name',
+        ]);
+    }
+
     public function create(array $data, ?UploadedFile $photo = null): Person
     {
         return DB::transaction(function () use ($data, $photo) {
@@ -123,29 +132,7 @@ class PersonRepository
 
             $this->syncUser($person, $data, true);
 
-            $fresh = $person->refresh()->load([
-                'user:id,person_id,name,email,status',
-            ]);
-
-            $this->audit()->log(
-                actor: auth()->user(),
-                event: 'Persona creada',
-                subject: $fresh,
-                description: __('audit.persons.created'),
-                changes: [
-                    'old' => null,
-                    'new' => Arr::only($fresh->toArray(), [
-                        'id',
-                        'full_name',
-                        'email',
-                        'phone',
-                        'legal_id',
-                        'legal_id_type',
-                        'photo',
-                    ]),
-                ],
-                tenantId: $this->resolveCurrentTenantId()
-            );
+            $fresh = $this->find($person->refresh());
 
             return $fresh;
         });
@@ -154,15 +141,6 @@ class PersonRepository
     public function update(Person $person, array $data, ?UploadedFile $photo = null): Person
     {
         return DB::transaction(function () use ($person, $data, $photo) {
-            $old = Arr::only($person->toArray(), [
-                'id',
-                'full_name',
-                'email',
-                'phone',
-                'legal_id',
-                'legal_id_type',
-                'photo',
-            ]);
 
             $payload = $this->extractPersonPayload($data);
 
@@ -179,31 +157,7 @@ class PersonRepository
 
             $this->syncUser($person, $data, false);
 
-            $fresh = $person->refresh()->load([
-                'user:id,person_id,name,email,status',
-            ]);
-
-            $this->audit()->log(
-                actor: auth()->user(),
-                event: 'Persona actualizada',
-                subject: $fresh,
-                description: __('audit.persons.updated'),
-                changes: [
-                    'old' => $old,
-                    'new' => Arr::only($fresh->toArray(), [
-                        'id',
-                        'full_name',
-                        'email',
-                        'phone',
-                        'legal_id',
-                        'legal_id_type',
-                        'photo',
-                    ]),
-                ],
-                tenantId: $this->resolveCurrentTenantId()
-            );
-
-            return $fresh;
+            return $this->find($person->refresh());
         });
     }
 
@@ -215,40 +169,41 @@ class PersonRepository
                 'full_name',
                 'email',
                 'phone',
+                'address',
+                'country_id',
+                'state_id',
+                'city_id',
+                'zip',
                 'legal_id',
                 'legal_id_type',
                 'photo',
             ]);
 
-            // no eliminare la photo de la persona
-           // $this->deletePhoto($person->photo);
-
             $person->delete();
-
-            $this->audit()->log(
-                actor: auth()->user(),
-                event: 'Persona eliminada',
-                subject: ['type' => Person::class, 'id' => $snapshot['id']],
-                description: __('audit.persons.deleted'),
-                changes: [
-                    'old' => $snapshot,
-                    'new' => null,
-                ],
-                tenantId: $this->resolveCurrentTenantId()
-            );
         });
     }
 
     protected function extractPersonPayload(array $data): array
     {
-        return Arr::except($data, [
+        return Arr::only($data, [
+            'full_name',
             'photo',
-            'has_user',
-            'user_name',
-            'user_email',
-            'user_password',
-            'user_password_confirmation',
-            'user_status',
+            'email',
+            'phone',
+            'address',
+            'country_id',
+            'state_id',
+            'city_id',
+            'zip',
+            'legal_id',
+            'legal_id_type',
+            'birthday',
+            'gender',
+            'marital_status',
+            'blood_group',
+            'nationality',
+            'deceased_at',
+            'status_changed_at',
         ]);
     }
 

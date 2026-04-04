@@ -4,6 +4,9 @@ use Illuminate\Support\Facades\Route;
 
 require __DIR__ . '/administration/auth.php';
 
+// locations public
+require __DIR__ . '/general/location.php';
+
 /**
  * Rutas tenant-aware
  * Aquí SÍ debe existir current tenant.
@@ -28,6 +31,6 @@ Route::middleware([
     require base_path('routes/administration/manual_notifications.php');
     require base_path('routes/calendar/calendar.php');
     require base_path('routes/calendar/calendar_event_type.php');
-    require base_path('routes/general/person.php');
+    require base_path('routes/General/person.php');
     require base_path('routes/academic/instructor.php');
 });

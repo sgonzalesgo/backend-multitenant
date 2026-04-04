@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Administration;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administration\AuditLogIndexRequest;
 use App\Http\Requests\Administration\AuditLogStoreRequest;
+use App\Models\Administration\ManualNotification;
 use App\Models\Administration\Permission;
 use App\Models\Administration\Role;
 use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
+use App\Models\Calendar\CalendarEventType;
 use App\Models\General\Person;
 // use App\Models\Construction\Constructor; // cuando aplique
 use App\Repositories\Administration\AuditLogRepository;
@@ -101,12 +103,19 @@ class AuditLogController extends Controller
 
     private function resolveAuditableType(string $type): ?string
     {
-        return [
-            'persons' => Person::class,
-            'users' => User::class,
-            'permissions' => Permission::class,
-            'roles' => Role::class,
-            'tenants' => Tenant::class,
-        ][$type] ?? null;
+        return config("audit.subjects.$type");
     }
+
+//    private function resolveAuditableType(string $type): ?string
+//    {
+//        return [
+//            'persons' => Person::class,
+//            'users' => User::class,
+//            'permissions' => Permission::class,
+//            'roles' => Role::class,
+//            'tenants' => Tenant::class,
+//            'calendar_event_types' => CalendarEventType::class,
+//            'manual_notifications' =>ManualNotification::class,
+//        ][$type] ?? null;
+//    }
 }

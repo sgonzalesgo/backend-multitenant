@@ -304,7 +304,7 @@ class RoleRepository
 
         return $role->load('permissions');
     }
-    
+
     /**
      * Sincroniza completamente los roles de un usuario dentro del tenant actual.
      *

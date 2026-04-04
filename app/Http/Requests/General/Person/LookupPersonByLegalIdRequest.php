@@ -20,11 +20,11 @@ class LookupPersonByLegalIdRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/general/person.custom');
+        return __('validation/General/person.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/general/person.attributes');
+        return __('validation/General/person.attributes');
     }
 }

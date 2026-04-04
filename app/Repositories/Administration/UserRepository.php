@@ -758,7 +758,7 @@ class UserRepository
 
         $query = User::query()
             ->with([
-                'person:id,full_name,legal_id,legal_id_type,email,phone,photo,status',
+                'person:id,full_name,legal_id,legal_id_type,email,phone,photo',
                 'roles' => function ($query) use ($tenantId, $teamFk) {
                     $query->select('roles.id', 'roles.name', 'roles.guard_name', 'roles.tenant_id');
 

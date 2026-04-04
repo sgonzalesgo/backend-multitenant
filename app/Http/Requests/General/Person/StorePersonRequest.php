@@ -21,10 +21,12 @@ class StorePersonRequest extends FormRequest
             'photo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'city' => ['nullable', 'string', 'max:120'],
-            'state' => ['nullable', 'string', 'max:120'],
-            'country' => ['nullable', 'string', 'max:120'],
+            'address' => ['nullable', 'string', 'max:1000'],
+
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
+            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            'city_id' => ['nullable', 'integer', 'exists:cities,id'],
+
             'zip' => ['nullable', 'string', 'max:30'],
             'legal_id' => ['required', 'string', 'max:50'],
             'legal_id_type' => [
@@ -60,14 +62,14 @@ class StorePersonRequest extends FormRequest
 
     public function messages(): array
     {
-        $messages = trans('validation/general/person.custom');
+        $messages = trans('validation/General/person.custom');
 
         return is_array($messages) ? $messages : [];
     }
 
     public function attributes(): array
     {
-        $attributes = trans('validation/general/person.attributes');
+        $attributes = trans('validation/General/person.attributes');
 
         return is_array($attributes) ? $attributes : [];
     }

@@ -25,17 +25,14 @@ return [
             'string' => 'The :attribute field must be a string.',
             'max' => 'The :attribute field may not be greater than :max characters.',
         ],
-        'city' => [
-            'string' => 'The :attribute field must be a string.',
-            'max' => 'The :attribute field may not be greater than :max characters.',
+        'country_id' => [
+            'integer' => 'The :attribute field must be an integer.',
         ],
-        'state' => [
-            'string' => 'The :attribute field must be a string.',
-            'max' => 'The :attribute field may not be greater than :max characters.',
+        'state_id' => [
+            'integer' => 'The :attribute field must be an integer.',
         ],
-        'country' => [
-            'string' => 'The :attribute field must be a string.',
-            'max' => 'The :attribute field may not be greater than :max characters.',
+        'city_id' => [
+            'integer' => 'The :attribute field must be an integer.',
         ],
         'zip' => [
             'string' => 'The :attribute field must be a string.',
@@ -81,7 +78,6 @@ return [
         'status_changed_at' => [
             'date' => 'The :attribute field must be a valid date.',
         ],
-
         'has_user' => [
             'boolean' => 'The :attribute field must be true or false.',
         ],
@@ -112,9 +108,9 @@ return [
         'email' => 'email',
         'phone' => 'phone',
         'address' => 'address',
-        'city' => 'city',
-        'state' => 'state',
-        'country' => 'country',
+        'country_id' => 'country',
+        'state_id' => 'state',
+        'city_id' => 'city',
         'zip' => 'zip code',
         'legal_id' => 'legal ID',
         'legal_id_type' => 'legal ID type',
@@ -126,7 +122,6 @@ return [
         'status' => 'status',
         'deceased_at' => 'deceased at',
         'status_changed_at' => 'status changed at',
-
         'has_user' => 'create user',
         'user_name' => 'user name',
         'user_email' => 'user email',
