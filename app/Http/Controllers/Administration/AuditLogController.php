@@ -105,17 +105,4 @@ class AuditLogController extends Controller
     {
         return config("audit.subjects.$type");
     }
-
-//    private function resolveAuditableType(string $type): ?string
-//    {
-//        return [
-//            'persons' => Person::class,
-//            'users' => User::class,
-//            'permissions' => Permission::class,
-//            'roles' => Role::class,
-//            'tenants' => Tenant::class,
-//            'calendar_event_types' => CalendarEventType::class,
-//            'manual_notifications' =>ManualNotification::class,
-//        ][$type] ?? null;
-//    }
 }
