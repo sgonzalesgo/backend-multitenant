@@ -49,8 +49,8 @@ class Tenant extends BaseTenant
         'country_logo_position_right' => 'boolean',
     ];
 
-    public function users(): HasMany
+    public function tenantPositions(): HasMany
     {
-        return $this->hasMany(User::class);
+        return $this->hasMany(TenantPosition::class);
     }
 }

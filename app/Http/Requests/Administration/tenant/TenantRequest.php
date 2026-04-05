@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests\Administration\tenant;
 
-use Illuminate\Validation\Rule;
+use App\Models\Administration\TenantPosition;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class TenantRequest extends FormRequest
 {
@@ -21,13 +22,13 @@ class TenantRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('tenants', 'name')->ignore($id),
+                Rule::unique('tenants', 'name')->ignore($id, 'id'),
             ],
             'domain' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('tenants', 'domain')->ignore($id),
+                Rule::unique('tenants', 'domain')->ignore($id, 'id'),
             ],
 
             'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg,webp', 'max:2048'],
@@ -49,7 +50,71 @@ class TenantRequest extends FormRequest
             'country' => ['nullable', 'string', 'max:255'],
             'country_logo_position_right' => ['nullable', 'boolean'],
             'zip' => ['nullable', 'string', 'max:50'],
+
+            'authorities' => ['nullable', 'array'],
+            'authorities.*.person_id' => ['required_with:authorities', 'uuid', 'exists:persons,id'],
+            'authorities.*.position_id' => ['required_with:authorities', 'uuid', 'exists:positions,id'],
+            'authorities.*.signature' => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg,webp', 'max:2048'],
+            'authorities.*.is_active' => ['nullable', 'boolean'],
+            'authorities.*.start_date' => ['nullable', 'date'],
+            'authorities.*.end_date' => ['nullable', 'date'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $authorities = $this->input('authorities', []);
+            $currentTenantId = $this->route('id');
+
+            if (! is_array($authorities)) {
+                return;
+            }
+
+            $seen = [];
+
+            foreach ($authorities as $index => $authority) {
+                $personId = $authority['person_id'] ?? null;
+                $positionId = $authority['position_id'] ?? null;
+                $startDate = $authority['start_date'] ?? null;
+                $endDate = $authority['end_date'] ?? null;
+
+                if ($startDate && $endDate && $endDate < $startDate) {
+                    $validator->errors()->add(
+                        "authorities.$index.end_date",
+                        __('administration/tenant.validation.custom.authorities_end_date_after_or_equal')
+                    );
+                }
+
+                if ($personId && $positionId) {
+                    $compositeKey = $personId . '|' . $positionId;
+
+                    if (isset($seen[$compositeKey])) {
+                        $validator->errors()->add(
+                            "authorities.$index.person_id",
+                            __('administration/tenant.validation.custom.authorities_duplicate_in_request')
+                        );
+                    }
+
+                    $seen[$compositeKey] = true;
+
+                    if ($currentTenantId) {
+                        $exists = TenantPosition::query()
+                            ->where('tenant_id', $currentTenantId)
+                            ->where('person_id', $personId)
+                            ->where('position_id', $positionId)
+                            ->exists();
+
+                        if ($exists) {
+                            $validator->errors()->add(
+                                "authorities.$index.person_id",
+                                __('administration/tenant.validation.custom.authorities_duplicate_in_tenant')
+                            );
+                        }
+                    }
+                }
+            }
+        });
     }
 
     public function attributes(): array

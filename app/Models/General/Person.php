@@ -2,6 +2,7 @@
 
 namespace App\Models\General;
 
+use App\Models\Administration\TenantPosition;
 use App\Models\Administration\User;
 use App\Models\General\Country;
 use App\Models\General\State;
@@ -9,6 +10,7 @@ use App\Models\General\City;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -67,5 +69,10 @@ class Person extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class);
+    }
+
+    public function tenantPositions(): HasMany
+    {
+        return $this->hasMany(TenantPosition::class);
     }
 }

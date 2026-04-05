@@ -100,6 +100,15 @@ class RolePerTenantSeeder extends Seeder
                 'Delete instructors',
                 'List notifications',
                 'Read notifications',
+                'List positions',
+                'Search positions',
+                'Search positions',
+                'Store positions',
+                'Update positions',
+                'List tenant_positions',
+                'Search tenant_positions',
+                'Store tenant_positions',
+                'Update tenant_positions',
             ],
         ];
 
