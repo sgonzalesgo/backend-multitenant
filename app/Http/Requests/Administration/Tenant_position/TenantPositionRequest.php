@@ -37,6 +37,10 @@ class TenantPositionRequest extends FormRequest
                 'mimes:jpg,jpeg,png,svg,webp',
                 'max:2048',
             ],
+            'order_to_sign' => [
+                'required',
+                'integer',
+            ],
             'is_active' => [
                 'nullable',
                 'boolean',

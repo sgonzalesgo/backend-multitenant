@@ -33,7 +33,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        foreach (config('audit.subjects', []) as $modelClass) {
+        foreach (config('audit.auto_observe', []) as $modelClass) {
             $modelClass::observe(AuditableObserver::class);
         }
 

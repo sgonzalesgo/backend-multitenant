@@ -16,6 +16,7 @@ return new class extends Migration
             $t->uuid('position_id');
 
             $t->string('signature')->nullable();
+            $t->integer('order_to_sign')->default(1);
 
             $t->boolean('is_active')->default(true);
 

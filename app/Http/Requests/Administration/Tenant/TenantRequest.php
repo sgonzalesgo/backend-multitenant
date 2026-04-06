@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Administration\tenant;
+namespace App\Http\Requests\Administration\Tenant;
 
 use App\Models\Administration\TenantPosition;
 use Illuminate\Foundation\Http\FormRequest;

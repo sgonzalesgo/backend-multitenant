@@ -1,56 +1,72 @@
 <?php
 
-
 return [
-    'messages' => [
-        'listed' => 'Cargos del tenant listados correctamente.',
-        'retrieved' => 'Cargo del tenant obtenido correctamente.',
-        'created' => 'Cargo del tenant creado correctamente.',
-        'updated' => 'Cargo del tenant actualizado correctamente.',
-        'not_found' => 'Cargo del tenant no encontrado.',
-        'exception' => 'Ocurrió un error al procesar el cargo del tenant.',
-    ],
 
-    'audit' => [
-        'created' => 'Cargo del tenant creado.',
-        'updated' => 'Cargo del tenant actualizado.',
-    ],
-
-    'validation' => [
+    'validation_sync' => [
         'attributes' => [
             'tenant_id' => 'tenant',
-            'person_id' => 'persona',
-            'position_id' => 'cargo',
-            'signature' => 'firma',
-            'is_active' => 'estado',
-            'start_date' => 'fecha de inicio',
-            'end_date' => 'fecha de fin',
+            'positions' => 'posiciones',
+            'positions.*.id' => 'registro',
+            'positions.*.person_id' => 'persona',
+            'positions.*.position_id' => 'cargo',
+            'positions.*.signature' => 'firma',
+            'positions.*.order_to_sign' => 'orden de firma',
+            'positions.*.is_active' => 'estado',
+            'positions.*.start_date' => 'fecha de inicio',
+            'positions.*.end_date' => 'fecha de finalización',
         ],
 
         'custom' => [
-            'tenant_id.required' => 'El campo :attribute es obligatorio.',
-            'tenant_id.uuid' => 'El campo :attribute debe ser un UUID válido.',
-            'tenant_id.exists' => 'El :attribute seleccionado no es válido.',
+            'tenant_id.required' => 'El tenant es obligatorio.',
+            'tenant_id.uuid' => 'El tenant seleccionado no es válido.',
+            'tenant_id.exists' => 'El tenant seleccionado no existe.',
 
-            'person_id.required' => 'El campo :attribute es obligatorio.',
-            'person_id.uuid' => 'El campo :attribute debe ser un UUID válido.',
-            'person_id.exists' => 'La :attribute seleccionada no es válida.',
+            'positions.required' => 'Debe enviar al menos una posición.',
+            'positions.array' => 'El listado de posiciones debe ser un arreglo.',
 
-            'position_id.required' => 'El campo :attribute es obligatorio.',
-            'position_id.uuid' => 'El campo :attribute debe ser un UUID válido.',
-            'position_id.exists' => 'El :attribute seleccionado no es válido.',
+            'positions.*.id.uuid' => 'El identificador del registro no es válido.',
+            'positions.*.id.exists' => 'El registro seleccionado no existe.',
 
-            'signature.file' => 'El campo :attribute debe ser un archivo.',
-            'signature.mimes' => 'El campo :attribute debe ser un archivo de tipo: jpg, jpeg, png, svg, webp.',
-            'signature.max' => 'El campo :attribute no debe ser mayor a 2048 kilobytes.',
+            'positions.*.person_id.required' => 'La persona es obligatoria.',
+            'positions.*.person_id.uuid' => 'La persona seleccionada no es válida.',
+            'positions.*.person_id.exists' => 'La persona seleccionada no existe.',
 
-            'is_active.boolean' => 'El campo :attribute debe ser verdadero o falso.',
+            'positions.*.position_id.required' => 'El cargo es obligatorio.',
+            'positions.*.position_id.uuid' => 'El cargo seleccionado no es válido.',
+            'positions.*.position_id.exists' => 'El cargo seleccionado no existe.',
 
-            'start_date.date' => 'El campo :attribute no es una fecha válida.',
-            'end_date.date' => 'El campo :attribute no es una fecha válida.',
-            'end_date.after_or_equal' => 'El campo :attribute debe ser una fecha posterior o igual a la fecha de inicio.',
+            'positions.*.signature.file' => 'La firma debe ser un archivo válido.',
+            'positions.*.signature.mimes' => 'La firma debe ser un archivo de tipo: jpg, jpeg, png, svg o webp.',
+            'positions.*.signature.max' => 'La firma no debe superar los 2048 KB.',
 
-            'person_position_unique' => 'Esta persona ya tiene asignado este cargo en el tenant seleccionado.',
+            'positions.*.order_to_sign.required' => 'El orden de firma es obligatorio.',
+            'positions.*.order_to_sign.integer' => 'El orden de firma debe ser un número entero.',
+            'positions.*.order_to_sign.min' => 'El orden de firma debe ser mayor o igual a 1.',
+
+            'positions.*.is_active.boolean' => 'El estado debe ser verdadero o falso.',
+
+            'positions.*.start_date.date' => 'La fecha de inicio no es válida.',
+            'positions.*.end_date.date' => 'La fecha de finalización no es válida.',
+            'positions.*.end_date.after_or_equal' => 'La fecha de finalización debe ser igual o posterior a la fecha de inicio.',
+
+            'person_position_unique' => 'La combinación de persona y cargo ya existe para este tenant.',
+            'order_to_sign_unique' => 'El orden de firma no se puede repetir dentro del mismo tenant.',
+            'invalid_position_for_tenant' => 'El registro enviado no pertenece al tenant seleccionado.',
+            'end_date_after_or_equal' => 'La fecha de finalización debe ser igual o posterior a la fecha de inicio.',
         ],
     ],
+
+    'audit' => [
+        'created' => 'Asignación creada correctamente.',
+        'updated' => 'Asignación actualizada correctamente.',
+        'synced' => 'Las asignaciones del tenant fueron sincronizadas correctamente.',
+    ],
+
+    'messages' => [
+        'listed' => 'Registros obtenidos correctamente.',
+        'retrieved' => 'Registro obtenido correctamente.',
+        'synced' => 'Las posiciones del tenant fueron sincronizadas correctamente.',
+        'exception' => 'Ocurrió un error inesperado.',
+    ],
+
 ];

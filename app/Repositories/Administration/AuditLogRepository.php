@@ -133,4 +133,57 @@ class AuditLogRepository
             ? (string) Tenant::current()?->id
             : null;
     }
+
+    protected function flattenForTimeline(mixed $value, string $prefix = ''): array
+    {
+        if ($value === null) {
+            return $prefix !== '' ? [$prefix => null] : [];
+        }
+
+        if (! is_array($value)) {
+            return $prefix !== '' ? [$prefix => $value] : [];
+        }
+
+        if ($value === []) {
+            return [];
+        }
+
+        $result = [];
+
+        if (array_is_list($value)) {
+            foreach ($value as $index => $item) {
+                $itemPrefix = $prefix !== ''
+                    ? "{$prefix}_item_" . ($index + 1)
+                    : "item_" . ($index + 1);
+
+                if (is_array($item)) {
+                    $result = array_merge($result, $this->flattenForTimeline($item, $itemPrefix));
+                } else {
+                    $result[$itemPrefix] = $item;
+                }
+            }
+
+            return $result;
+        }
+
+        foreach ($value as $key => $item) {
+            $nextPrefix = $prefix !== '' ? "{$prefix}_{$key}" : (string) $key;
+
+            if (is_array($item)) {
+                $result = array_merge($result, $this->flattenForTimeline($item, $nextPrefix));
+            } else {
+                $result[$nextPrefix] = $item;
+            }
+        }
+
+        return $result;
+    }
+
+    public function normalizeChangesForTimeline(array $changes): array
+    {
+        return [
+            'old' => $this->flattenForTimeline($changes['old'] ?? []),
+            'new' => $this->flattenForTimeline($changes['new'] ?? []),
+        ];
+    }
 }

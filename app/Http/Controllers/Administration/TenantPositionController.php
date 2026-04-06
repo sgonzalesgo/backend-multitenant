@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Administration;
 
-use App\Http\Requests\Administration\tenant_position\TenantPositionRequest;
+use App\Http\Requests\Administration\Tenant_position\TenantPositionSyncRequest;
 use App\Repositories\Administration\TenantPositionRepository;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -15,10 +16,10 @@ class TenantPositionController
     ) {
     }
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $data = $this->tenantPositionRepository->viewAll();
+            $data = $this->tenantPositionRepository->list($request);
 
             return response()->json([
                 'code' => Response::HTTP_OK,
@@ -64,38 +65,12 @@ class TenantPositionController
 
             return response()->json([
                 'code' => Response::HTTP_OK,
-                'message' => __('administration/tenant_position.messages.listed'),
-                'data' => $data,
-                'error' => null,
-            ], Response::HTTP_OK);
-        } catch (Throwable $e) {
-            return response()->json([
-                'code' => Response::HTTP_INTERNAL_SERVER_ERROR,
-                'message' => __('administration/tenant_position.messages.exception'),
-                'data' => [],
-                'error' => $e->getMessage(),
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    public function show(string $id): JsonResponse
-    {
-        try {
-            $data = $this->tenantPositionRepository->showById($id);
-
-            if (! $data) {
-                return response()->json([
-                    'code' => Response::HTTP_NOT_FOUND,
-                    'message' => __('administration/tenant_position.messages.not_found'),
-                    'data' => [],
-                    'error' => __('administration/tenant_position.messages.not_found'),
-                ], Response::HTTP_NOT_FOUND);
-            }
-
-            return response()->json([
-                'code' => Response::HTTP_OK,
                 'message' => __('administration/tenant_position.messages.retrieved'),
-                'data' => $data,
+                'data' => $data ?? [
+                        'tenant_id' => $tenantId,
+                        'tenant' => null,
+                        'positions' => [],
+                    ],
                 'error' => null,
             ], Response::HTTP_OK);
         } catch (Throwable $e) {
@@ -108,44 +83,24 @@ class TenantPositionController
         }
     }
 
-    public function store(TenantPositionRequest $request): JsonResponse
+    public function sync(TenantPositionSyncRequest $request): JsonResponse
     {
         try {
-            $data = $this->tenantPositionRepository->create($request->validated());
+            $validated = $request->validated();
 
-            return response()->json([
-                'code' => Response::HTTP_OK,
-                'message' => __('administration/tenant_position.messages.created'),
-                'data' => $data,
-                'error' => null,
-            ], Response::HTTP_OK);
-        } catch (Throwable $e) {
-            return response()->json([
-                'code' => Response::HTTP_INTERNAL_SERVER_ERROR,
-                'message' => __('administration/tenant_position.messages.exception'),
-                'data' => [],
-                'error' => $e->getMessage(),
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
+            $positions = $validated['positions'] ?? [];
 
-    public function update(string $id, TenantPositionRequest $request): JsonResponse
-    {
-        try {
-            $data = $this->tenantPositionRepository->update($id, $request->validated());
-
-            if (! $data) {
-                return response()->json([
-                    'code' => Response::HTTP_NOT_FOUND,
-                    'message' => __('administration/tenant_position.messages.not_found'),
-                    'data' => [],
-                    'error' => __('administration/tenant_position.messages.not_found'),
-                ], Response::HTTP_NOT_FOUND);
+            foreach ($positions as $index => $position) {
+                if ($request->hasFile("positions.$index.signature")) {
+                    $validated['positions'][$index]['signature'] = $request->file("positions.$index.signature");
+                }
             }
 
+            $data = $this->tenantPositionRepository->syncByTenant($validated);
+
             return response()->json([
                 'code' => Response::HTTP_OK,
-                'message' => __('administration/tenant_position.messages.updated'),
+                'message' => __('administration/tenant_position.messages.synced'),
                 'data' => $data,
                 'error' => null,
             ], Response::HTTP_OK);

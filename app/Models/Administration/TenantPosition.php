@@ -22,6 +22,7 @@ class TenantPosition extends Model
         'person_id',
         'position_id',
         'signature',
+        'order_to_sign',
         'is_active',
         'start_date',
         'end_date',

@@ -1,56 +1,72 @@
 <?php
 
-
 return [
-    'messages' => [
-        'listed' => 'Tenant positions listed successfully.',
-        'retrieved' => 'Tenant position retrieved successfully.',
-        'created' => 'Tenant position created successfully.',
-        'updated' => 'Tenant position updated successfully.',
-        'not_found' => 'Tenant position not found.',
-        'exception' => 'An error occurred while processing the tenant position.',
-    ],
 
-    'audit' => [
-        'created' => 'Tenant position created.',
-        'updated' => 'Tenant position updated.',
-    ],
-
-    'validation' => [
+    'validation_sync' => [
         'attributes' => [
             'tenant_id' => 'tenant',
-            'person_id' => 'person',
-            'position_id' => 'position',
-            'signature' => 'signature',
-            'is_active' => 'status',
-            'start_date' => 'start date',
-            'end_date' => 'end date',
+            'positions' => 'positions',
+            'positions.*.id' => 'record',
+            'positions.*.person_id' => 'person',
+            'positions.*.position_id' => 'position',
+            'positions.*.signature' => 'signature',
+            'positions.*.order_to_sign' => 'sign order',
+            'positions.*.is_active' => 'status',
+            'positions.*.start_date' => 'start date',
+            'positions.*.end_date' => 'end date',
         ],
 
         'custom' => [
-            'tenant_id.required' => 'The :attribute field is required.',
-            'tenant_id.uuid' => 'The :attribute must be a valid UUID.',
-            'tenant_id.exists' => 'The selected :attribute is invalid.',
+            'tenant_id.required' => 'The tenant field is required.',
+            'tenant_id.uuid' => 'The selected tenant is invalid.',
+            'tenant_id.exists' => 'The selected tenant does not exist.',
 
-            'person_id.required' => 'The :attribute field is required.',
-            'person_id.uuid' => 'The :attribute must be a valid UUID.',
-            'person_id.exists' => 'The selected :attribute is invalid.',
+            'positions.required' => 'You must send at least one position.',
+            'positions.array' => 'The positions field must be an array.',
 
-            'position_id.required' => 'The :attribute field is required.',
-            'position_id.uuid' => 'The :attribute must be a valid UUID.',
-            'position_id.exists' => 'The selected :attribute is invalid.',
+            'positions.*.id.uuid' => 'The record identifier is invalid.',
+            'positions.*.id.exists' => 'The selected record does not exist.',
 
-            'signature.file' => 'The :attribute must be a file.',
-            'signature.mimes' => 'The :attribute must be a file of type: jpg, jpeg, png, svg, webp.',
-            'signature.max' => 'The :attribute may not be greater than 2048 kilobytes.',
+            'positions.*.person_id.required' => 'The person field is required.',
+            'positions.*.person_id.uuid' => 'The selected person is invalid.',
+            'positions.*.person_id.exists' => 'The selected person does not exist.',
 
-            'is_active.boolean' => 'The :attribute field must be true or false.',
+            'positions.*.position_id.required' => 'The position field is required.',
+            'positions.*.position_id.uuid' => 'The selected position is invalid.',
+            'positions.*.position_id.exists' => 'The selected position does not exist.',
 
-            'start_date.date' => 'The :attribute is not a valid date.',
-            'end_date.date' => 'The :attribute is not a valid date.',
-            'end_date.after_or_equal' => 'The :attribute must be a date after or equal to start date.',
+            'positions.*.signature.file' => 'The signature must be a valid file.',
+            'positions.*.signature.mimes' => 'The signature must be a file of type: jpg, jpeg, png, svg, or webp.',
+            'positions.*.signature.max' => 'The signature must not be greater than 2048 KB.',
 
-            'person_position_unique' => 'This person already has this position assigned in the selected tenant.',
+            'positions.*.order_to_sign.required' => 'The sign order field is required.',
+            'positions.*.order_to_sign.integer' => 'The sign order must be an integer.',
+            'positions.*.order_to_sign.min' => 'The sign order must be at least 1.',
+
+            'positions.*.is_active.boolean' => 'The status field must be true or false.',
+
+            'positions.*.start_date.date' => 'The start date is not a valid date.',
+            'positions.*.end_date.date' => 'The end date is not a valid date.',
+            'positions.*.end_date.after_or_equal' => 'The end date must be equal to or later than the start date.',
+
+            'person_position_unique' => 'The person and position combination already exists for this tenant.',
+            'order_to_sign_unique' => 'The sign order cannot be repeated within the same tenant.',
+            'invalid_position_for_tenant' => 'The submitted record does not belong to the selected tenant.',
+            'end_date_after_or_equal' => 'The end date must be equal to or later than the start date.',
         ],
     ],
+
+    'audit' => [
+        'created' => 'Assignment created successfully.',
+        'updated' => 'Assignment updated successfully.',
+        'synced' => 'The tenant assignments were synchronized successfully.',
+    ],
+
+    'messages' => [
+        'listed' => 'Records retrieved successfully.',
+        'retrieved' => 'Record retrieved successfully.',
+        'synced' => 'The tenant positions were synchronized successfully.',
+        'exception' => 'An unexpected error occurred.',
+    ],
+
 ];
