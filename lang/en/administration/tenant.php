@@ -38,10 +38,13 @@ return [
             'country_logo_position_right' => 'country logo right position',
             'zip' => 'zip code',
 
+            // NEW
             'authorities' => 'authorities',
+            'authorities.*.id' => 'authority',
             'authorities.*.person_id' => 'person',
             'authorities.*.position_id' => 'position',
             'authorities.*.signature' => 'signature',
+            'authorities.*.order_to_sign' => 'signing order',
             'authorities.*.is_active' => 'authority status',
             'authorities.*.start_date' => 'start date',
             'authorities.*.end_date' => 'end date',
@@ -77,6 +80,9 @@ return [
 
             'authorities.array' => 'The :attribute field must be a valid list.',
 
+            'authorities.*.id.uuid' => 'The :attribute must be a valid UUID.',
+            'authorities.*.id.exists' => 'The selected :attribute is invalid.',
+
             'authorities.*.person_id.required_with' => 'The :attribute field is required.',
             'authorities.*.person_id.uuid' => 'The :attribute must be a valid UUID.',
             'authorities.*.person_id.exists' => 'The selected :attribute is invalid.',
@@ -89,13 +95,20 @@ return [
             'authorities.*.signature.mimes' => 'The :attribute must be a file of type: jpg, jpeg, png, svg, webp.',
             'authorities.*.signature.max' => 'The :attribute may not be greater than 2048 kilobytes.',
 
+            'authorities.*.order_to_sign.required_with' => 'The :attribute field is required.',
+            'authorities.*.order_to_sign.integer' => 'The :attribute must be an integer.',
+            'authorities.*.order_to_sign.min' => 'The :attribute must be at least 1.',
+
             'authorities.*.is_active.boolean' => 'The :attribute field must be true or false.',
             'authorities.*.start_date.date' => 'The :attribute is not a valid date.',
             'authorities.*.end_date.date' => 'The :attribute is not a valid date.',
 
-            'authorities_end_date_after_or_equal' => 'The authority end date must be greater than or equal to the start date.',
-            'authorities_duplicate_in_request' => 'You cannot repeat the same person and position combination in the same request.',
-            'authorities_duplicate_in_tenant' => 'This person already has that position assigned in this tenant.',
+            // NEW MESSAGES
+            'authorities_end_date_after_or_equal' => 'The end date must be greater than or equal to the start date.',
+            'authorities_duplicate_in_request' => 'You cannot repeat the same person and position combination.',
+            'authorities_duplicate_in_tenant' => 'This person and position combination already exists for this tenant.',
+            'order_to_sign_unique' => 'The signing order must be unique.',
+            'invalid_position_for_tenant' => 'The authority does not belong to this tenant.',
         ],
     ],
 ];

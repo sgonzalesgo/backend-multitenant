@@ -38,10 +38,13 @@ return [
             'country_logo_position_right' => 'posición del logo del país a la derecha',
             'zip' => 'código postal',
 
+            // NUEVO
             'authorities' => 'autoridades',
+            'authorities.*.id' => 'autoridad',
             'authorities.*.person_id' => 'persona',
             'authorities.*.position_id' => 'cargo',
             'authorities.*.signature' => 'firma',
+            'authorities.*.order_to_sign' => 'orden de firma',
             'authorities.*.is_active' => 'estado de la autoridad',
             'authorities.*.start_date' => 'fecha de inicio',
             'authorities.*.end_date' => 'fecha de fin',
@@ -77,6 +80,9 @@ return [
 
             'authorities.array' => 'El campo :attribute debe ser una lista válida.',
 
+            'authorities.*.id.uuid' => 'El campo :attribute debe ser un UUID válido.',
+            'authorities.*.id.exists' => 'La :attribute seleccionada no es válida.',
+
             'authorities.*.person_id.required_with' => 'El campo :attribute es obligatorio.',
             'authorities.*.person_id.uuid' => 'El campo :attribute debe ser un UUID válido.',
             'authorities.*.person_id.exists' => 'La :attribute seleccionada no es válida.',
@@ -89,13 +95,20 @@ return [
             'authorities.*.signature.mimes' => 'El campo :attribute debe ser un archivo de tipo: jpg, jpeg, png, svg, webp.',
             'authorities.*.signature.max' => 'El campo :attribute no debe ser mayor a 2048 kilobytes.',
 
+            'authorities.*.order_to_sign.required_with' => 'El campo :attribute es obligatorio.',
+            'authorities.*.order_to_sign.integer' => 'El campo :attribute debe ser un número entero.',
+            'authorities.*.order_to_sign.min' => 'El campo :attribute debe ser al menos 1.',
+
             'authorities.*.is_active.boolean' => 'El campo :attribute debe ser verdadero o falso.',
             'authorities.*.start_date.date' => 'El campo :attribute no es una fecha válida.',
             'authorities.*.end_date.date' => 'El campo :attribute no es una fecha válida.',
 
-            'authorities_end_date_after_or_equal' => 'La fecha de fin de la autoridad debe ser posterior o igual a la fecha de inicio.',
-            'authorities_duplicate_in_request' => 'No puedes repetir la misma combinación de persona y cargo en la misma solicitud.',
-            'authorities_duplicate_in_tenant' => 'Esta persona ya tiene asignado ese cargo en este tenant.',
+            // NUEVOS MENSAJES
+            'authorities_end_date_after_or_equal' => 'La fecha de fin debe ser mayor o igual a la fecha de inicio.',
+            'authorities_duplicate_in_request' => 'No puedes repetir la misma combinación de persona y cargo.',
+            'authorities_duplicate_in_tenant' => 'Esta combinación de persona y cargo ya existe para este tenant.',
+            'order_to_sign_unique' => 'El orden de firma debe ser único.',
+            'invalid_position_for_tenant' => 'La autoridad no pertenece a este tenant.',
         ],
     ],
 ];

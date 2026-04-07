@@ -444,7 +444,6 @@ class TenantRepository
     {
         return DB::transaction(function () use ($id, $data) {
             $tenant = Tenant::query()
-                ->with('tenantPositions')
                 ->find($id);
 
             if (!$tenant) {
@@ -459,7 +458,7 @@ class TenantRepository
             $tenant->update($payload);
 
             if (is_array($authorities)) {
-                $this->syncAuthorities($tenant, $authorities, true);
+                $this->syncAuthorities($tenant, $authorities);
             }
 
             return $tenant->fresh(['tenantPositions.person', 'tenantPositions.position']);
@@ -496,27 +495,75 @@ class TenantRepository
         ];
     }
 
-    protected function syncAuthorities(Tenant $tenant, array $authorities, bool $replaceExisting = false): void
+    protected function syncAuthorities(Tenant $tenant, array $authorities): void
     {
-        if ($replaceExisting) {
-            $this->deleteExistingAuthoritiesFiles($tenant);
-            TenantPosition::query()
-                ->where('tenant_id', $tenant->id)
-                ->delete();
-        }
+        $existing = TenantPosition::query()
+            ->where('tenant_id', $tenant->id)
+            ->get()
+            ->keyBy('id');
+
+        $receivedIds = [];
 
         foreach ($authorities as $authority) {
-            TenantPosition::query()->create([
+            $tenantPositionId = $authority['id'] ?? null;
+
+            if ($tenantPositionId && $existing->has($tenantPositionId)) {
+                $tenantPosition = $existing->get($tenantPositionId);
+
+                $currentSignature = $tenantPosition->signature;
+                $newSignature = $this->storeAuthoritySignature(
+                    $authority['signature'] ?? null,
+                    $currentSignature
+                );
+
+                $tenantPosition->update([
+                    'person_id' => $authority['person_id'],
+                    'position_id' => $authority['position_id'],
+                    'signature' => $newSignature,
+                    'order_to_sign' => $authority['order_to_sign'],
+                    'is_active' => array_key_exists('is_active', $authority)
+                        ? filter_var($authority['is_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false
+                        : true,
+                    'start_date' => $authority['start_date'] ?? null,
+                    'end_date' => $authority['end_date'] ?? null,
+                ]);
+
+                $receivedIds[] = $tenantPosition->id;
+                continue;
+            }
+
+            $created = TenantPosition::query()->create([
                 'tenant_id' => $tenant->id,
                 'person_id' => $authority['person_id'],
                 'position_id' => $authority['position_id'],
                 'signature' => $this->storeAuthoritySignature($authority['signature'] ?? null),
+                'order_to_sign' => $authority['order_to_sign'],
                 'is_active' => array_key_exists('is_active', $authority)
                     ? filter_var($authority['is_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false
                     : true,
                 'start_date' => $authority['start_date'] ?? null,
                 'end_date' => $authority['end_date'] ?? null,
             ]);
+
+            $receivedIds[] = $created->id;
+        }
+
+        $toDelete = $existing->keys()->diff($receivedIds);
+
+        if ($toDelete->isNotEmpty()) {
+            $recordsToDelete = TenantPosition::query()
+                ->whereIn('id', $toDelete->values())
+                ->get();
+
+            foreach ($recordsToDelete as $record) {
+                if ($record->signature && Storage::disk('public')->exists($record->signature)) {
+                    Storage::disk('public')->delete($record->signature);
+                }
+            }
+
+            TenantPosition::query()
+                ->whereIn('id', $toDelete->values())
+                ->delete();
         }
     }
 
@@ -529,10 +576,14 @@ class TenantRepository
         }
     }
 
-    protected function storeAuthoritySignature(mixed $file): ?string
+    protected function storeAuthoritySignature(mixed $file, ?string $currentPath = null): ?string
     {
         if (!$file instanceof UploadedFile) {
-            return null;
+            return $currentPath;
+        }
+
+        if ($currentPath && Storage::disk('public')->exists($currentPath)) {
+            Storage::disk('public')->delete($currentPath);
         }
 
         return $file->store('tenant_positions/signature', 'public');

@@ -237,7 +237,17 @@ class TenantController
     public function store(TenantRequest $request): JsonResponse
     {
         try {
-            $data = $this->tenantRepository->create($request->validated());
+            $validated = $request->validated();
+
+            $authorities = $validated['authorities'] ?? [];
+
+            foreach ($authorities as $index => $authority) {
+                if ($request->hasFile("authorities.$index.signature")) {
+                    $validated['authorities'][$index]['signature'] = $request->file("authorities.$index.signature");
+                }
+            }
+
+            $data = $this->tenantRepository->create($validated);
 
             return response()->json([
                 'code' => Response::HTTP_OK,
@@ -258,7 +268,17 @@ class TenantController
     public function update(string $id, TenantRequest $request): JsonResponse
     {
         try {
-            $data = $this->tenantRepository->update($id, $request->validated());
+            $validated = $request->validated();
+
+            $authorities = $validated['authorities'] ?? [];
+
+            foreach ($authorities as $index => $authority) {
+                if ($request->hasFile("authorities.$index.signature")) {
+                    $validated['authorities'][$index]['signature'] = $request->file("authorities.$index.signature");
+                }
+            }
+
+            $data = $this->tenantRepository->update($id, $validated);
 
             if (!$data) {
                 return response()->json([
