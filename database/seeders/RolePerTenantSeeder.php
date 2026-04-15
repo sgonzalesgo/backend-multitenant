@@ -109,6 +109,10 @@ class RolePerTenantSeeder extends Seeder
                 'Search tenant_positions',
                 'Store tenant_positions',
                 'Update tenant_positions',
+                "List departments",
+                "Store departments",
+                "Update departments",
+                "Delete departments",
             ],
         ];
 

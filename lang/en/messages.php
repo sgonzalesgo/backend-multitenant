@@ -63,8 +63,15 @@ return [
         'description_updated' => 'Record updated',
         'description_deleted' => 'Record deleted',
     ],
-
     'tenants' => [
         'tenant_not_found' => 'The current tenant could not be resolved.'
+    ],
+    'departments' => [
+        'listed' => 'Departments listed successfully.',
+        'created' => 'Department created successfully.',
+        'shown' => 'Department retrieved successfully.',
+        'updated' => 'Department updated successfully.',
+        'deleted' => 'Department deleted successfully.',
+        'code_taken' => 'The department code is already in use.',
     ],
 ];

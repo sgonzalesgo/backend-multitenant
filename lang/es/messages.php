@@ -66,4 +66,12 @@ return [
     'tenants' => [
         'tenant_not_found' => 'No se pudo resolver el tenant actual.'
     ],
+    'departments' => [
+        'listed' => 'Departamentos listados correctamente.',
+        'created' => 'Departamento creado correctamente.',
+        'shown' => 'Departamento obtenido correctamente.',
+        'updated' => 'Departamento actualizado correctamente.',
+        'deleted' => 'Departamento eliminado correctamente.',
+        'code_taken' => 'El código del departamento ya está en uso.',
+    ],
 ];

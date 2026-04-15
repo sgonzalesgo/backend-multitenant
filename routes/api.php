@@ -31,8 +31,9 @@ Route::middleware([
     require base_path('routes/administration/manual_notifications.php');
     require base_path('routes/calendar/calendar.php');
     require base_path('routes/calendar/calendar_event_type.php');
-    require base_path('routes/General/person.php');
+    require base_path('routes/general/person.php');
     require base_path('routes/academic/instructor.php');
     require base_path('routes/administration/position.php');
     require base_path('routes/administration/tenant_position.php');
+    require base_path('routes/general/department.php');
 });

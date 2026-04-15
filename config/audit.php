@@ -36,6 +36,7 @@ use App\Models\Administration\TenantPosition;
 use App\Models\Administration\User;
 use App\Models\Calendar\CalendarEvent;
 use App\Models\Calendar\CalendarEventType;
+use App\Models\General\Department;
 use App\Models\General\Person;
 
 return [
@@ -58,6 +59,7 @@ return [
         'manual_notifications' => ManualNotification::class,
         'positions' => Position::class,
         'tenant_positions' => TenantPosition::class,
+        'departments' => Department::class,
     ],
 
     /*
@@ -76,6 +78,7 @@ return [
         CalendarEvent::class,
         ManualNotification::class,
         Position::class,
+        Department::class
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente
