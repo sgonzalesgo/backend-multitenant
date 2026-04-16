@@ -74,4 +74,11 @@ return [
         'deleted' => 'Department deleted successfully.',
         'code_taken' => 'The department code is already in use.',
     ],
+    'enrollment_statuses' => [
+        'listed' => 'Enrollment statuses retrieved successfully.',
+        'created' => 'Enrollment status created successfully.',
+        'shown' => 'Enrollment status retrieved successfully.',
+        'updated' => 'Enrollment status updated successfully.',
+        'deleted' => 'Enrollment status deleted successfully.',
+    ],
 ];

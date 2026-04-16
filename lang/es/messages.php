@@ -74,4 +74,11 @@ return [
         'deleted' => 'Departamento eliminado correctamente.',
         'code_taken' => 'El código del departamento ya está en uso.',
     ],
+    'enrollment_statuses' => [
+        'listed' => 'Estados de matrícula listados correctamente.',
+        'created' => 'Estado de matrícula creado correctamente.',
+        'shown' => 'Estado de matrícula obtenido correctamente.',
+        'updated' => 'Estado de matrícula actualizado correctamente.',
+        'deleted' => 'Estado de matrícula eliminado correctamente.',
+    ],
 ];

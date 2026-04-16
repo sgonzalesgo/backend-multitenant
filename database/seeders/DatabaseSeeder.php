@@ -22,7 +22,8 @@ class DatabaseSeeder extends Seeder
             CountrySeeder::class,
             StateSeeder::class,
             CitySeeder::class,
-            PositionSeeder::class
+            PositionSeeder::class,
+            EnrollmentStatusSeeder::class
         ]);
     }
 }

@@ -36,4 +36,5 @@ Route::middleware([
     require base_path('routes/administration/position.php');
     require base_path('routes/administration/tenant_position.php');
     require base_path('routes/general/department.php');
+    require base_path('routes/academic/enrollment-statuses.php');
 });

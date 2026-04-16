@@ -27,6 +27,7 @@
 //];
 
 
+use App\Models\Academic\EnrollmentStatus;
 use App\Models\Administration\ManualNotification;
 use App\Models\Administration\Permission;
 use App\Models\Administration\Position;
@@ -60,6 +61,8 @@ return [
         'positions' => Position::class,
         'tenant_positions' => TenantPosition::class,
         'departments' => Department::class,
+        'enrollment_statuses' => EnrollmentStatus::class,
+
     ],
 
     /*
@@ -78,7 +81,8 @@ return [
         CalendarEvent::class,
         ManualNotification::class,
         Position::class,
-        Department::class
+        Department::class,
+        EnrollmentStatus::class
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente

@@ -108,6 +108,10 @@ class PermissionSeeder extends Seeder
             "Store departments",
             "Update departments",
             "Delete departments",
+            "List enrollment_statuses",
+            "Store enrollment_statuses",
+            "Update enrollment_statuses",
+            "Delete enrollment_statuses",
 
         ];
 
