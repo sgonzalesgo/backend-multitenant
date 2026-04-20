@@ -38,4 +38,5 @@ Route::middleware([
     require base_path('routes/general/department.php');
     require base_path('routes/academic/enrollment_statuses.php');
     require base_path('routes/academic/academic_years.php');
+    require base_path('routes/academic/evaluation_periods.php');
 });

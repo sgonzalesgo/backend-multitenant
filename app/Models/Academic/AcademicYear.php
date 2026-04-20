@@ -4,6 +4,7 @@ namespace App\Models\Academic;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AcademicYear extends Model
@@ -33,4 +34,11 @@ class AcademicYear extends Model
         'is_active' => 'boolean',
         'is_current' => 'boolean',
     ];
+
+    public function evaluationPeriods(): HasMany
+    {
+        return $this->hasMany(AcademicYearEvaluationPeriod::class)
+            ->orderBy('order')
+            ->orderBy('start_date');
+    }
 }

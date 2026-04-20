@@ -27,7 +27,9 @@
 //];
 
 
+use App\Models\Academic\AcademicYear;
 use App\Models\Academic\EnrollmentStatus;
+use App\Models\Academic\EvaluationPeriod;
 use App\Models\Administration\ManualNotification;
 use App\Models\Administration\Permission;
 use App\Models\Administration\Position;
@@ -62,6 +64,8 @@ return [
         'tenant_positions' => TenantPosition::class,
         'departments' => Department::class,
         'enrollment_statuses' => EnrollmentStatus::class,
+        'academic_years' => AcademicYear::class,
+        'evaluation_periods' => EvaluationPeriod::class,
 
     ],
 
@@ -82,7 +86,9 @@ return [
         ManualNotification::class,
         Position::class,
         Department::class,
-        EnrollmentStatus::class
+        EnrollmentStatus::class,
+        AcademicYear::class,
+        EvaluationPeriod::class
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente

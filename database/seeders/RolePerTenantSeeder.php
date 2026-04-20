@@ -121,6 +121,10 @@ class RolePerTenantSeeder extends Seeder
                 "Store academic_years",
                 "Update academic_years",
                 "Delete academic_years",
+                "List evaluation_periods",
+                "Store evaluation_periods",
+                "Update evaluation_periods",
+                "Delete evaluation_periods",
             ],
         ];
 

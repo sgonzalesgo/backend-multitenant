@@ -89,4 +89,19 @@ return [
         'deleted' => 'Año académico eliminado correctamente.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
     ],
+    'evaluation_periods' => [
+        'listed' => 'Períodos de evaluación obtenidos correctamente.',
+        'created' => 'Período de evaluación creado correctamente.',
+        'shown' => 'Período de evaluación obtenido correctamente.',
+        'updated' => 'Período de evaluación actualizado correctamente.',
+        'deleted' => 'Período de evaluación eliminado correctamente.',
+    ],
+    'academic_year_evaluation_periods' => [
+        'listed' => 'Períodos de evaluación del año académico obtenidos correctamente.',
+        'created' => 'Período de evaluación del año académico creado correctamente.',
+        'shown' => 'Período de evaluación del año académico obtenido correctamente.',
+        'updated' => 'Período de evaluación del año académico actualizado correctamente.',
+        'deleted' => 'Período de evaluación del año académico eliminado correctamente.',
+        'synced' => 'Períodos de evaluación del año académico sincronizados correctamente.',
+    ],
 ];
