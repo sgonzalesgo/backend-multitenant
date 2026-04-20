@@ -74,22 +74,22 @@ class PositionRepository
         if ($global !== '') {
             $query->where(function (Builder $subQuery) use ($global) {
                 $subQuery
-                    ->where('name', 'like', "%{$global}%")
-                    ->orWhere('code', 'like', "%{$global}%")
-                    ->orWhere('description', 'like', "%{$global}%");
+                    ->where('name', 'ilike', "%{$global}%")
+                    ->orWhere('code', 'ilike', "%{$global}%")
+                    ->orWhere('description', 'ilike', "%{$global}%");
             });
         }
 
         if (! empty($columns['name'])) {
-            $query->where('name', 'like', '%' . trim((string) $columns['name']) . '%');
+            $query->where('name', 'ilike', '%' . trim((string) $columns['name']) . '%');
         }
 
         if (! empty($columns['code'])) {
-            $query->where('code', 'like', '%' . trim((string) $columns['code']) . '%');
+            $query->where('code', 'ilike', '%' . trim((string) $columns['code']) . '%');
         }
 
         if (! empty($columns['description'])) {
-            $query->where('description', 'like', '%' . trim((string) $columns['description']) . '%');
+            $query->where('description', 'ilike', '%' . trim((string) $columns['description']) . '%');
         }
 
         if (array_key_exists('is_active', $columns) && $columns['is_active'] !== '' && $columns['is_active'] !== null) {

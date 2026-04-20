@@ -81,4 +81,12 @@ return [
         'updated' => 'Enrollment status updated successfully.',
         'deleted' => 'Enrollment status deleted successfully.',
     ],
+    'academic_years' => [
+        'listed' => 'Academic years retrieved successfully.',
+        'created' => 'Academic year created successfully.',
+        'shown' => 'Academic year retrieved successfully.',
+        'updated' => 'Academic year updated successfully.',
+        'deleted' => 'Academic year deleted successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
 ];

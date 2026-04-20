@@ -112,6 +112,10 @@ class PermissionSeeder extends Seeder
             "Store enrollment_statuses",
             "Update enrollment_statuses",
             "Delete enrollment_statuses",
+            "List academic_years",
+            "Store academic_years",
+            "Update academic_years",
+            "Delete academic_years",
 
         ];
 

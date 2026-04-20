@@ -81,4 +81,12 @@ return [
         'updated' => 'Estado de matrícula actualizado correctamente.',
         'deleted' => 'Estado de matrícula eliminado correctamente.',
     ],
+    'academic_years' => [
+        'listed' => 'Años académicos obtenidos correctamente.',
+        'created' => 'Año académico creado correctamente.',
+        'shown' => 'Año académico obtenido correctamente.',
+        'updated' => 'Año académico actualizado correctamente.',
+        'deleted' => 'Año académico eliminado correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
 ];
