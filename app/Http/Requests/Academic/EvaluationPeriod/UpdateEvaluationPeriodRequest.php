@@ -20,7 +20,19 @@ class UpdateEvaluationPeriodRequest extends FormRequest
             $evaluationPeriod = $evaluationPeriod->id;
         }
 
+        $academicYearId = $this->input('academic_year_id');
+
+        if (!$academicYearId && is_object($this->route('evaluationPeriod'))) {
+            $academicYearId = $this->route('evaluationPeriod')->academic_year_id;
+        }
+
         return [
+            'academic_year_id' => [
+                'sometimes',
+                'required',
+                'uuid',
+                'exists:academic_years,id',
+            ],
             'code' => [
                 'sometimes',
                 'required',
@@ -28,7 +40,11 @@ class UpdateEvaluationPeriodRequest extends FormRequest
                 'max:50',
                 Rule::unique('evaluation_periods', 'code')
                     ->ignore($evaluationPeriod)
-                    ->whereNull('deleted_at'),
+                    ->where(function ($query) use ($academicYearId) {
+                        return $query
+                            ->where('academic_year_id', $academicYearId)
+                            ->whereNull('deleted_at');
+                    }),
             ],
             'name' => [
                 'sometimes',
@@ -37,10 +53,37 @@ class UpdateEvaluationPeriodRequest extends FormRequest
                 'max:100',
                 Rule::unique('evaluation_periods', 'name')
                     ->ignore($evaluationPeriod)
-                    ->whereNull('deleted_at'),
+                    ->where(function ($query) use ($academicYearId) {
+                        return $query
+                            ->where('academic_year_id', $academicYearId)
+                            ->whereNull('deleted_at');
+                    }),
             ],
             'description' => ['nullable', 'string', 'max:255'],
-            'default_order' => ['sometimes', 'required', 'integer', 'min:1'],
+            'default_order' => [
+                'sometimes',
+                'required',
+                'integer',
+                'min:1',
+                Rule::unique('evaluation_periods', 'default_order')
+                    ->ignore($evaluationPeriod)
+                    ->where(function ($query) use ($academicYearId) {
+                        return $query
+                            ->where('academic_year_id', $academicYearId)
+                            ->whereNull('deleted_at');
+                    }),
+            ],
+            'start_date' => [
+                'sometimes',
+                'required',
+                'date',
+            ],
+            'end_date' => [
+                'sometimes',
+                'required',
+                'date',
+                'after_or_equal:start_date',
+            ],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

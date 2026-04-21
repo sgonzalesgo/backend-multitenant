@@ -14,16 +14,45 @@ return new class extends Migration
         Schema::create('evaluation_periods', function (Blueprint $table) {
             $table->uuid('id')->primary();
 
-            $table->string('code', 50)->unique();
-            $table->string('name', 100)->unique();
+            $table->uuid('academic_year_id');
+
+            $table->string('code', 50);
+            $table->string('name', 100);
             $table->string('description', 255)->nullable();
+
             $table->unsignedInteger('default_order')->default(1);
+            $table->date('start_date');
+            $table->date('end_date');
             $table->boolean('is_active')->default(true);
 
             $table->timestamps();
             $table->softDeletes();
 
+            $table->foreign('academic_year_id')
+                ->references('id')
+                ->on('academic_years')
+                ->cascadeOnUpdate()
+                ->restrictOnDelete();
+
+            $table->unique(
+                ['academic_year_id', 'code'],
+                'evaluation_periods_academic_year_code_unique'
+            );
+
+            $table->unique(
+                ['academic_year_id', 'name'],
+                'evaluation_periods_academic_year_name_unique'
+            );
+
+            $table->unique(
+                ['academic_year_id', 'default_order'],
+                'evaluation_periods_academic_year_order_unique'
+            );
+
+            $table->index('academic_year_id');
             $table->index('default_order');
+            $table->index('start_date');
+            $table->index('end_date');
             $table->index('is_active');
         });
     }

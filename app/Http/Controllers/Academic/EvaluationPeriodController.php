@@ -35,7 +35,7 @@ class EvaluationPeriodController extends Controller
     {
         $evaluationPeriod = $this->repo->create(
             $request->validated()
-        );
+        )->load('academicYear');
 
         return response()->json([
             'code' => Response::HTTP_CREATED,
@@ -47,6 +47,8 @@ class EvaluationPeriodController extends Controller
 
     public function show(EvaluationPeriod $evaluationPeriod): JsonResponse
     {
+        $evaluationPeriod->load('academicYear');
+
         return response()->json([
             'code' => Response::HTTP_OK,
             'message' => __('messages.evaluation_periods.shown'),
@@ -60,7 +62,7 @@ class EvaluationPeriodController extends Controller
         $evaluationPeriod = $this->repo->update(
             $evaluationPeriod,
             $request->validated()
-        );
+        )->load('academicYear');
 
         return response()->json([
             'code' => Response::HTTP_OK,

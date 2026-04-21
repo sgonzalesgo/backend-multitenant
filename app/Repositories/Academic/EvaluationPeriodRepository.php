@@ -19,6 +19,8 @@ class EvaluationPeriodRepository
             'code',
             'name',
             'default_order',
+            'start_date',
+            'end_date',
             'is_active',
             'created_at',
             'updated_at',
@@ -27,9 +29,12 @@ class EvaluationPeriodRepository
         }
 
         $global = '';
+        $academicYearId = '';
         $code = '';
         $name = '';
         $defaultOrder = '';
+        $startDate = '';
+        $endDate = '';
         $isActive = '';
         $createdAt = '';
 
@@ -38,9 +43,12 @@ class EvaluationPeriodRepository
 
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 $global = trim((string) Arr::get($decoded, 'global', ''));
+                $academicYearId = trim((string) Arr::get($decoded, 'columns.academic_year_id', ''));
                 $code = trim((string) Arr::get($decoded, 'columns.code', ''));
                 $name = trim((string) Arr::get($decoded, 'columns.name', ''));
                 $defaultOrder = trim((string) Arr::get($decoded, 'columns.default_order', ''));
+                $startDate = trim((string) Arr::get($decoded, 'columns.start_date', ''));
+                $endDate = trim((string) Arr::get($decoded, 'columns.end_date', ''));
                 $isActive = trim((string) Arr::get($decoded, 'columns.is_active', ''));
                 $createdAt = trim((string) Arr::get($decoded, 'columns.created_at', ''));
             } else {
@@ -49,6 +57,7 @@ class EvaluationPeriodRepository
         }
 
         return EvaluationPeriod::query()
+            ->with('academicYear')
             ->when($global !== '', function ($query) use ($global) {
                 $query->where(function ($q) use ($global) {
                     $q->where('code', 'ilike', "%{$global}%")
@@ -56,9 +65,12 @@ class EvaluationPeriodRepository
                         ->orWhere('description', 'ilike', "%{$global}%");
                 });
             })
+            ->when($academicYearId !== '', fn ($query) => $query->where('academic_year_id', $academicYearId))
             ->when($code !== '', fn ($query) => $query->where('code', 'ilike', "%{$code}%"))
             ->when($name !== '', fn ($query) => $query->where('name', 'ilike', "%{$name}%"))
             ->when($defaultOrder !== '', fn ($query) => $query->where('default_order', (int) $defaultOrder))
+            ->when($startDate !== '', fn ($query) => $query->whereDate('start_date', $startDate))
+            ->when($endDate !== '', fn ($query) => $query->whereDate('end_date', $endDate))
             ->when($isActive !== '', function ($query) use ($isActive) {
                 $normalized = strtolower($isActive);
 
@@ -78,10 +90,13 @@ class EvaluationPeriodRepository
     public function create(array $data): EvaluationPeriod
     {
         $evaluationPeriod = EvaluationPeriod::query()->create([
+            'academic_year_id' => Arr::get($data, 'academic_year_id'),
             'code' => Arr::get($data, 'code'),
             'name' => Arr::get($data, 'name'),
             'description' => Arr::get($data, 'description'),
             'default_order' => Arr::get($data, 'default_order', 1),
+            'start_date' => Arr::get($data, 'start_date'),
+            'end_date' => Arr::get($data, 'end_date'),
             'is_active' => Arr::get($data, 'is_active', true),
         ]);
 
@@ -91,10 +106,13 @@ class EvaluationPeriodRepository
     public function update(EvaluationPeriod $evaluationPeriod, array $data): EvaluationPeriod
     {
         $evaluationPeriod->fill([
+            'academic_year_id' => Arr::get($data, 'academic_year_id', $evaluationPeriod->academic_year_id),
             'code' => Arr::get($data, 'code', $evaluationPeriod->code),
             'name' => Arr::get($data, 'name', $evaluationPeriod->name),
             'description' => Arr::get($data, 'description', $evaluationPeriod->description),
             'default_order' => Arr::get($data, 'default_order', $evaluationPeriod->default_order),
+            'start_date' => Arr::get($data, 'start_date', $evaluationPeriod->start_date),
+            'end_date' => Arr::get($data, 'end_date', $evaluationPeriod->end_date),
             'is_active' => Arr::get($data, 'is_active', $evaluationPeriod->is_active),
         ]);
 

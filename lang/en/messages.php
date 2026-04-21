@@ -96,12 +96,4 @@ return [
         'updated' => 'Evaluation period updated successfully.',
         'deleted' => 'Evaluation period deleted successfully.',
     ],
-    'academic_year_evaluation_periods' => [
-        'listed' => 'Academic year evaluation periods retrieved successfully.',
-        'created' => 'Academic year evaluation period created successfully.',
-        'shown' => 'Academic year evaluation period retrieved successfully.',
-        'updated' => 'Academic year evaluation period updated successfully.',
-        'deleted' => 'Academic year evaluation period deleted successfully.',
-        'synced' => 'Academic year evaluation periods synced successfully.',
-    ],
 ];
