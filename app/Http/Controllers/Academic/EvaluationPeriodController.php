@@ -31,6 +31,20 @@ class EvaluationPeriodController extends Controller
         ], Response::HTTP_OK);
     }
 
+    public function active(Request $request): JsonResponse
+    {
+        $evaluationPeriods = $this->repo->active(
+            $request->only(['academic_year_id'])
+        );
+
+        return response()->json([
+            'code' => Response::HTTP_OK,
+            'message' => __('messages.evaluation_periods.listed'),
+            'data' => $evaluationPeriods,
+            'error' => null,
+        ], Response::HTTP_OK);
+    }
+
     public function store(StoreEvaluationPeriodRequest $request): JsonResponse
     {
         $evaluationPeriod = $this->repo->create(

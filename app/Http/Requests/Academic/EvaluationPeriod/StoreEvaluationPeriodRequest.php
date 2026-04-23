@@ -69,8 +69,6 @@ class StoreEvaluationPeriodRequest extends FormRequest
                 'date',
                 'after_or_equal:start_date',
             ],
-
-            'is_active' => ['nullable', 'boolean'],
         ];
     }
 

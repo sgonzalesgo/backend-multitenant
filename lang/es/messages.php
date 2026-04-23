@@ -96,4 +96,21 @@ return [
         'updated' => 'Período de evaluación actualizado correctamente.',
         'deleted' => 'Período de evaluación eliminado correctamente.',
     ],
+    'modalities' => [
+        'listed' => 'Modalidades obtenidas correctamente.',
+        'created' => 'Modalidad creada correctamente.',
+        'shown' => 'Modalidad obtenida correctamente.',
+        'updated' => 'Modalidad actualizada correctamente.',
+        'deleted' => 'Modalidad eliminada correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
+    'shifts' => [
+        'listed' => 'Jornadas obtenidas correctamente.',
+        'created' => 'Jornada creada correctamente.',
+        'shown' => 'Jornada obtenida correctamente.',
+        'updated' => 'Jornada actualizada correctamente.',
+        'deleted' => 'Jornada eliminada correctamente.',
+        'active_listed' => 'Jornadas activas obtenidas correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
 ];

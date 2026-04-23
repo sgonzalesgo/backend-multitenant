@@ -17,14 +17,20 @@ class UpdateEvaluationPeriodRequest extends FormRequest
         $evaluationPeriod = $this->route('evaluationPeriod');
 
         if (is_object($evaluationPeriod)) {
-            $evaluationPeriod = $evaluationPeriod->id;
+            $evaluationPeriodId = $evaluationPeriod->id;
+            $currentAcademicYearId = $evaluationPeriod->academic_year_id;
+            $currentStartDate = optional($evaluationPeriod->start_date)->format('Y-m-d');
+            $currentEndDate = optional($evaluationPeriod->end_date)->format('Y-m-d');
+        } else {
+            $evaluationPeriodId = $evaluationPeriod;
+            $currentAcademicYearId = null;
+            $currentStartDate = null;
+            $currentEndDate = null;
         }
 
-        $academicYearId = $this->input('academic_year_id');
-
-        if (!$academicYearId && is_object($this->route('evaluationPeriod'))) {
-            $academicYearId = $this->route('evaluationPeriod')->academic_year_id;
-        }
+        $academicYearId = $this->input('academic_year_id', $currentAcademicYearId);
+        $startDate = $this->input('start_date', $currentStartDate);
+        $endDate = $this->input('end_date', $currentEndDate);
 
         return [
             'academic_year_id' => [
@@ -39,7 +45,7 @@ class UpdateEvaluationPeriodRequest extends FormRequest
                 'string',
                 'max:50',
                 Rule::unique('evaluation_periods', 'code')
-                    ->ignore($evaluationPeriod)
+                    ->ignore($evaluationPeriodId)
                     ->where(function ($query) use ($academicYearId) {
                         return $query
                             ->where('academic_year_id', $academicYearId)
@@ -52,7 +58,7 @@ class UpdateEvaluationPeriodRequest extends FormRequest
                 'string',
                 'max:100',
                 Rule::unique('evaluation_periods', 'name')
-                    ->ignore($evaluationPeriod)
+                    ->ignore($evaluationPeriodId)
                     ->where(function ($query) use ($academicYearId) {
                         return $query
                             ->where('academic_year_id', $academicYearId)
@@ -66,7 +72,7 @@ class UpdateEvaluationPeriodRequest extends FormRequest
                 'integer',
                 'min:1',
                 Rule::unique('evaluation_periods', 'default_order')
-                    ->ignore($evaluationPeriod)
+                    ->ignore($evaluationPeriodId)
                     ->where(function ($query) use ($academicYearId) {
                         return $query
                             ->where('academic_year_id', $academicYearId)
@@ -77,14 +83,14 @@ class UpdateEvaluationPeriodRequest extends FormRequest
                 'sometimes',
                 'required',
                 'date',
+                'before_or_equal:' . $endDate,
             ],
             'end_date' => [
                 'sometimes',
                 'required',
                 'date',
-                'after_or_equal:start_date',
+                'after_or_equal:' . $startDate,
             ],
-            'is_active' => ['nullable', 'boolean'],
         ];
     }
 

@@ -98,7 +98,7 @@ class PermissionRepository
         $rawQ = trim((string)Arr::get($filters, 'q', ''));
         $sort = Arr::get($filters, 'sort', 'name');
         $dir = strtolower((string)Arr::get($filters, 'dir', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $perPage = max(1, min((int)Arr::get($filters, 'per_page', 15), 100));
+        $perPage = max(1, min((int)Arr::get($filters, 'per_page', 15), 600));
 
         if (!in_array($sort, ['name', 'guard_name', 'created_at', 'updated_at'], true)) {
             $sort = 'name';

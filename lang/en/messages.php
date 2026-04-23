@@ -96,4 +96,21 @@ return [
         'updated' => 'Evaluation period updated successfully.',
         'deleted' => 'Evaluation period deleted successfully.',
     ],
+    'modalities' => [
+        'listed' => 'Modalities retrieved successfully.',
+        'created' => 'Modality created successfully.',
+        'shown' => 'Modality retrieved successfully.',
+        'updated' => 'Modality updated successfully.',
+        'deleted' => 'Modality deleted successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
+    'shifts' => [
+        'listed' => 'Shifts retrieved successfully.',
+        'created' => 'Shift created successfully.',
+        'shown' => 'Shift retrieved successfully.',
+        'updated' => 'Shift updated successfully.',
+        'deleted' => 'Shift deleted successfully.',
+        'active_listed' => 'Active shifts retrieved successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
 ];

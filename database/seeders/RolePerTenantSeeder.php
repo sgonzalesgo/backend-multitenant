@@ -125,6 +125,14 @@ class RolePerTenantSeeder extends Seeder
                 "Store evaluation_periods",
                 "Update evaluation_periods",
                 "Delete evaluation_periods",
+                "List modalities",
+                "Store modalities",
+                "Update modalities",
+                "Delete modalities",
+                "List shifts",
+                "Store shifts",
+                "Update shifts",
+                "Delete shifts",
             ],
         ];
 

@@ -23,7 +23,6 @@ return new class extends Migration
             $table->unsignedInteger('default_order')->default(1);
             $table->date('start_date');
             $table->date('end_date');
-            $table->boolean('is_active')->default(true);
 
             $table->timestamps();
             $table->softDeletes();
@@ -53,7 +52,6 @@ return new class extends Migration
             $table->index('default_order');
             $table->index('start_date');
             $table->index('end_date');
-            $table->index('is_active');
         });
     }
 

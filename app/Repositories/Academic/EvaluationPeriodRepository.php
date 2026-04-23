@@ -5,6 +5,8 @@ namespace App\Repositories\Academic;
 use App\Models\Academic\EvaluationPeriod;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class EvaluationPeriodRepository
 {
@@ -56,7 +58,9 @@ class EvaluationPeriodRepository
             }
         }
 
-        return EvaluationPeriod::query()
+        $today = Carbon::today()->toDateString();
+
+        $query = EvaluationPeriod::query()
             ->with('academicYear')
             ->when($global !== '', function ($query) use ($global) {
                 $query->where(function ($q) use ($global) {
@@ -75,16 +79,42 @@ class EvaluationPeriodRepository
                 $normalized = strtolower($isActive);
 
                 if (in_array($normalized, ['1', 'true', 'yes', 'activo', 'active'], true)) {
-                    $query->where('is_active', true);
+                    $query->active();
                 }
 
                 if (in_array($normalized, ['0', 'false', 'no', 'inactivo', 'inactive'], true)) {
-                    $query->where('is_active', false);
+                    $query->inactive();
                 }
             })
-            ->when($createdAt !== '', fn ($query) => $query->whereDate('created_at', $createdAt))
-            ->orderBy($sort, $dir)
-            ->paginate($perPage);
+            ->when($createdAt !== '', fn ($query) => $query->whereDate('created_at', $createdAt));
+
+        if ($sort === 'is_active') {
+            $query->orderByRaw(
+                "CASE
+                    WHEN start_date <= ? AND end_date >= ? THEN 1
+                    ELSE 0
+                 END {$dir}",
+                [$today, $today]
+            )->orderBy('default_order', 'asc');
+        } else {
+            $query->orderBy($sort, $dir);
+        }
+
+        return $query->paginate($perPage);
+    }
+
+    public function active(array $filters = []): Collection
+    {
+        $academicYearId = Arr::get($filters, 'academic_year_id');
+        $today = Carbon::today()->toDateString();
+
+        return EvaluationPeriod::query()
+            ->with('academicYear')
+            ->when($academicYearId, fn ($query) => $query->where('academic_year_id', $academicYearId))
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
+            ->orderBy('default_order', 'asc')
+            ->get();
     }
 
     public function create(array $data): EvaluationPeriod
@@ -97,7 +127,6 @@ class EvaluationPeriodRepository
             'default_order' => Arr::get($data, 'default_order', 1),
             'start_date' => Arr::get($data, 'start_date'),
             'end_date' => Arr::get($data, 'end_date'),
-            'is_active' => Arr::get($data, 'is_active', true),
         ]);
 
         return $evaluationPeriod->refresh();
@@ -113,7 +142,6 @@ class EvaluationPeriodRepository
             'default_order' => Arr::get($data, 'default_order', $evaluationPeriod->default_order),
             'start_date' => Arr::get($data, 'start_date', $evaluationPeriod->start_date),
             'end_date' => Arr::get($data, 'end_date', $evaluationPeriod->end_date),
-            'is_active' => Arr::get($data, 'is_active', $evaluationPeriod->is_active),
         ]);
 
         $evaluationPeriod->save();
