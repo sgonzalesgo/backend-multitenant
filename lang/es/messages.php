@@ -113,4 +113,13 @@ return [
         'active_listed' => 'Jornadas activas obtenidas correctamente.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
     ],
+    'parallels' => [
+        'listed' => 'Paralelos obtenidos correctamente.',
+        'created' => 'Paralelo creado correctamente.',
+        'shown' => 'Paralelo obtenido correctamente.',
+        'updated' => 'Paralelo actualizado correctamente.',
+        'deleted' => 'Paralelo eliminado correctamente.',
+        'active_listed' => 'Paralelos activos obtenidos correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
 ];

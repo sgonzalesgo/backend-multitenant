@@ -133,6 +133,10 @@ class RolePerTenantSeeder extends Seeder
                 "Store shifts",
                 "Update shifts",
                 "Delete shifts",
+                "List parallels",
+                "Store parallels",
+                "Update parallels",
+                "Delete parallels",
             ],
         ];
 

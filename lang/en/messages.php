@@ -113,4 +113,13 @@ return [
         'active_listed' => 'Active shifts retrieved successfully.',
         'tenant_not_resolved' => 'The current tenant could not be resolved.',
     ],
+    'parallels' => [
+        'listed' => 'Parallels retrieved successfully.',
+        'created' => 'Parallel created successfully.',
+        'shown' => 'Parallel retrieved successfully.',
+        'updated' => 'Parallel updated successfully.',
+        'deleted' => 'Parallel deleted successfully.',
+        'active_listed' => 'Active parallels retrieved successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
 ];
