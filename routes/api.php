@@ -42,4 +42,5 @@ Route::middleware([
     require base_path('routes/academic/modalities.php');
     require base_path('routes/academic/shifts.php');
     require base_path('routes/academic/parallels.php');
+    require base_path('routes/academic/specialties.php');
 });

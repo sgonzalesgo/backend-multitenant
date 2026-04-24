@@ -122,4 +122,13 @@ return [
         'active_listed' => 'Paralelos activos obtenidos correctamente.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
     ],
+    'specialties' => [
+        'listed' => 'Especialidades obtenidas correctamente.',
+        'created' => 'Especialidad creada correctamente.',
+        'shown' => 'Especialidad obtenida correctamente.',
+        'updated' => 'Especialidad actualizada correctamente.',
+        'deleted' => 'Especialidad eliminada correctamente.',
+        'active_listed' => 'Especialidades activas obtenidas correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
 ];

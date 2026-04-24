@@ -32,6 +32,7 @@ use App\Models\Academic\EnrollmentStatus;
 use App\Models\Academic\EvaluationPeriod;
 use App\Models\Academic\Modality;
 use App\Models\Academic\Shift;
+use App\Models\Academic\Specialty;
 use App\Models\Administration\ManualNotification;
 use App\Models\Administration\Permission;
 use App\Models\Administration\Position;
@@ -70,6 +71,7 @@ return [
         'evaluation_periods' => EvaluationPeriod::class,
         'modalities' => Modality::class,
         'shifts' => Shift::class,
+        'specialties' => Specialty::class,
 
     ],
 
@@ -95,6 +97,7 @@ return [
         EvaluationPeriod::class,
         Modality::class,
         Shift::class,
+        Specialty::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente

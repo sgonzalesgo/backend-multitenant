@@ -137,6 +137,10 @@ class RolePerTenantSeeder extends Seeder
                 "Store parallels",
                 "Update parallels",
                 "Delete parallels",
+                "List specialties",
+                "Store specialties",
+                "Update specialties",
+                "Delete specialties",
             ],
         ];
 

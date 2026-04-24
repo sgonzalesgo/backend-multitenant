@@ -122,4 +122,13 @@ return [
         'active_listed' => 'Active parallels retrieved successfully.',
         'tenant_not_resolved' => 'The current tenant could not be resolved.',
     ],
+    'specialties' => [
+        'listed' => 'Specialties retrieved successfully.',
+        'created' => 'Specialty created successfully.',
+        'shown' => 'Specialty retrieved successfully.',
+        'updated' => 'Specialty updated successfully.',
+        'deleted' => 'Specialty deleted successfully.',
+        'active_listed' => 'Active specialties retrieved successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
 ];
