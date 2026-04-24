@@ -131,4 +131,13 @@ return [
         'active_listed' => 'Active specialties retrieved successfully.',
         'tenant_not_resolved' => 'The current tenant could not be resolved.',
     ],
+    'classrooms' => [
+        'listed' => 'Classrooms retrieved successfully.',
+        'created' => 'Classroom created successfully.',
+        'shown' => 'Classroom retrieved successfully.',
+        'updated' => 'Classroom updated successfully.',
+        'deleted' => 'Classroom deleted successfully.',
+        'active_listed' => 'Active classrooms retrieved successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
 ];

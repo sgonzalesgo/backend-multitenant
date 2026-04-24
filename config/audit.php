@@ -28,6 +28,7 @@
 
 
 use App\Models\Academic\AcademicYear;
+use App\Models\Academic\Classroom;
 use App\Models\Academic\EnrollmentStatus;
 use App\Models\Academic\EvaluationPeriod;
 use App\Models\Academic\Modality;
@@ -72,6 +73,7 @@ return [
         'modalities' => Modality::class,
         'shifts' => Shift::class,
         'specialties' => Specialty::class,
+        'classrooms' => Classroom::class,
 
     ],
 
@@ -98,6 +100,7 @@ return [
         Modality::class,
         Shift::class,
         Specialty::class,
+        Classroom::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente

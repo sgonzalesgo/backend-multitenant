@@ -136,6 +136,10 @@ class PermissionSeeder extends Seeder
             "Store specialties",
             "Update specialties",
             "Delete specialties",
+            "List classrooms",
+            "Store classrooms",
+            "Update classrooms",
+            "Delete classrooms",
 
         ];
 

@@ -131,4 +131,13 @@ return [
         'active_listed' => 'Especialidades activas obtenidas correctamente.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
     ],
+    'classrooms' => [
+        'listed' => 'Aulas obtenidas correctamente.',
+        'created' => 'Aula creada correctamente.',
+        'shown' => 'Aula obtenida correctamente.',
+        'updated' => 'Aula actualizada correctamente.',
+        'deleted' => 'Aula eliminada correctamente.',
+        'active_listed' => 'Aulas activas obtenidas correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
 ];
