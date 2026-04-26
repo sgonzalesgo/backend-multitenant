@@ -44,4 +44,5 @@ Route::middleware([
     require base_path('routes/academic/parallels.php');
     require base_path('routes/academic/specialties.php');
     require base_path('routes/academic/classrooms.php');
+    require base_path('routes/academic/educational_levels.php');
 });

@@ -140,6 +140,10 @@ class PermissionSeeder extends Seeder
             "Store classrooms",
             "Update classrooms",
             "Delete classrooms",
+            "List educational_levels",
+            "Store educational_levels",
+            "Update educational_levels",
+            "Delete educational_levels",
 
         ];
 

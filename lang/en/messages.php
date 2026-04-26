@@ -140,4 +140,13 @@ return [
         'active_listed' => 'Active classrooms retrieved successfully.',
         'tenant_not_resolved' => 'The current tenant could not be resolved.',
     ],
+    'educational_levels' => [
+        'listed' => 'Educational levels retrieved successfully.',
+        'created' => 'Educational level created successfully.',
+        'shown' => 'Educational level retrieved successfully.',
+        'updated' => 'Educational level updated successfully.',
+        'deleted' => 'Educational level deleted successfully.',
+        'active_listed' => 'Active educational levels retrieved successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
 ];

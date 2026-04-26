@@ -140,4 +140,13 @@ return [
         'active_listed' => 'Aulas activas obtenidas correctamente.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
     ],
+    'educational_levels' => [
+        'listed' => 'Niveles educativos obtenidos correctamente.',
+        'created' => 'Nivel educativo creado correctamente.',
+        'shown' => 'Nivel educativo obtenido correctamente.',
+        'updated' => 'Nivel educativo actualizado correctamente.',
+        'deleted' => 'Nivel educativo eliminado correctamente.',
+        'active_listed' => 'Niveles educativos activos obtenidos correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
 ];
