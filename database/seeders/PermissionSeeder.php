@@ -144,6 +144,18 @@ class PermissionSeeder extends Seeder
             "Store educational_levels",
             "Update educational_levels",
             "Delete educational_levels",
+            "List subject_types",
+            "Store subject_types",
+            "Update subject_types",
+            "Delete subject_types",
+            "List evaluation_types",
+            "Store evaluation_types",
+            "Update evaluation_types",
+            "Delete evaluation_types",
+            "List subjects",
+            "Store subjects",
+            "Update subjects",
+            "Delete subjects",
 
         ];
 

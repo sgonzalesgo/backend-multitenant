@@ -45,4 +45,7 @@ Route::middleware([
     require base_path('routes/academic/specialties.php');
     require base_path('routes/academic/classrooms.php');
     require base_path('routes/academic/educational_levels.php');
+    require base_path('routes/academic/subject_types.php');
+    require base_path('routes/academic/subjects.php');
+    require base_path('routes/academic/evaluation_types.php');
 });
