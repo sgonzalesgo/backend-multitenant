@@ -4,6 +4,7 @@ namespace App\Http\Requests\Academic\Instructor;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class StoreInstructorRequest extends FormRequest
 {
@@ -20,39 +21,62 @@ class StoreInstructorRequest extends FormRequest
             'photo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'city' => ['nullable', 'string', 'max:120'],
-            'state' => ['nullable', 'string', 'max:120'],
-            'country' => ['nullable', 'string', 'max:120'],
+            'address' => ['nullable', 'string', 'max:1000'],
+
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
+            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            'city_id' => ['nullable', 'integer', 'exists:cities,id'],
+
             'zip' => ['nullable', 'string', 'max:30'],
             'legal_id' => ['required', 'string', 'max:50'],
-            'legal_id_type' => ['required', 'string', 'max:50'],
+            'legal_id_type' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('persons')->where(function ($query) {
+                    return $query->where('legal_id', $this->input('legal_id'));
+                }),
+            ],
             'birthday' => ['nullable', 'date'],
             'gender' => ['nullable', 'string', 'max:30'],
             'marital_status' => ['nullable', 'string', 'max:30'],
             'blood_group' => ['nullable', 'string', 'max:10'],
             'nationality' => ['nullable', 'string', 'max:120'],
-            'person_status' => ['nullable', 'string', 'max:50'],
             'deceased_at' => ['nullable', 'date'],
-            'person_status_changed_at' => ['nullable', 'date'],
+            'status_changed_at' => ['nullable', 'date'],
+
+            // User
+            'has_user' => ['nullable', 'boolean'],
+            'user_name' => ['nullable', 'required_if:has_user,true,1', 'string', 'max:255'],
+            'user_email' => [
+                'nullable',
+                'required_if:has_user,true,1',
+                'email',
+                'max:255',
+                'unique:users,email',
+            ],
+            'user_password' => ['nullable', 'required_if:has_user,true,1', 'confirmed', Password::defaults()],
+            'user_status' => ['nullable', 'string', 'max:50'],
 
             // Instructor
-            'code' => ['nullable', 'string', 'max:100'],
-            'academic_title' => ['nullable', 'string', 'max:100'],
+            'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
+            'academic_title' => ['nullable', 'string', 'max:255'],
             'academic_level' => ['nullable', 'string', 'max:100'],
-            'specialty' => ['nullable', 'string', 'max:150'],
             'status' => ['nullable', 'string', 'max:50'],
-            'status_changed_at' => ['nullable', 'date'],
         ];
     }
 
     public function messages(): array
     {
-        return __('validation/academic/instructor.custom');
+        $messages = trans('validation/Academic/instructor.custom');
+
+        return is_array($messages) ? $messages : [];
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/instructor.attributes');
+        $attributes = trans('validation/Academic/instructor.attributes');
+
+        return is_array($attributes) ? $attributes : [];
     }
 }

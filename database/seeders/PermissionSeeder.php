@@ -156,6 +156,10 @@ class PermissionSeeder extends Seeder
             "Store subjects",
             "Update subjects",
             "Delete subjects",
+            "List instructors",
+            "Store instructors",
+            "Update instructors",
+            "Delete instructors",
 
         ];
 

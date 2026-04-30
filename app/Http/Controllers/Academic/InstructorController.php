@@ -14,13 +14,27 @@ use Symfony\Component\HttpFoundation\Response;
 class InstructorController extends Controller
 {
     public function __construct(
-        private InstructorRepository $repo
+        protected InstructorRepository $repo
     ) {}
 
     public function index(Request $request): JsonResponse
     {
         $data = $this->repo->list(
             $request->only(['q', 'sort', 'dir', 'per_page'])
+        );
+
+        return response()->json([
+            'code' => Response::HTTP_OK,
+            'message' => __('messages.instructors.listed'),
+            'data' => $data,
+            'error' => null,
+        ], Response::HTTP_OK);
+    }
+
+    public function active(Request $request): JsonResponse
+    {
+        $data = $this->repo->active(
+            $request->only(['per_page'])
         );
 
         return response()->json([
@@ -48,10 +62,12 @@ class InstructorController extends Controller
 
     public function show(Instructor $instructor): JsonResponse
     {
+        $instructor = $this->repo->find($instructor);
+
         return response()->json([
             'code' => Response::HTTP_OK,
             'message' => __('messages.instructors.shown'),
-            'data' => $instructor->load(['person', 'tenant:id,name']),
+            'data' => $instructor,
             'error' => null,
         ], Response::HTTP_OK);
     }

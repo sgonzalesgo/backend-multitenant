@@ -2,6 +2,7 @@
 
 namespace App\Models\General;
 
+use App\Models\Academic\Instructor;
 use App\Models\Administration\TenantPosition;
 use App\Models\Administration\User;
 use App\Models\General\Country;
@@ -74,5 +75,10 @@ class Person extends Model
     public function tenantPositions(): HasMany
     {
         return $this->hasMany(TenantPosition::class);
+    }
+
+    public function instructor(): HasOne
+    {
+        return $this->hasOne(Instructor::class);
     }
 }

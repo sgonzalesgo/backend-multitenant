@@ -177,4 +177,13 @@ return [
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
         'code_generation_failed' => 'No se pudo generar un código único para la asignatura.',
     ],
+    'instructors' => [
+        'listed' => 'Instructores listados correctamente.',
+        'created' => 'Instructor creado correctamente.',
+        'shown' => 'Instructor obtenido correctamente.',
+        'updated' => 'Instructor actualizado correctamente.',
+        'deleted' => 'Instructor eliminado correctamente.',
+        'active_listed' => 'Instructores activos obtenidos correctamente.',
+        'not_found' => 'Instructor no encontrado.',
+    ],
 ];

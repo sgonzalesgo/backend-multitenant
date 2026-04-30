@@ -3,268 +3,237 @@
 namespace App\Repositories\Academic;
 
 use App\Models\Academic\Instructor;
-use App\Models\Administration\Tenant;
 use App\Models\General\Person;
+use App\Models\Administration\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
 class InstructorRepository
 {
     protected string $disk = 'public';
+
     protected string $directory = 'persons';
-
-    protected function resolveCurrentTenantId(): ?string
-    {
-        if ($current = Tenant::current()) {
-            return (string) $current->id;
-        }
-
-        $user = auth()->user();
-
-        if (! $user || ! method_exists($user, 'token')) {
-            return null;
-        }
-
-        $token = $user->token();
-
-        if (! $token || empty($token->tenant_id)) {
-            return null;
-        }
-
-        return (string) $token->tenant_id;
-    }
 
     public function list(array $filters = []): LengthAwarePaginator
     {
-        $tenantId = $this->resolveCurrentTenantId();
-
-        if (! $tenantId) {
-            abort(400, __('messages.instructors.tenant_not_resolved'));
-        }
-
-        $rawQ = trim((string) Arr::get($filters, 'q', ''));
+        $rawQ = Arr::get($filters, 'q', '');
         $sort = Arr::get($filters, 'sort', 'created_at');
         $dir = strtolower((string) Arr::get($filters, 'dir', 'desc')) === 'asc' ? 'asc' : 'desc';
         $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
 
         if (! in_array($sort, [
-            'code',
             'academic_title',
             'academic_level',
-            'specialty',
-            'status',
             'created_at',
             'updated_at',
         ], true)) {
             $sort = 'created_at';
         }
 
-        $global = '';
-        $code = '';
-        $status = '';
-        $fullName = '';
-        $legalId = '';
-        $createdAt = '';
+        $decodedQ = [];
 
-        if ($rawQ !== '') {
+        if (is_string($rawQ) && trim($rawQ) !== '') {
             $decoded = json_decode($rawQ, true);
-
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $global = trim((string) Arr::get($decoded, 'global', ''));
-                $code = trim((string) Arr::get($decoded, 'columns.code', ''));
-                $status = trim((string) Arr::get($decoded, 'columns.status', ''));
-                $fullName = trim((string) Arr::get($decoded, 'columns.full_name', ''));
-                $legalId = trim((string) Arr::get($decoded, 'columns.legal_id', ''));
-                $createdAt = trim((string) Arr::get($decoded, 'columns.created_at', ''));
-            } else {
-                $global = $rawQ;
-            }
+            $decodedQ = is_array($decoded) ? $decoded : [];
+        } elseif (is_array($rawQ)) {
+            $decodedQ = $rawQ;
         }
 
+        $global = trim((string) Arr::get($decodedQ, 'global', ''));
+        $columns = Arr::get($decodedQ, 'columns', []);
+
+        $fullName = trim((string) Arr::get($columns, 'full_name', ''));
+        $email = trim((string) Arr::get($columns, 'email', ''));
+        $legalId = trim((string) Arr::get($columns, 'legal_id', ''));
+        $departmentId = trim((string) Arr::get($columns, 'department_id', ''));
+        $academicTitle = trim((string) Arr::get($columns, 'academic_title', ''));
+        $academicLevel = trim((string) Arr::get($columns, 'academic_level', ''));
+
         return Instructor::query()
-            ->with(['person', 'tenant:id,name'])
-            ->where('tenant_id', $tenantId)
+            ->with($this->relations())
             ->when($global !== '', function ($query) use ($global) {
                 $query->where(function ($q) use ($global) {
-                    $q->where('code', 'ilike', "%{$global}%")
-                        ->orWhere('academic_title', 'ilike', "%{$global}%")
+                    $q->where('academic_title', 'ilike', "%{$global}%")
                         ->orWhere('academic_level', 'ilike', "%{$global}%")
-                        ->orWhere('specialty', 'ilike', "%{$global}%")
                         ->orWhereHas('person', function ($personQuery) use ($global) {
                             $personQuery->where('full_name', 'ilike', "%{$global}%")
-                                ->orWhere('legal_id', 'ilike', "%{$global}%")
                                 ->orWhere('email', 'ilike', "%{$global}%")
-                                ->orWhere('phone', 'ilike', "%{$global}%");
+                                ->orWhere('phone', 'ilike', "%{$global}%")
+                                ->orWhere('legal_id', 'ilike', "%{$global}%");
                         });
                 });
             })
-            ->when($code !== '', fn ($query) => $query->where('code', 'ilike', "%{$code}%"))
-            ->when($status !== '', fn ($query) => $query->where('status', 'ilike', "%{$status}%"))
             ->when($fullName !== '', function ($query) use ($fullName) {
-                $query->whereHas('person', fn ($personQuery) => $personQuery->where('full_name', 'ilike', "%{$fullName}%"));
+                $query->whereHas('person', fn ($q) => $q->where('full_name', 'ilike', "%{$fullName}%"));
+            })
+            ->when($email !== '', function ($query) use ($email) {
+                $query->whereHas('person', fn ($q) => $q->where('email', 'ilike', "%{$email}%"));
             })
             ->when($legalId !== '', function ($query) use ($legalId) {
-                $query->whereHas('person', fn ($personQuery) => $personQuery->where('legal_id', 'ilike', "%{$legalId}%"));
+                $query->whereHas('person', fn ($q) => $q->where('legal_id', 'ilike', "%{$legalId}%"));
             })
-            ->when($createdAt !== '', fn ($query) => $query->whereDate('created_at', $createdAt))
+            ->when($departmentId !== '', fn ($query) => $query->where('department_id', $departmentId))
+            ->when($academicTitle !== '', fn ($query) => $query->where('academic_title', 'ilike', "%{$academicTitle}%"))
+            ->when($academicLevel !== '', fn ($query) => $query->where('academic_level', 'ilike', "%{$academicLevel}%"))
             ->orderBy($sort, $dir)
             ->paginate($perPage);
     }
 
+    public function active(array $filters = []): LengthAwarePaginator
+    {
+        return Instructor::query()
+            ->with($this->relations())
+            ->where('status', 'active')
+            ->whereHas('person', function ($query) {
+                $query->whereNull('deleted_at')
+                    ->whereNull('deceased_at');
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(
+                max(1, min((int) ($filters['per_page'] ?? 15), 100))
+            );
+    }
+
+    public function find(Instructor $instructor): Instructor
+    {
+        return $instructor->load($this->relations());
+    }
+
     public function create(array $data, ?UploadedFile $photo = null): Instructor
     {
-        $tenantId = $this->resolveCurrentTenantId();
-        $tenant = Tenant::query()->findOrFail($tenantId);
+        return DB::transaction(function () use ($data, $photo) {
+            $personPayload = $this->extractPersonPayload($data);
 
-        if (! $tenantId) {
-            abort(400, __('messages.instructors.tenant_not_resolved'));
-        }
-
-        return DB::transaction(function () use ($tenant, $data, $photo, $tenantId) {
-            $person = Person::query()
-                ->where('legal_id', $data['legal_id'])
-                ->first();
-
-            if ($person) {
-                $this->fillPerson($person, $data, $photo);
-            } else {
-                $person = new Person();
-                $this->fillPerson($person, $data, $photo);
+            if ($photo) {
+                $personPayload['photo'] = $this->storePhoto($photo, $personPayload['legal_id']);
             }
 
-            $alreadyExists = Instructor::query()
-                ->where('tenant_id', $tenantId)
-                ->where('person_id', $person->id)
-                ->exists();
+            $person = Person::query()->create($personPayload);
 
-            if ($alreadyExists) {
-                abort(422, __('validation/academic/instructor.custom.person_id.unique_in_tenant'));
-            }
+            $this->syncUser($person, $data, true);
 
             $instructor = Instructor::query()->create([
                 'person_id' => $person->id,
-                'tenant_id' => $tenantId,
-                'code' => $this->generateInstructorCode($tenant->name),
-                'academic_title' => Arr::get($data, 'academic_title'),
-                'academic_level' => Arr::get($data, 'academic_level'),
-                'specialty' => Arr::get($data, 'specialty'),
-                'status' => Arr::get($data, 'status', 'active'),
-                'status_changed_at' => Arr::get($data, 'status_changed_at'),
+                ...$this->extractInstructorPayload($data),
             ]);
 
-            return $instructor->load(['person', 'tenant:id,name']);
+            return $this->find($instructor->refresh());
         });
     }
 
     public function update(Instructor $instructor, array $data, ?UploadedFile $photo = null): Instructor
     {
-        $tenantId = $this->resolveCurrentTenantId();
-
-        if (! $tenantId) {
-            abort(400, __('messages.instructors.tenant_not_resolved'));
-        }
-
-        if ((string) $instructor->tenant_id !== (string) $tenantId) {
-            abort(404);
-        }
-
-        return DB::transaction(function () use ($instructor, $data, $photo, $tenantId) {
+        return DB::transaction(function () use ($instructor, $data, $photo) {
             $person = $instructor->person;
-            $newLegalId = (string) Arr::get($data, 'legal_id', $person->legal_id);
 
-            $anotherPerson = Person::query()
-                ->where('legal_id', $newLegalId)
-                ->where('id', '!=', $person->id)
-                ->first();
+            $personPayload = $this->extractPersonPayload($data);
 
-            if ($anotherPerson) {
-                $duplicateInstructor = Instructor::query()
-                    ->where('tenant_id', $tenantId)
-                    ->where('person_id', $anotherPerson->id)
-                    ->where('id', '!=', $instructor->id)
-                    ->exists();
+            $newLegalId = (string) Arr::get($personPayload, 'legal_id', $person->legal_id);
 
-                if ($duplicateInstructor) {
-                    abort(422, __('validation/academic/instructor.custom.person_id.unique_in_tenant'));
-                }
+            if ($photo) {
+                $personPayload['photo'] = $this->replacePhoto($person->photo, $photo, $newLegalId);
+            } elseif ($newLegalId !== $person->legal_id && $person->photo) {
+                $personPayload['photo'] = $this->renamePhoto($person->photo, $newLegalId);
             }
 
-            $this->fillPerson($person, $data, $photo);
+            $person->fill($personPayload);
+            $person->save();
 
-            $instructor->fill([
-                'academic_title' => Arr::get($data, 'academic_title', $instructor->academic_title),
-                'academic_level' => Arr::get($data, 'academic_level', $instructor->academic_level),
-                'specialty' => Arr::get($data, 'specialty', $instructor->specialty),
-                'status' => Arr::get($data, 'status', $instructor->status),
-                'status_changed_at' => Arr::get($data, 'status_changed_at', $instructor->status_changed_at),
-            ]);
+            $this->syncUser($person, $data, false);
 
+            $instructor->fill($this->extractInstructorPayload($data));
             $instructor->save();
 
-            return $instructor->refresh()->load(['person', 'tenant:id,name']);
+            return $this->find($instructor->refresh());
         });
     }
 
     public function delete(Instructor $instructor): void
     {
-        $tenantId = $this->resolveCurrentTenantId();
+        DB::transaction(function () use ($instructor) {
+            $instructor->delete();
 
-        if (! $tenantId) {
-            abort(400, __('messages.instructors.tenant_not_resolved'));
-        }
-
-        if ((string) $instructor->tenant_id !== (string) $tenantId) {
-            abort(404);
-        }
-
-        $instructor->status='inactive';
-        $instructor->save();
-
-        $instructor->delete();
+            // OJO:
+            // No elimino la persona porque puede servir para otros módulos:
+            // student, representative, employee, user, etc.
+        });
     }
 
-    protected function fillPerson(Person $person, array $data, ?UploadedFile $photo = null): void
+    protected function relations(): array
     {
-        $person->fill([
-            'full_name' => Arr::get($data, 'full_name', $person->full_name),
-            'email' => Arr::get($data, 'email', $person->email),
-            'phone' => Arr::get($data, 'phone', $person->phone),
-            'address' => Arr::get($data, 'address', $person->address),
-            'city' => Arr::get($data, 'city', $person->city),
-            'state' => Arr::get($data, 'state', $person->state),
-            'country' => Arr::get($data, 'country', $person->country),
-            'zip' => Arr::get($data, 'zip', $person->zip),
-            'legal_id' => Arr::get($data, 'legal_id', $person->legal_id),
-            'legal_id_type' => Arr::get($data, 'legal_id_type', $person->legal_id_type),
-            'birthday' => Arr::get($data, 'birthday', $person->birthday),
-            'gender' => Arr::get($data, 'gender', $person->gender),
-            'marital_status' => Arr::get($data, 'marital_status', $person->marital_status),
-            'blood_group' => Arr::get($data, 'blood_group', $person->blood_group),
-            'nationality' => Arr::get($data, 'nationality', $person->nationality),
-            'status' => Arr::get($data, 'person_status', $person->status ?? 'active'),
+        return [
+            'person.user:id,person_id,name,email,avatar,status',
+            'person.country:id,code,name',
+            'person.state:id,country_id,code,name',
+            'person.city:id,state_id,name',
+            'department:id,code,name',
+        ];
+    }
+
+    protected function extractInstructorPayload(array $data): array
+    {
+        return Arr::only($data, [
+            'department_id',
+            'academic_title',
+            'academic_level',
+            'status',
         ]);
-
-        $person->save();
-
-        $finalLegalId = (string) $person->legal_id;
-
-        if ($photo) {
-            $person->photo = $this->replacePhoto($person->photo, $photo, $finalLegalId);
-            $person->save();
-        } elseif ($person->wasChanged('legal_id') && $person->photo) {
-            $person->photo = $this->renamePhoto($person->photo, $finalLegalId);
-            $person->save();
-        }
     }
 
-    protected function replacePhoto(?string $currentPath, UploadedFile $photo, string $legalId): string
+    protected function extractPersonPayload(array $data): array
     {
-        $this->deletePhoto($currentPath);
+        return Arr::only($data, [
+            'full_name',
+            'photo',
+            'email',
+            'phone',
+            'address',
+            'country_id',
+            'state_id',
+            'city_id',
+            'zip',
+            'legal_id',
+            'legal_id_type',
+            'birthday',
+            'gender',
+            'marital_status',
+            'blood_group',
+            'nationality',
+            'deceased_at',
+            'status_changed_at',
+        ]);
+    }
 
-        return $this->storePhoto($photo, $legalId);
+    protected function syncUser(Person $person, array $data, bool $isCreate): void
+    {
+        $hasUser = filter_var(Arr::get($data, 'has_user', false), FILTER_VALIDATE_BOOLEAN);
+
+        if (! $hasUser) {
+            return;
+        }
+
+        $user = $person->user;
+
+        if (! $user) {
+            $user = new User();
+            $user->person_id = $person->id;
+        }
+
+        $user->name = (string) Arr::get($data, 'user_name', $person->full_name);
+        $user->email = (string) Arr::get($data, 'user_email', $person->email);
+        $user->status = (string) Arr::get($data, 'user_status', $user->status ?? 'active');
+
+        $password = Arr::get($data, 'user_password');
+
+        if ($isCreate || filled($password)) {
+            $user->password = Hash::make((string) $password);
+        }
+
+        $user->save();
     }
 
     protected function storePhoto(UploadedFile $photo, string $legalId): string
@@ -275,9 +244,20 @@ class InstructorRepository
 
         $this->deleteMatchingPhotoVariants($legalId);
 
-        Storage::disk($this->disk)->putFileAs($this->directory, $photo, $filename);
+        Storage::disk($this->disk)->putFileAs(
+            $this->directory,
+            $photo,
+            $filename
+        );
 
         return $path;
+    }
+
+    protected function replacePhoto(?string $currentPath, UploadedFile $photo, string $legalId): string
+    {
+        $this->deletePhoto($currentPath);
+
+        return $this->storePhoto($photo, $legalId);
     }
 
     protected function renamePhoto(string $currentPath, string $newLegalId): string
@@ -310,55 +290,5 @@ class InstructorRepository
                 Storage::disk($this->disk)->delete($path);
             }
         }
-    }
-
-    protected function generateInstructorCode(string $tenantName): string
-    {
-        $prefix = $this->tenantInitials($tenantName);
-        $prefix = substr($prefix, 0, 4);
-
-        $maxLength = 10;
-        $randomLength = max(1, $maxLength - strlen($prefix));
-
-        for ($i = 0; $i < 20; $i++) {
-            $random = $this->randomAlphaNumeric($randomLength);
-            $code = substr($prefix . $random, 0, $maxLength);
-
-            $exists = Instructor::query()
-                ->where('code', $code)
-                ->exists();
-
-            if (! $exists) {
-                return $code;
-            }
-        }
-
-        throw new \RuntimeException(__('messages.instructors.code_generation_failed'));
-    }
-
-    protected function tenantInitials(string $tenantName): string
-    {
-        $words = preg_split('/\s+/', trim($tenantName)) ?: [];
-
-        $initials = collect($words)
-            ->filter()
-            ->map(fn (string $word) => mb_substr($word, 0, 1))
-            ->implode('');
-
-        $initials = strtoupper(preg_replace('/[^A-Za-z]/', '', $initials) ?: 'INS');
-
-        return $initials !== '' ? $initials : 'INS';
-    }
-
-    protected function randomAlphaNumeric(int $length): string
-    {
-        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $result = '';
-
-        for ($i = 0; $i < $length; $i++) {
-            $result .= $chars[random_int(0, strlen($chars) - 1)];
-        }
-
-        return $result;
     }
 }

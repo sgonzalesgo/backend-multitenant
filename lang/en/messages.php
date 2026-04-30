@@ -177,4 +177,13 @@ return [
         'tenant_not_resolved' => 'The current tenant could not be resolved.',
         'code_generation_failed' => 'A unique code for the subject could not be generated.',
     ],
+    'instructors' => [
+        'listed' => 'Instructors listed successfully.',
+        'created' => 'Instructor created successfully.',
+        'shown' => 'Instructor retrieved successfully.',
+        'updated' => 'Instructor updated successfully.',
+        'deleted' => 'Instructor deleted successfully.',
+        'active_listed' => 'Active instructors retrieved successfully.',
+        'not_found' => 'Instructor not found.',
+    ],
 ];

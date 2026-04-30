@@ -2,7 +2,7 @@
 
 namespace App\Models\Academic;
 
-use App\Models\Administration\Tenant;
+use App\Models\General\Department;
 use App\Models\General\Person;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -21,17 +21,10 @@ class Instructor extends Model
 
     protected $fillable = [
         'person_id',
-        'tenant_id',
-        'code',
+        'department_id',
         'academic_title',
         'academic_level',
-        'specialty',
         'status',
-        'status_changed_at',
-    ];
-
-    protected $casts = [
-        'status_changed_at' => 'datetime',
     ];
 
     public function person(): BelongsTo
@@ -39,8 +32,8 @@ class Instructor extends Model
         return $this->belongsTo(Person::class);
     }
 
-    public function tenant(): BelongsTo
+    public function department(): BelongsTo
     {
-        return $this->belongsTo(Tenant::class);
+        return $this->belongsTo(Department::class);
     }
 }
