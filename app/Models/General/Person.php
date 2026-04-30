@@ -5,9 +5,7 @@ namespace App\Models\General;
 use App\Models\Academic\Instructor;
 use App\Models\Administration\TenantPosition;
 use App\Models\Administration\User;
-use App\Models\General\Country;
-use App\Models\General\State;
-use App\Models\General\City;
+use App\Models\Academic\Student;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -80,5 +78,10 @@ class Person extends Model
     public function instructor(): HasOne
     {
         return $this->hasOne(Instructor::class);
+    }
+
+    public function students(): HasMany
+    {
+        return $this->hasMany(Student::class);
     }
 }

@@ -41,15 +41,6 @@ return [
         'lookup_found' => 'Persona encontrada.',
         'lookup_not_found' => 'Persona no encontrada.',
     ],
-    'instructors' => [
-        'listed' => 'Instructores listados correctamente.',
-        'created' => 'Instructor creado correctamente.',
-        'shown' => 'Instructor obtenido correctamente.',
-        'updated' => 'Instructor actualizado correctamente.',
-        'deleted' => 'Instructor eliminado correctamente.',
-        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
-        'code_generation_failed' => 'No se pudo generar un código único para el instructor.',
-    ],
     'history' => [
         'listed' => 'Historial listado correctamente.',
         'invalid_type' => 'El tipo de auditoría seleccionado no es válido.',
@@ -185,5 +176,17 @@ return [
         'deleted' => 'Instructor eliminado correctamente.',
         'active_listed' => 'Instructores activos obtenidos correctamente.',
         'not_found' => 'Instructor no encontrado.',
+    ],
+    'students' => [
+        'listed' => 'Estudiantes listados correctamente.',
+        'created' => 'Estudiante creado correctamente.',
+        'shown' => 'Estudiante obtenido correctamente.',
+        'updated' => 'Estudiante actualizado correctamente.',
+        'deleted' => 'Estudiante eliminado correctamente.',
+        'active_listed' => 'Estudiantes activos obtenidos correctamente.',
+        'not_found' => 'Estudiante no encontrado.',
+        'already_exists' => 'Esta persona ya está registrada como estudiante en el tenant actual.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+        'code_generation_failed' => 'No se pudo generar un código único para el estudiante.',
     ],
 ];

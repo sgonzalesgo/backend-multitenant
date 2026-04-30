@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Academic\InstructorController;
 
 Route::controller(InstructorController::class)->group(function () {
-    Route::get('instructors/active', 'active')->middleware('permission:List instructors');
+    Route::get('instructors/active', 'active')->middleware('permission:Search instructors');
     // CRUD
     Route::get('instructors', 'index')->middleware('permission:List instructors');
     Route::post('instructors', 'store')->middleware('permission:Store instructors');

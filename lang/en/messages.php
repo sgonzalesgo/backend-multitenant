@@ -41,15 +41,6 @@ return [
         'lookup_found' => 'Person found.',
         'lookup_not_found' => 'Person not found.',
     ],
-    'instructors' => [
-        'listed' => 'Instructors listed successfully.',
-        'created' => 'Instructor created successfully.',
-        'shown' => 'Instructor retrieved successfully.',
-        'updated' => 'Instructor updated successfully.',
-        'deleted' => 'Instructor deleted successfully.',
-        'tenant_not_resolved' => 'The current tenant could not be resolved.',
-        'code_generation_failed' => 'A unique code for the instructor could not be generated.',
-    ],
     'history' => [
         'listed' => 'History listed successfully',
         'invalid_type' => 'The selected audit type is invalid.',
@@ -185,5 +176,17 @@ return [
         'deleted' => 'Instructor deleted successfully.',
         'active_listed' => 'Active instructors retrieved successfully.',
         'not_found' => 'Instructor not found.',
+    ],
+    'students' => [
+        'listed' => 'Students listed successfully.',
+        'created' => 'Student created successfully.',
+        'shown' => 'Student retrieved successfully.',
+        'updated' => 'Student updated successfully.',
+        'deleted' => 'Student deleted successfully.',
+        'active_listed' => 'Active students retrieved successfully.',
+        'not_found' => 'Student not found.',
+        'already_exists' => 'This person is already registered as a student in the current tenant.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+        'code_generation_failed' => 'A unique code for the student could not be generated.',
     ],
 ];
