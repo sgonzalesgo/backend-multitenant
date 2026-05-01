@@ -52,6 +52,7 @@ class InstructorRepository
         $departmentId = trim((string) Arr::get($columns, 'department_id', ''));
         $academicTitle = trim((string) Arr::get($columns, 'academic_title', ''));
         $academicLevel = trim((string) Arr::get($columns, 'academic_level', ''));
+        $status = trim((string) Arr::get($columns, 'status', ''));
 
         return Instructor::query()
             ->with($this->relations())
@@ -79,6 +80,7 @@ class InstructorRepository
             ->when($departmentId !== '', fn ($query) => $query->where('department_id', $departmentId))
             ->when($academicTitle !== '', fn ($query) => $query->where('academic_title', 'ilike', "%{$academicTitle}%"))
             ->when($academicLevel !== '', fn ($query) => $query->where('academic_level', 'ilike', "%{$academicLevel}%"))
+            ->when($status !== '', fn ($query) => $query->where('status', $status))
             ->orderBy($sort, $dir)
             ->paginate($perPage);
     }

@@ -15,13 +15,20 @@ class ListCalendarEventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'start' => ['sometimes', 'nullable', 'date'],
-            'end' => ['sometimes', 'nullable', 'date', 'after_or_equal:start'],
-            'event_type_id' => ['sometimes', 'nullable', 'uuid'],
-            'created_by_me' => ['sometimes', 'boolean'],
-            'status' => ['sometimes', 'nullable', 'string', Rule::in(['draft', 'confirmed', 'cancelled'])],
-            'visibility' => ['sometimes', 'nullable', 'string', Rule::in(['private', 'restricted', 'public_tenant'])],
-            'search' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+
+            'q' => ['nullable', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'code' => ['nullable', 'string', 'max:255'],
+
+            'category' => ['nullable', 'string', 'max:255'],
+            'is_active' => ['nullable', 'boolean'],
+            'is_system' => ['nullable', 'boolean'],
+
+            'paginate' => ['nullable', 'boolean'],
+            'sort_by' => ['nullable', 'string', 'in:name,code,created_at,updated_at,is_active,is_system'],
+            'sort_direction' => ['nullable', 'string', 'in:asc,desc'],
         ];
     }
 
