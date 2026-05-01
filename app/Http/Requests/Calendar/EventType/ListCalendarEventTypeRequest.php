@@ -23,6 +23,8 @@ class ListCalendarEventTypeRequest extends FormRequest
             'paginate' => ['sometimes', 'boolean'],
             'sort_by' => ['sometimes', 'string', Rule::in(['name', 'code', 'created_at'])],
             'sort_direction' => ['sometimes', 'string', Rule::in(['asc', 'desc'])],
+            'name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'code' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 

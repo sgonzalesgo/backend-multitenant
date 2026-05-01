@@ -16,12 +16,12 @@ class CalendarEventTypeRepository
         $query = CalendarEventType::query()
             ->forTenant($tenantId);
 
-        if (array_key_exists('is_active', $filters)) {
-            $query->where('is_active', (bool) $filters['is_active']);
+        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
+            $query->where('is_active', filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN));
         }
 
-        if (array_key_exists('is_system', $filters)) {
-            $query->where('is_system', (bool) $filters['is_system']);
+        if (isset($filters['is_system']) && $filters['is_system'] !== '') {
+            $query->where('is_system', filter_var($filters['is_system'], FILTER_VALIDATE_BOOLEAN));
         }
 
         if (!empty($filters['category'])) {
@@ -29,13 +29,25 @@ class CalendarEventTypeRepository
             $query->where('settings->category', $category);
         }
 
+        if (!empty($filters['name'])) {
+            $name = mb_strtolower(trim((string) $filters['name']));
+
+            $query->whereRaw('LOWER(name) LIKE ?', ["{$name}%"]);
+        }
+
+        if (!empty($filters['code'])) {
+            $code = mb_strtolower(trim((string) $filters['code']));
+
+            $query->whereRaw('LOWER(code) LIKE ?', ["{$code}%"]);
+        }
+
         if (!empty($filters['q'])) {
-            $search = trim((string) $filters['q']);
+            $search = mb_strtolower(trim((string) $filters['q']));
 
             $query->where(function ($q) use ($search) {
-                $q->where('code', 'ilike', "%{$search}%")
-                    ->orWhere('name', 'ilike', "%{$search}%")
-                    ->orWhere('description', 'ilike', "%{$search}%");
+                $q->whereRaw('LOWER(code) LIKE ?', ["%{$search}%"])
+                    ->orWhereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
+                    ->orWhereRaw('LOWER(description) LIKE ?', ["%{$search}%"]);
             });
         }
 
