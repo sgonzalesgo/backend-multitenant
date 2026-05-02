@@ -33,9 +33,12 @@ use App\Models\Academic\EducationalLevel;
 use App\Models\Academic\EnrollmentStatus;
 use App\Models\Academic\EvaluationPeriod;
 use App\Models\Academic\EvaluationType;
+use App\Models\Academic\Instructor;
 use App\Models\Academic\Modality;
+use App\Models\Academic\Parallel;
 use App\Models\Academic\Shift;
 use App\Models\Academic\Specialty;
+use App\Models\Academic\Student;
 use App\Models\Academic\Subject;
 use App\Models\Academic\SubjectType;
 use App\Models\Administration\ManualNotification;
@@ -76,13 +79,15 @@ return [
         'evaluation_periods' => EvaluationPeriod::class,
         'modalities' => Modality::class,
         'shifts' => Shift::class,
+        'parallels' => Parallel::class,
         'specialties' => Specialty::class,
         'classrooms' => Classroom::class,
         'educational_levels' => EducationalLevel::class,
         'subject_types' => SubjectType::class,
         'evaluation_types' => EvaluationType::class,
         'subjects' => Subject::class,
-
+        'instructors' => Instructor::class,
+        'students' => Student::class,
     ],
 
     /*
@@ -107,12 +112,15 @@ return [
         EvaluationPeriod::class,
         Modality::class,
         Shift::class,
+        Parallel::class,
         Specialty::class,
         Classroom::class,
         EducationalLevel::class,
         SubjectType::class,
         EvaluationType::class,
         Subject::class,
+        Instructor::class,
+        Student::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente
