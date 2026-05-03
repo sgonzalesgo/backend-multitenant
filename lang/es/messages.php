@@ -189,4 +189,15 @@ return [
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
         'code_generation_failed' => 'No se pudo generar un código único para el estudiante.',
     ],
+    'legal_representatives' => [
+        'listed' => 'Representantes legales listados correctamente.',
+        'created' => 'Representante legal creado correctamente.',
+        'shown' => 'Representante legal obtenido correctamente.',
+        'updated' => 'Representante legal actualizado correctamente.',
+        'deleted' => 'Representante legal eliminado correctamente.',
+        'active_listed' => 'Representantes legales activos obtenidos correctamente.',
+        'not_found' => 'Representante legal no encontrado.',
+        'already_exists' => 'Esta persona ya está registrada como representante legal en el tenant actual.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
 ];

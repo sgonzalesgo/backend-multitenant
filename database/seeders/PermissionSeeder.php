@@ -172,9 +172,15 @@ class PermissionSeeder extends Seeder
             "Update instructors",
             "Delete instructors",
             "List students",
+            "Search students",
             "Store students",
             "Update students",
             "Delete students",
+            "List legal_representatives",
+            "Search legal_representatives",
+            "Store legal_representatives",
+            "Update legal_representatives",
+            "Delete legal_representatives",
 
         ];
 

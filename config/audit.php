@@ -34,6 +34,7 @@ use App\Models\Academic\EnrollmentStatus;
 use App\Models\Academic\EvaluationPeriod;
 use App\Models\Academic\EvaluationType;
 use App\Models\Academic\Instructor;
+use App\Models\Academic\LegalRepresentative;
 use App\Models\Academic\Modality;
 use App\Models\Academic\Parallel;
 use App\Models\Academic\Shift;
@@ -88,6 +89,7 @@ return [
         'subjects' => Subject::class,
         'instructors' => Instructor::class,
         'students' => Student::class,
+        'legal_representatives' => LegalRepresentative::class,
     ],
 
     /*
@@ -121,6 +123,7 @@ return [
         Subject::class,
         Instructor::class,
         Student::class,
+        LegalRepresentative::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente

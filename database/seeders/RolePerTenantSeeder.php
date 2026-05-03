@@ -180,6 +180,11 @@ class RolePerTenantSeeder extends Seeder
                 "Store students",
                 "Update students",
                 "Delete students",
+                "List legal_representatives",
+                "Search legal_representatives",
+                "Store legal_representatives",
+                "Update legal_representatives",
+                "Delete legal_representatives",
             ],
         ];
 

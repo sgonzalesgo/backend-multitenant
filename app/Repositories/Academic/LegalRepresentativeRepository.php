@@ -2,20 +2,20 @@
 
 namespace App\Repositories\Academic;
 
-use App\Models\Academic\Student;
+use App\Models\Academic\LegalRepresentative;
+use App\Models\Academic\StudentLegalRepresentative;
 use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
 use App\Models\General\Person;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
-class StudentRepository
+class LegalRepresentativeRepository
 {
     protected string $disk = 'public';
 
@@ -42,13 +42,16 @@ class StudentRepository
         return (string) $token->tenant_id;
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function list(array $filters = []): LengthAwarePaginator
     {
         $tenantId = $this->resolveCurrentTenantId();
 
         if (! $tenantId) {
             throw ValidationException::withMessages([
-                'tenant' => __('messages.students.tenant_not_resolved'),
+                'tenant' => __('messages.legal_representatives.tenant_not_resolved'),
             ]);
         }
 
@@ -58,7 +61,6 @@ class StudentRepository
         $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
 
         if (! in_array($sort, [
-            'student_code',
             'status',
             'created_at',
             'updated_at',
@@ -81,20 +83,22 @@ class StudentRepository
         $fullName = trim((string) Arr::get($columns, 'full_name', ''));
         $email = trim((string) Arr::get($columns, 'email', ''));
         $legalId = trim((string) Arr::get($columns, 'legal_id', ''));
-        $studentCode = trim((string) Arr::get($columns, 'student_code', ''));
         $status = trim((string) Arr::get($columns, 'status', ''));
 
-        return Student::query()
+        return LegalRepresentative::query()
             ->with($this->relations())
             ->where('tenant_id', $tenantId)
             ->when($global !== '', function ($query) use ($global) {
                 $query->where(function ($q) use ($global) {
-                    $q->where('student_code', 'ilike', "%{$global}%")
-                        ->orWhere('status', 'ilike', "%{$global}%")
+                    $q->where('status', 'ilike', "%{$global}%")
                         ->orWhereHas('person', function ($personQuery) use ($global) {
                             $personQuery->where('full_name', 'ilike', "%{$global}%")
                                 ->orWhere('email', 'ilike', "%{$global}%")
                                 ->orWhere('phone', 'ilike', "%{$global}%")
+                                ->orWhere('legal_id', 'ilike', "%{$global}%");
+                        })
+                        ->orWhereHas('studentRelationships.student.person', function ($studentPersonQuery) use ($global) {
+                            $studentPersonQuery->where('full_name', 'ilike', "%{$global}%")
                                 ->orWhere('legal_id', 'ilike', "%{$global}%");
                         });
                 });
@@ -108,7 +112,6 @@ class StudentRepository
             ->when($legalId !== '', function ($query) use ($legalId) {
                 $query->whereHas('person', fn ($q) => $q->where('legal_id', 'ilike', "%{$legalId}%"));
             })
-            ->when($studentCode !== '', fn ($query) => $query->where('student_code', 'ilike', "%{$studentCode}%"))
             ->when($status !== '', fn ($query) => $query->where('status', $status))
             ->orderBy($sort, $dir)
             ->paginate($perPage);
@@ -123,13 +126,13 @@ class StudentRepository
 
         if (! $tenantId) {
             throw ValidationException::withMessages([
-                'tenant' => __('messages.students.tenant_not_resolved'),
+                'tenant' => __('messages.legal_representatives.tenant_not_resolved'),
             ]);
         }
 
         $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
 
-        return Student::query()
+        return LegalRepresentative::query()
             ->with($this->relations())
             ->where('tenant_id', $tenantId)
             ->where('status', 'active')
@@ -141,24 +144,24 @@ class StudentRepository
             ->paginate($perPage);
     }
 
-    public function find(Student $student): Student
+    public function find(LegalRepresentative $legalRepresentative): LegalRepresentative
     {
         $tenantId = $this->resolveCurrentTenantId();
 
-        if ($tenantId && (string) $student->tenant_id !== $tenantId) {
+        if ($tenantId && (string) $legalRepresentative->tenant_id !== $tenantId) {
             abort(404);
         }
 
-        return $student->load($this->relations());
+        return $legalRepresentative->load($this->relations());
     }
 
-    public function create(array $data, ?UploadedFile $photo = null): Student
+    public function create(array $data, ?UploadedFile $photo = null): LegalRepresentative
     {
         $tenantId = $this->resolveCurrentTenantId();
 
         if (! $tenantId) {
             throw ValidationException::withMessages([
-                'tenant' => __('messages.students.tenant_not_resolved'),
+                'tenant' => __('messages.legal_representatives.tenant_not_resolved'),
             ]);
         }
 
@@ -191,38 +194,39 @@ class StudentRepository
 
             $this->syncUser($person, $data, ! $person->wasRecentlyCreated);
 
-            $existingStudent = Student::query()
+            $existingRepresentative = LegalRepresentative::query()
                 ->where('tenant_id', $tenantId)
                 ->where('person_id', $person->id)
                 ->first();
 
-            if ($existingStudent) {
+            if ($existingRepresentative) {
                 throw ValidationException::withMessages([
-                    'legal_id' => __('messages.students.already_exists'),
+                    'legal_id' => __('messages.legal_representatives.already_exists'),
                 ]);
             }
 
-            $student = Student::query()->create([
+            $legalRepresentative = LegalRepresentative::query()->create([
                 'tenant_id' => $tenantId,
                 'person_id' => $person->id,
-                'student_code' => $this->generateStudentCode($tenantId),
-                ...$this->extractStudentPayload($data),
+                ...$this->extractLegalRepresentativePayload($data),
             ]);
 
-            return $this->find($student->refresh());
+            $this->syncStudentRelationships($legalRepresentative, $data, $tenantId);
+
+            return $this->find($legalRepresentative->refresh());
         });
     }
 
-    public function update(Student $student, array $data, ?UploadedFile $photo = null): Student
+    public function update(LegalRepresentative $legalRepresentative, array $data, ?UploadedFile $photo = null): LegalRepresentative
     {
         $tenantId = $this->resolveCurrentTenantId();
 
-        if ($tenantId && (string) $student->tenant_id !== $tenantId) {
+        if ($tenantId && (string) $legalRepresentative->tenant_id !== $tenantId) {
             abort(404);
         }
 
-        return DB::transaction(function () use ($student, $data, $photo) {
-            $person = $student->person;
+        return DB::transaction(function () use ($legalRepresentative, $data, $photo, $tenantId) {
+            $person = $legalRepresentative->person;
             $personPayload = $this->extractPersonPayload($data);
 
             $newLegalId = (string) Arr::get($personPayload, 'legal_id', $person->legal_id);
@@ -238,26 +242,31 @@ class StudentRepository
 
             $this->syncUser($person, $data, false);
 
-            $student->fill($this->extractStudentPayload($data));
-            $student->save();
+            $legalRepresentative->fill($this->extractLegalRepresentativePayload($data));
+            $legalRepresentative->save();
 
-            return $this->find($student->refresh());
+            if (array_key_exists('students', $data)) {
+                $this->syncStudentRelationships($legalRepresentative, $data, (string) $tenantId);
+            }
+
+            return $this->find($legalRepresentative->refresh());
         });
     }
 
-    public function delete(Student $student): void
+    public function delete(LegalRepresentative $legalRepresentative): void
     {
         $tenantId = $this->resolveCurrentTenantId();
 
-        if ($tenantId && (string) $student->tenant_id !== $tenantId) {
+        if ($tenantId && (string) $legalRepresentative->tenant_id !== $tenantId) {
             abort(404);
         }
 
-        DB::transaction(function () use ($student) {
-            $student->delete();
+        DB::transaction(function () use ($legalRepresentative) {
+            $legalRepresentative->studentRelationships()->delete();
+            $legalRepresentative->delete();
 
             // No se elimina la persona porque puede pertenecer a otros roles:
-            // instructor, representante, empleado, usuario, etc.
+            // estudiante, instructor, empleado, usuario, etc.
         });
     }
 
@@ -269,10 +278,12 @@ class StudentRepository
             'person.country:id,code,name',
             'person.state:id,country_id,code,name',
             'person.city:id,state_id,name',
+            'studentRelationships.student:id,tenant_id,person_id,student_code,status',
+            'studentRelationships.student.person:id,full_name,email,phone,legal_id,legal_id_type,photo',
         ];
     }
 
-    protected function extractStudentPayload(array $data): array
+    protected function extractLegalRepresentativePayload(array $data): array
     {
         return Arr::only($data, [
             'status',
@@ -304,31 +315,40 @@ class StudentRepository
         ]);
     }
 
-    protected function generateStudentCode(string $tenantId): string
-    {
-        $prefix = 'STU';
+    protected function syncStudentRelationships(
+        LegalRepresentative $legalRepresentative,
+        array $data,
+        string $tenantId
+    ): void {
+        $students = Arr::get($data, 'students', []);
 
-        for ($attempt = 0; $attempt < 30; $attempt++) {
-            $code = sprintf(
-                '%s-%s-%s',
-                $prefix,
-                now()->format('ym'),
-                strtoupper(Str::random(10))
-            );
-
-            $exists = Student::query()
-                ->where('tenant_id', $tenantId)
-                ->where('student_code', $code)
-                ->exists();
-
-            if (! $exists) {
-                return $code;
-            }
+        if (! is_array($students)) {
+            return;
         }
 
-        throw ValidationException::withMessages([
-            'student_code' => __('messages.students.code_generation_failed'),
-        ]);
+        StudentLegalRepresentative::withTrashed()
+            ->where('tenant_id', $tenantId)
+            ->where('legal_representative_id', $legalRepresentative->id)
+            ->forceDelete();
+
+        foreach ($students as $student) {
+            $studentId = Arr::get($student, 'student_id');
+            $relationshipType = Arr::get($student, 'relationship_type');
+
+            if (! $studentId || ! $relationshipType) {
+                continue;
+            }
+
+            StudentLegalRepresentative::query()->create([
+                'tenant_id' => $tenantId,
+                'student_id' => $studentId,
+                'legal_representative_id' => $legalRepresentative->id,
+                'relationship_type' => $relationshipType,
+                'description' => Arr::get($student, 'description'),
+                'is_billable' => filter_var(Arr::get($student, 'is_billable', false), FILTER_VALIDATE_BOOLEAN),
+                'is_emergency_contact' => filter_var(Arr::get($student, 'is_emergency_contact', false), FILTER_VALIDATE_BOOLEAN),
+            ]);
+        }
     }
 
     protected function syncUser(Person $person, array $data, bool $isCreate): void

@@ -11,11 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Student extends Model
+class LegalRepresentative extends Model
 {
     use HasUuids, SoftDeletes;
 
-    protected $table = 'students';
+    protected $table = 'legal_representatives';
 
     protected $keyType = 'string';
 
@@ -24,7 +24,6 @@ class Student extends Model
     protected $fillable = [
         'tenant_id',
         'person_id',
-        'student_code',
         'status',
         'notes',
     ];
@@ -39,18 +38,18 @@ class Student extends Model
         return $this->belongsTo(Person::class);
     }
 
-    public function legalRepresentativeRelationships(): HasMany
+    public function studentRelationships(): HasMany
     {
         return $this->hasMany(StudentLegalRepresentative::class);
     }
 
-    public function legalRepresentatives(): BelongsToMany
+    public function students(): BelongsToMany
     {
         return $this->belongsToMany(
-            LegalRepresentative::class,
+            Student::class,
             'student_legal_representatives',
-            'student_id',
-            'legal_representative_id'
+            'legal_representative_id',
+            'student_id'
         )
             ->using(StudentLegalRepresentative::class)
             ->withPivot([
