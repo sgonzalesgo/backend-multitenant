@@ -67,6 +67,17 @@ class UpdatePersonRequest extends FormRequest
         ];
     }
 
+    protected function prepareForValidation(): void
+    {
+        foreach (['birthday', 'deceased_at', 'status_changed_at'] as $field) {
+            if ($this->has($field) && $this->input($field) === '') {
+                $this->merge([
+                    $field => null,
+                ]);
+            }
+        }
+    }
+
     public function messages(): array
     {
         $messages = trans('validation/General/person.custom');
