@@ -103,20 +103,60 @@ class CourseRepository
     {
         $tenantId = $this->resolveCurrentTenantId();
 
-        if (! $tenantId) {
-            throw ValidationException::withMessages([
-                'tenant' => __('messages.courses.tenant_not_resolved'),
-            ]);
-        }
-
-        $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
+        $q = $filters['q'] ?? [];
+        $global = trim((string) ($q['global'] ?? ''));
+        $columns = $q['columns'] ?? [];
 
         return Course::query()
-            ->with($this->relations())
+            ->with([
+                'educationalLevel:id,name',
+                'instructor:id,person_id',
+                'instructor.person:id,full_name,email,photo'
+            ])
             ->where('tenant_id', $tenantId)
             ->where('status', 'active')
-            ->orderBy('name')
-            ->paginate($perPage);
+
+            // 🔍 GLOBAL SEARCH
+            ->when($global !== '', function ($query) use ($global) {
+                $query->where(function ($q) use ($global) {
+                    $q->where('code', 'ilike', "%{$global}%")
+                        ->orWhere('name', 'ilike', "%{$global}%")
+                        ->orWhereHas('educationalLevel', function ($q2) use ($global) {
+                            $q2->where('name', 'ilike', "%{$global}%");
+                        })
+                        ->orWhereHas('instructor.person', function ($q3) use ($global) {
+                            $q3->where('full_name', 'ilike', "%{$global}%")
+                                ->orWhere('email', 'ilike', "%{$global}%");
+                        });
+                });
+            })
+
+            // 🔍 COLUMN FILTERS
+            ->when(!empty($columns['code']), fn ($q) =>
+            $q->where('code', 'ilike', "%{$columns['code']}%")
+            )
+
+            ->when(!empty($columns['name']), fn ($q) =>
+            $q->where('name', 'ilike', "%{$columns['name']}%")
+            )
+
+            ->when(!empty($columns['educational_level_id']), fn ($q) =>
+            $q->where('educational_level_id', $columns['educational_level_id'])
+            )
+
+            ->when(!empty($columns['instructor_id']), fn ($q) =>
+            $q->where('instructor_id', $columns['instructor_id'])
+            )
+
+            ->when(!empty($columns['status']), fn ($q) =>
+            $q->where('status', $columns['status'])
+            )
+
+            ->orderBy('created_at', 'desc')
+
+            ->paginate(
+                max(1, min((int) ($filters['per_page'] ?? 15), 100))
+            );
     }
 
     public function find(Course $course): Course
