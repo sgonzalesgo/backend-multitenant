@@ -34,7 +34,7 @@ class InstructorController extends Controller
     public function active(Request $request): JsonResponse
     {
         $data = $this->repo->active(
-            $request->only(['per_page'])
+            $request->only(['q', 'page', 'per_page'])
         );
 
         return response()->json([

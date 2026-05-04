@@ -87,12 +87,21 @@ class InstructorRepository
 
     public function active(array $filters = []): LengthAwarePaginator
     {
+        $search = trim((string) ($filters['q'] ?? ''));
+
         return Instructor::query()
             ->with($this->relations())
             ->where('status', 'active')
             ->whereHas('person', function ($query) {
                 $query->whereNull('deleted_at')
                     ->whereNull('deceased_at');
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->whereHas('person', function ($q) use ($search) {
+                    $q->where('full_name', 'ilike', "%{$search}%")
+                        ->orWhere('email', 'ilike', "%{$search}%")
+                        ->orWhere('legal_id', 'ilike', "%{$search}%");
+                });
             })
             ->orderBy('created_at', 'desc')
             ->paginate(
