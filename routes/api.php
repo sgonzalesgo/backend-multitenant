@@ -50,4 +50,5 @@ Route::middleware([
     require base_path('routes/academic/evaluation_types.php');
     require base_path('routes/academic/students.php');
     require base_path('routes/academic/legal_representatives.php');
+    require base_path('routes/academic/courses.php');
 });

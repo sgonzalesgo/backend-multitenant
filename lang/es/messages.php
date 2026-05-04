@@ -200,4 +200,17 @@ return [
         'already_exists' => 'Esta persona ya está registrada como representante legal en el tenant actual.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
     ],
+    'courses' => [
+        'listed' => 'Cursos listados correctamente.',
+        'created' => 'Curso creado correctamente.',
+        'shown' => 'Curso obtenido correctamente.',
+        'updated' => 'Curso actualizado correctamente.',
+        'deleted' => 'Curso eliminado correctamente.',
+        'active_listed' => 'Cursos activos obtenidos correctamente.',
+        'not_found' => 'Curso no encontrado.',
+        'code_taken' => 'El código del curso ya está en uso.',
+        'invalid_educational_level' => 'El nivel educativo seleccionado no es válido.',
+        'invalid_instructor' => 'El instructor seleccionado no es válido.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
 ];
