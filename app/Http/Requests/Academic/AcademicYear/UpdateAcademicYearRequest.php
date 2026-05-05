@@ -100,8 +100,8 @@ class UpdateAcademicYearRequest extends FormRequest
                 $validator->errors()->add(
                     'end_date',
                     __('validation.after', [
-                        'attribute' => __('validation/academic/academic-year.attributes.end_date'),
-                        'date' => __('validation/academic/academic-year.attributes.start_date'),
+                        'attribute' => __('validation/Academic/Academic-year.attributes.end_date'),
+                        'date' => __('validation/Academic/Academic-year.attributes.start_date'),
                     ])
                 );
             }
@@ -110,11 +110,11 @@ class UpdateAcademicYearRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/academic-year.custom');
+        return __('validation/Academic/Academic-year.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/academic-year.attributes');
+        return __('validation/Academic/Academic-year.attributes');
     }
 }

@@ -82,11 +82,11 @@ class UpdateSpecialtyRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/specialty.custom');
+        return __('validation/Academic/specialty.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/specialty.attributes');
+        return __('validation/Academic/specialty.attributes');
     }
 }

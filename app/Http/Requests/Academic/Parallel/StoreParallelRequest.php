@@ -72,11 +72,11 @@ class StoreParallelRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/parallel.custom');
+        return __('validation/Academic/parallel.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/parallel.attributes');
+        return __('validation/Academic/parallel.attributes');
     }
 }

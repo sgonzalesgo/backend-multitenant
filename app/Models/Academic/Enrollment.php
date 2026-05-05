@@ -21,11 +21,12 @@ class Enrollment extends Model
 
     protected $fillable = [
         'tenant_id',
+        'enrollment_code',
         'student_id',
         'academic_year_id',
         'course_id',
         'parallel_id',
-        'section_id',
+        'shift_id',
         'enrollment_status_id',
         'assigned_user_id',
         'is_new',
@@ -46,7 +47,6 @@ class Enrollment extends Model
         'representatives_email_sent_at' => 'datetime',
     ];
 
-    // 🔗 Relaciones
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
@@ -72,9 +72,9 @@ class Enrollment extends Model
         return $this->belongsTo(Parallel::class);
     }
 
-    public function section(): BelongsTo
+    public function shift(): BelongsTo
     {
-        return $this->belongsTo(Section::class);
+        return $this->belongsTo(Shift::class);
     }
 
     public function enrollmentStatus(): BelongsTo
@@ -85,16 +85,5 @@ class Enrollment extends Model
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
-    }
-
-    // 🔍 Scopes útiles
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
-    public function scopeByTenant($query, string $tenantId)
-    {
-        return $query->where('tenant_id', $tenantId);
     }
 }

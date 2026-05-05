@@ -3,7 +3,7 @@
 return [
 
     'attributes' => [
-        'academic_year_id' => 'academic year',
+        'academic_year_id' => 'Academic year',
         'code' => 'code',
         'name' => 'name',
         'description' => 'description',
@@ -23,13 +23,13 @@ return [
             'required' => 'The :attribute field is required.',
             'string' => 'The :attribute must be a string.',
             'max' => 'The :attribute may not be greater than :max characters.',
-            'unique' => 'The :attribute has already been taken for this academic year.',
+            'unique' => 'The :attribute has already been taken for this Academic year.',
         ],
         'name' => [
             'required' => 'The :attribute field is required.',
             'string' => 'The :attribute must be a string.',
             'max' => 'The :attribute may not be greater than :max characters.',
-            'unique' => 'The :attribute has already been taken for this academic year.',
+            'unique' => 'The :attribute has already been taken for this Academic year.',
         ],
         'description' => [
             'string' => 'The :attribute must be a string.',
@@ -39,7 +39,7 @@ return [
             'required' => 'The :attribute field is required.',
             'integer' => 'The :attribute must be an integer.',
             'min' => 'The :attribute must be at least :min.',
-            'unique' => 'The :attribute has already been taken for this academic year.',
+            'unique' => 'The :attribute has already been taken for this Academic year.',
         ],
         'start_date' => [
             'required' => 'The :attribute field is required.',

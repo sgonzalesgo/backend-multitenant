@@ -82,11 +82,11 @@ class UpdateModalityRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/modality.custom');
+        return __('validation/Academic/modality.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/modality.attributes');
+        return __('validation/Academic/modality.attributes');
     }
 }

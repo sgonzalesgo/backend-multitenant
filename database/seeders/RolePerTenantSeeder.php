@@ -190,6 +190,11 @@ class RolePerTenantSeeder extends Seeder
                 "Store courses",
                 "Update courses",
                 "Delete courses",
+                "List enrollments",
+                "Search enrollments",
+                "Store enrollments",
+                "Update enrollments",
+                "Delete enrollments",
             ],
         ];
 

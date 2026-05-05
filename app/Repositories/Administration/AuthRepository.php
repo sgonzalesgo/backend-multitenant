@@ -21,6 +21,8 @@ use App\Events\Presence\GroupMemberOnline;
 use App\Events\Presence\GroupMemberOffline;
 use App\Models\Administration\ImpersonationSession;
 use App\Http\Requests\Administration\User\RegisterRequest;
+use App\Models\Academic\StudentUserLink;
+use App\Repositories\Administration\EmailVerificationRepository;
 
 class AuthRepository
 {
@@ -1412,5 +1414,187 @@ class AuthRepository
                 'refresh_expires_at' => $tokens['refresh_expires_at'],
             ],
         ];
+    }
+
+    public function lookupStudentLink(string $token): array
+    {
+        $link = StudentUserLink::query()
+            ->with([
+                'student:id,tenant_id,person_id,student_code,status',
+                'student.person:id,full_name,email,legal_id,legal_id_type',
+                'legalRepresentative:id,tenant_id,person_id,status',
+                'legalRepresentative.person:id,full_name,email,legal_id,legal_id_type',
+            ])
+            ->where('token', $token)
+            ->first();
+
+        if (! $link) {
+            throw new HttpException(Response::HTTP_NOT_FOUND, __('auth.student_link_not_found'));
+        }
+
+        if ($link->status !== 'pending') {
+            throw new HttpException(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.student_link_not_available'));
+        }
+
+        if ($link->isExpired()) {
+            $link->forceFill([
+                'status' => 'expired',
+            ])->save();
+
+            throw new HttpException(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.student_link_expired'));
+        }
+
+        return [
+            'token' => $link->token,
+            'email' => $link->email,
+            'status' => $link->status,
+            'expires_at' => optional($link->expires_at)?->toIso8601String(),
+            'student' => [
+                'id' => $link->student?->id,
+                'full_name' => $link->student?->person?->full_name,
+                'student_code' => $link->student_code,
+                'legal_id' => $link->student?->person?->legal_id,
+                'legal_id_type' => $link->student?->person?->legal_id_type,
+            ],
+            'representative' => [
+                'id' => $link->legalRepresentative?->id,
+                'full_name' => $link->legalRepresentative?->person?->full_name,
+                'email' => $link->legalRepresentative?->person?->email,
+            ],
+        ];
+    }
+
+    public function registerWithStudentLink(array $data, ?string $ip = null, ?string $userAgent = null): array
+    {
+        return DB::transaction(function () use ($data, $ip, $userAgent) {
+            /** @var StudentUserLink|null $link */
+            $link = StudentUserLink::query()
+                ->with([
+                    'tenant:id,name',
+                    'student:id,tenant_id,person_id,student_code,status',
+                    'student.person:id,full_name,email',
+                    'legalRepresentative:id,tenant_id,person_id,status',
+                    'legalRepresentative.person:id,full_name,email',
+                ])
+                ->where('token', $data['token'])
+                ->lockForUpdate()
+                ->first();
+
+            if (! $link) {
+                throw new HttpException(Response::HTTP_NOT_FOUND, __('auth.student_link_not_found'));
+            }
+
+            if ($link->status !== 'pending') {
+                throw new HttpException(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.student_link_not_available'));
+            }
+
+            if ($link->isExpired()) {
+                $link->forceFill([
+                    'status' => 'expired',
+                ])->save();
+
+                throw new HttpException(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.student_link_expired'));
+            }
+
+            $email = strtolower(trim((string) $data['email']));
+            $linkEmail = strtolower(trim((string) $link->email));
+
+            if ($email !== $linkEmail) {
+                throw new HttpException(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.student_link_email_mismatch'));
+            }
+
+            $person = $link->legalRepresentative?->person;
+
+            if (! $person) {
+                throw new HttpException(Response::HTTP_UNPROCESSABLE_ENTITY, __('auth.student_link_invalid_representative'));
+            }
+
+            /** @var User|null $existing */
+            $existing = User::query()
+                ->where('email', $email)
+                ->first();
+
+            if ($existing && ! is_null($existing->email_verified_at)) {
+                $existing->person_id = $person->id;
+                $existing->save();
+
+                $link->forceFill([
+                    'user_id' => $existing->id,
+                    'status' => 'accepted',
+                    'accepted_at' => now(),
+                ])->save();
+
+                return [
+                    '_http_code' => Response::HTTP_OK,
+                    'status' => 'LINK_ACCEPTED',
+                    'message_key' => 'auth.student_link_accepted',
+                    'user' => [
+                        'id' => $existing->id,
+                        'name' => $existing->name,
+                        'email' => $existing->email,
+                        'status' => $existing->status,
+                        'email_verified_at' => optional($existing->email_verified_at)?->toIso8601String(),
+                    ],
+                    'student' => [
+                        'id' => $link->student?->id,
+                        'full_name' => $link->student?->person?->full_name,
+                        'student_code' => $link->student_code,
+                    ],
+                ];
+            }
+
+            if ($existing) {
+                $user = $existing;
+                $user->forceFill([
+                    'name' => $data['name'],
+                    'password' => Hash::make($data['password']),
+                    'locale' => $data['locale'] ?? app()->getLocale(),
+                    'status' => 'inactive',
+                ])->save();
+            } else {
+                $user = new User();
+                $user->name = $data['name'];
+                $user->email = $email;
+                $user->password = Hash::make($data['password']);
+                $user->locale = $data['locale'] ?? app()->getLocale();
+                $user->status = 'inactive';
+                $user->email_verified_at = null;
+                $user->save();
+            }
+
+            $user->person_id = $person->id;
+            $user->save();
+
+            $link->forceFill([
+                'user_id' => $user->id,
+                'status' => 'accepted',
+                'accepted_at' => now(),
+            ])->save();
+
+            app(EmailVerificationRepository::class)
+                ->issueCode($user, 'verify_email', $ip, $userAgent);
+
+            return [
+                '_http_code' => Response::HTTP_CREATED,
+                'status' => 'PENDING_VERIFICATION',
+                'message_key' => 'auth.student_link_registered',
+                'requires_verification' => true,
+                'verification_sent' => true,
+                'next_step' => 'verify_email',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'locale' => $user->locale,
+                    'status' => $user->status,
+                    'email_verified_at' => null,
+                ],
+                'student' => [
+                    'id' => $link->student?->id,
+                    'full_name' => $link->student?->person?->full_name,
+                    'student_code' => $link->student_code,
+                ],
+            ];
+        });
     }
 }

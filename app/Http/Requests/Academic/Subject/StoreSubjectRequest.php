@@ -94,11 +94,11 @@ class StoreSubjectRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/subject.custom');
+        return __('validation/Academic/subject.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/subject.attributes');
+        return __('validation/Academic/subject.attributes');
     }
 }

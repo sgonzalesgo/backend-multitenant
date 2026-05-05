@@ -30,5 +30,13 @@ return [
     'error_social_token' => 'El token social es inválido o ha expirado.',
     'error_email' => 'No fue posible obtener el correo electrónico desde el proveedor social.',
     'error_provider_email_conflict' => 'La cuenta social ya está vinculada a otro usuario.',
-    'error_social_register' => 'No fue posible completar la autenticación social.'
+    'error_social_register' => 'No fue posible completar la autenticación social.',
+    'student_link_loaded' => 'Información de vinculación obtenida correctamente.',
+    'student_link_not_found' => 'El enlace de vinculación no existe.',
+    'student_link_not_available' => 'El enlace de vinculación ya no está disponible.',
+    'student_link_expired' => 'El enlace de vinculación ha expirado.',
+    'student_link_email_mismatch' => 'El correo ingresado no coincide con el correo invitado.',
+    'student_link_invalid_representative' => 'El representante legal asociado al enlace no es válido.',
+    'student_link_registered' => 'Cuenta creada correctamente. Verifica tu correo electrónico para activar tu cuenta.',
+    'student_link_accepted' => 'El estudiante fue vinculado correctamente a tu cuenta.',
 ];

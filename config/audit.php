@@ -29,7 +29,9 @@
 
 use App\Models\Academic\AcademicYear;
 use App\Models\Academic\Classroom;
+use App\Models\Academic\Course;
 use App\Models\Academic\EducationalLevel;
+use App\Models\Academic\Enrollment;
 use App\Models\Academic\EnrollmentStatus;
 use App\Models\Academic\EvaluationPeriod;
 use App\Models\Academic\EvaluationType;
@@ -90,6 +92,8 @@ return [
         'instructors' => Instructor::class,
         'students' => Student::class,
         'legal_representatives' => LegalRepresentative::class,
+        'courses' => Course::class,
+        'enrollments' => Enrollment::class,
     ],
 
     /*
@@ -124,6 +128,8 @@ return [
         Instructor::class,
         Student::class,
         LegalRepresentative::class,
+        Course::class,
+        Enrollment::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente

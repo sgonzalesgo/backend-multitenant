@@ -49,13 +49,13 @@ class CalendarEventTypeSeeder extends Seeder
             [
                 'code' => 'class_shift',
                 'name' => 'Class Shift',
-                'description' => 'Regular class schedule, shifts, or academic timetable blocks.',
+                'description' => 'Regular class schedule, shifts, or Academic timetable blocks.',
                 'color' => '#1976d2',
                 'icon' => 'ri-time-line',
                 'is_system' => true,
                 'is_active' => true,
                 'settings' => [
-                    'category' => 'academic',
+                    'category' => 'Academic',
                     'requires_location' => true,
                     'requires_audience' => true,
                     'supports_attendance' => false,
@@ -73,7 +73,7 @@ class CalendarEventTypeSeeder extends Seeder
                 'is_system' => true,
                 'is_active' => true,
                 'settings' => [
-                    'category' => 'academic',
+                    'category' => 'Academic',
                     'requires_location' => true,
                     'requires_audience' => true,
                     'supports_attendance' => false,
@@ -91,7 +91,7 @@ class CalendarEventTypeSeeder extends Seeder
                 'is_system' => true,
                 'is_active' => true,
                 'settings' => [
-                    'category' => 'academic',
+                    'category' => 'Academic',
                     'requires_location' => true,
                     'requires_audience' => true,
                     'supports_attendance' => false,
@@ -103,13 +103,13 @@ class CalendarEventTypeSeeder extends Seeder
             [
                 'code' => 'quiz',
                 'name' => 'Quiz',
-                'description' => 'Short academic evaluation or quiz.',
+                'description' => 'Short Academic evaluation or quiz.',
                 'color' => '#ef6c00',
                 'icon' => 'ri-questionnaire-line',
                 'is_system' => true,
                 'is_active' => true,
                 'settings' => [
-                    'category' => 'academic',
+                    'category' => 'Academic',
                     'requires_location' => false,
                     'requires_audience' => true,
                     'supports_attendance' => false,
@@ -127,7 +127,7 @@ class CalendarEventTypeSeeder extends Seeder
                 'is_system' => true,
                 'is_active' => true,
                 'settings' => [
-                    'category' => 'academic',
+                    'category' => 'Academic',
                     'requires_location' => false,
                     'requires_audience' => true,
                     'supports_attendance' => false,
@@ -139,7 +139,7 @@ class CalendarEventTypeSeeder extends Seeder
             [
                 'code' => 'grade_meeting',
                 'name' => 'Grade Meeting',
-                'description' => 'Meeting for a grade level, academic staff, or related team.',
+                'description' => 'Meeting for a grade level, Academic staff, or related team.',
                 'color' => '#7b1fa2',
                 'icon' => 'ri-team-line',
                 'is_system' => true,
@@ -175,7 +175,7 @@ class CalendarEventTypeSeeder extends Seeder
             [
                 'code' => 'teacher_meeting',
                 'name' => 'Teacher Meeting',
-                'description' => 'Meeting for teachers, instructors, or academic coordinators.',
+                'description' => 'Meeting for teachers, instructors, or Academic coordinators.',
                 'color' => '#512da8',
                 'icon' => 'ri-user-star-line',
                 'is_system' => true,
@@ -289,7 +289,7 @@ class CalendarEventTypeSeeder extends Seeder
                 'is_system' => true,
                 'is_active' => true,
                 'settings' => [
-                    'category' => 'academic',
+                    'category' => 'Academic',
                     'requires_location' => false,
                     'requires_audience' => true,
                     'supports_attendance' => false,

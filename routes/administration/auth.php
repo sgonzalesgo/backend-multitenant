@@ -26,6 +26,11 @@ Route::prefix('v1')->group(function () {
 
         Route::get('auth/social/{provider}/callback', [AuthController::class, 'socialCallback'])
             ->where('provider', 'google|facebook');
+
+        // para el registro y vinculacion de los representantes legales con los estudiantes
+        Route::get('auth/student-link/{token}', [AuthController::class, 'lookupStudentLink']);
+
+        Route::post('auth/register/student-link', [AuthController::class, 'registerWithStudentLink']);
     });
 
     /*

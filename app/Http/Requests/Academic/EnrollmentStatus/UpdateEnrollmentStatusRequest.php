@@ -47,11 +47,11 @@ class UpdateEnrollmentStatusRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/enrollment-status.custom');
+        return __('validation/Academic/enrollment-status.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/enrollment-status.attributes');
+        return __('validation/Academic/enrollment-status.attributes');
     }
 }

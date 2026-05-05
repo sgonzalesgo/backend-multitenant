@@ -68,11 +68,11 @@ class StoreEvaluationTypeRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/evaluation-type.custom');
+        return __('validation/Academic/evaluation-type.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/evaluation-type.attributes');
+        return __('validation/Academic/evaluation-type.attributes');
     }
 }

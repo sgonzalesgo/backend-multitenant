@@ -115,11 +115,11 @@ class StoreEducationalLevelRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/educational_level.custom');
+        return __('validation/Academic/educational_level.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/educational_level.attributes');
+        return __('validation/Academic/educational_level.attributes');
     }
 }

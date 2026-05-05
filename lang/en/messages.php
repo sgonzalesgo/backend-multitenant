@@ -213,4 +213,30 @@ return [
         'invalid_instructor' => 'The selected instructor is invalid.',
         'tenant_not_resolved' => 'The current tenant could not be resolved.',
     ],
+    'enrollments' => [
+        'listed' => 'Enrollments listed successfully.',
+        'created' => 'Enrollment created successfully.',
+        'shown' => 'Enrollment retrieved successfully.',
+        'updated' => 'Enrollment updated successfully.',
+        'deleted' => 'Enrollment deleted successfully.',
+        'active_listed' => 'Active enrollments retrieved successfully.',
+
+        'not_found' => 'Enrollment not found.',
+        'already_exists' => 'This student is already enrolled for the selected academic configuration.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+
+        // Email
+        'student_email_subject' => 'Enrollment registered successfully',
+        'representative_email_subject' => 'Student enrollment registered successfully',
+        'email_title' => 'Enrollment registered',
+        'email_greeting' => 'Hello :name,',
+        'student_email_intro' => 'Your enrollment has been registered successfully.',
+        'representative_email_intro' => 'The enrollment for the student associated with you has been registered successfully.',
+        'representative_linking_message' => 'Use the enrollment code shown below to link this student to your user account when registering in the system.',
+        'student_code' => 'Student code',
+        'important' => 'Important',
+        'email_footer' => 'Thank you.',
+        'code_generation_failed' => 'A unique enrollment code could not be generated.',
+        'create_account_button' => 'Create account',
+    ],
 ];

@@ -75,11 +75,11 @@ class StoreAcademicYearRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/academic-year.custom');
+        return __('validation/Academic/Academic-year.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/academic-year.attributes');
+        return __('validation/Academic/Academic-year.attributes');
     }
 }

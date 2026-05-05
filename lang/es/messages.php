@@ -213,4 +213,30 @@ return [
         'invalid_instructor' => 'El instructor seleccionado no es válido.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
     ],
+    'enrollments' => [
+        'listed' => 'Matrículas listadas correctamente.',
+        'created' => 'Matrícula creada correctamente.',
+        'shown' => 'Matrícula obtenida correctamente.',
+        'updated' => 'Matrícula actualizada correctamente.',
+        'deleted' => 'Matrícula eliminada correctamente.',
+        'active_listed' => 'Matrículas activas obtenidas correctamente.',
+
+        'not_found' => 'Matrícula no encontrada.',
+        'already_exists' => 'El estudiante ya está matriculado para la configuración académica seleccionada.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+
+        // Email
+        'student_email_subject' => 'Matrícula registrada correctamente',
+        'representative_email_subject' => 'Matrícula del estudiante registrada correctamente',
+        'email_title' => 'Matrícula registrada',
+        'email_greeting' => 'Hola :name,',
+        'student_email_intro' => 'Tu matrícula ha sido registrada correctamente.',
+        'representative_email_intro' => 'La matrícula del estudiante asociado a usted ha sido registrada correctamente.',
+        'representative_linking_message' => 'Use el código de la matrícula que se muestra abajo para vincular este estudiante a su cuenta de usuario cuando se registre en el sistema.',
+        'student_code' => 'Código del estudiante',
+        'important' => 'Importante',
+        'email_footer' => 'Gracias.',
+        'code_generation_failed' => 'No se pudo generar un código único para la matrícula.',
+        'create_account_button' => 'Crear cuenta',
+    ],
 ];

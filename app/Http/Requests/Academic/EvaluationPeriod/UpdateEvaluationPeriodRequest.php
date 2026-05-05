@@ -96,11 +96,11 @@ class UpdateEvaluationPeriodRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/evaluation-period.custom');
+        return __('validation/Academic/evaluation-period.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/evaluation-period.attributes');
+        return __('validation/Academic/evaluation-period.attributes');
     }
 }

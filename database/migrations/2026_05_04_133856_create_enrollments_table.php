@@ -11,31 +11,23 @@ return new class extends Migration
         Schema::create('enrollments', function (Blueprint $table) {
             $table->uuid('id')->primary();
 
-            // Multi-tenant
             $table->uuid('tenant_id');
+            $table->string('enrollment_code', 80)->unique();
 
-            // Core
             $table->uuid('student_id');
             $table->uuid('academic_year_id');
-
-            // Académico
             $table->uuid('course_id')->nullable();
             $table->uuid('parallel_id')->nullable();
-            $table->uuid('section_id')->nullable();
+            $table->uuid('shift_id')->nullable();
             $table->uuid('enrollment_status_id')->nullable();
-
-            // Usuario asignado
             $table->uuid('assigned_user_id')->nullable();
 
-            // Flags del proceso
             $table->boolean('is_new')->default(false);
             $table->boolean('is_conditional')->default(false);
             $table->boolean('is_active')->default(true);
 
-            // Observación
             $table->text('observation')->nullable();
 
-            // Auditoría funcional (flujo)
             $table->timestamp('submitted_at')->nullable();
             $table->timestamp('student_email_sent_at')->nullable();
             $table->timestamp('representatives_email_sent_at')->nullable();
@@ -43,53 +35,28 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            // 🔗 Relaciones
-            $table->foreign('tenant_id')
-                ->references('id')
-                ->on('tenants');
+            $table->foreign('tenant_id')->references('id')->on('tenants');
+            $table->foreign('student_id')->references('id')->on('students');
+            $table->foreign('academic_year_id')->references('id')->on('academic_years');
+            $table->foreign('course_id')->references('id')->on('courses');
+            $table->foreign('parallel_id')->references('id')->on('parallels');
+            $table->foreign('shift_id')->references('id')->on('shifts');
+            $table->foreign('enrollment_status_id')->references('id')->on('enrollment_statuses');
+            $table->foreign('assigned_user_id')->references('id')->on('users');
 
-            $table->foreign('student_id')
-                ->references('id')
-                ->on('students');
-
-            $table->foreign('academic_year_id')
-                ->references('id')
-                ->on('academic_years');
-
-            $table->foreign('course_id')
-                ->references('id')
-                ->on('courses');
-
-            $table->foreign('parallel_id')
-                ->references('id')
-                ->on('parallels');
-
-            $table->foreign('section_id')
-                ->references('id')
-                ->on('sections');
-
-            $table->foreign('enrollment_status_id')
-                ->references('id')
-                ->on('enrollment_statuses');
-
-            $table->foreign('assigned_user_id')
-                ->references('id')
-                ->on('users');
-
-            // 🔐 Unicidad (evitar duplicados en el mismo periodo)
             $table->unique([
                 'tenant_id',
                 'student_id',
                 'academic_year_id',
                 'course_id',
                 'parallel_id',
-                'section_id',
-            ], 'enrollments_unique_student_period_section');
+                'shift_id',
+            ], 'enrollments_unique_student_period');
 
-            // ⚡ Índices
+            $table->index(['tenant_id', 'enrollment_code']);
             $table->index(['tenant_id', 'student_id']);
             $table->index(['tenant_id', 'academic_year_id']);
-            $table->index(['tenant_id', 'enrollment_status_id']);
+            $table->index(['tenant_id', 'course_id']);
             $table->index(['tenant_id', 'is_active']);
         });
     }

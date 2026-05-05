@@ -22,6 +22,7 @@ use App\Repositories\Administration\AuthRepository;
 use App\Repositories\Administration\UserRepository;
 use App\Http\Requests\Administration\User\RegisterRequest;
 use App\Http\Requests\Administration\User\SocialLoginRequest;
+use App\Http\Requests\Administration\Auth\RegisterStudentLinkRequest;
 
 class AuthController extends Controller
 {
@@ -396,5 +397,36 @@ class AuthController extends Controller
             ->withCookie($this->makeAccessCookie((string) ($tokens['access_token'] ?? '')))
             ->withCookie($this->makeRefreshCookie((string) ($tokens['refresh_token'] ?? '')))
             ->withCookie($this->makeXsrfCookie());
+    }
+
+    public function lookupStudentLink(string $token): JsonResponse
+    {
+        $payload = $this->repo->lookupStudentLink($token);
+
+        return response()->json([
+            'code' => Response::HTTP_OK,
+            'message' => __('auth.student_link_loaded'),
+            'data' => $payload,
+            'error' => null,
+        ], Response::HTTP_OK);
+    }
+
+    public function registerWithStudentLink(RegisterStudentLinkRequest $request): JsonResponse
+    {
+        $payload = $this->repo->registerWithStudentLink(
+            $request->validated(),
+            $request->ip(),
+            $request->userAgent()
+        );
+
+        $httpCode = (int) ($payload['_http_code'] ?? Response::HTTP_CREATED);
+        unset($payload['_http_code']);
+
+        return response()->json([
+            'code' => $httpCode,
+            'message' => __($payload['message_key'] ?? 'auth.student_link_registered'),
+            'data' => $payload,
+            'error' => null,
+        ], $httpCode);
     }
 }

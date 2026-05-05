@@ -85,11 +85,11 @@ class StoreClassroomRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/classroom.custom');
+        return __('validation/Academic/classroom.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/classroom.attributes');
+        return __('validation/Academic/classroom.attributes');
     }
 }

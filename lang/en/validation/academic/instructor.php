@@ -23,8 +23,8 @@ return [
 
         // Instructor
         'department_id' => 'department',
-        'academic_title' => 'academic title',
-        'academic_level' => 'academic level',
+        'academic_title' => 'Academic title',
+        'academic_level' => 'Academic level',
 
     ],
 ];

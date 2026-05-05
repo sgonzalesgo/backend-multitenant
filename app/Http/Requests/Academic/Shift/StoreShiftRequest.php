@@ -72,11 +72,11 @@ class StoreShiftRequest extends FormRequest
 
     public function messages(): array
     {
-        return __('validation/academic/shift.custom');
+        return __('validation/Academic/shift.custom');
     }
 
     public function attributes(): array
     {
-        return __('validation/academic/shift.attributes');
+        return __('validation/Academic/shift.attributes');
     }
 }
