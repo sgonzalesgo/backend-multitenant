@@ -22,6 +22,7 @@ class Course extends Model
         'tenant_id',
         'educational_level_id',
         'instructor_id',
+        'level_number',
         'code',
         'name',
         'description',
@@ -37,6 +38,7 @@ class Course extends Model
     protected $casts = [
         'capacity' => 'integer',
         'credits' => 'integer',
+        'level_number' => 'integer',
         'theoretical_hours' => 'integer',
         'practical_hours' => 'integer',
         'total_hours' => 'integer',

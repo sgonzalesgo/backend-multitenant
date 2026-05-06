@@ -5,6 +5,7 @@ return [
     'attributes' => [
         'educational_level_id' => 'nivel educativo',
         'instructor_id' => 'instructor',
+        'level_number' => 'número de nivel',
         'code' => 'código',
         'name' => 'nombre',
         'description' => 'descripción',
@@ -23,6 +24,11 @@ return [
 
         'instructor_id.required' => 'El instructor es obligatorio.',
         'instructor_id.exists' => 'El instructor seleccionado no es válido.',
+
+        'level_number.required' => 'El número de nivel es obligatorio.',
+        'level_number.integer' => 'El número de nivel debe ser un número.',
+        'level_number.min' => 'El número de nivel debe ser mayor o igual a 1.',
+        'level_number.max' => 'El número de nivel no puede ser mayor que 999.',
 
         'code.required' => 'El código es obligatorio.',
         'code.max' => 'El código no puede tener más de 50 caracteres.',

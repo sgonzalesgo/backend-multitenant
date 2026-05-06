@@ -26,6 +26,7 @@ return new class extends Migration
                 ->cascadeOnUpdate()
                 ->restrictOnDelete();
 
+            $table->unsignedInteger('level_number');
             $table->string('code', 50);
             $table->string('name', 255);
             $table->text('description')->nullable();

@@ -14,7 +14,33 @@ class UpdateEnrollmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'student_id' => ['sometimes', 'required', 'uuid', 'exists:students,id'],
+
+            'student_id' => ['nullable', 'uuid', 'exists:students,id'],
+            'student' => ['nullable', 'array'],
+
+            'student.person_id' => ['nullable', 'uuid', 'exists:persons,id'],
+            'student.person' => ['nullable', 'array'],
+
+            'student.person.legal_id' => ['nullable', 'string', 'max:80'],
+            'student.person.legal_id_type' => ['nullable', 'string', 'max:80'],
+            'student.person.first_name' => ['nullable', 'string', 'max:120'],
+            'student.person.middle_name' => ['nullable', 'string', 'max:120'],
+            'student.person.last_name' => ['nullable', 'string', 'max:120'],
+            'student.person.second_last_name' => ['nullable', 'string', 'max:120'],
+            'student.person.full_name' => ['nullable', 'string', 'max:255'],
+            'student.person.email' => ['nullable', 'email', 'max:255'],
+            'student.person.phone' => ['nullable', 'string', 'max:80'],
+            'student.person.birthday' => ['nullable', 'date'],
+            'student.person.gender' => ['nullable', 'string', 'max:50'],
+            'student.person.address' => ['nullable', 'string', 'max:5000'],
+            'student.person.country_id' => ['nullable', 'uuid', 'exists:countries,id'],
+            'student.person.state_id' => ['nullable', 'uuid', 'exists:states,id'],
+            'student.person.city_id' => ['nullable', 'uuid', 'exists:cities,id'],
+            'student.person.photo' => ['nullable', 'image', 'max:2048'],
+
+            'student.status' => ['nullable', 'string', 'max:80'],
+            'student.notes' => ['nullable', 'string', 'max:5000'],
+
             'academic_year_id' => ['sometimes', 'required', 'uuid', 'exists:academic_years,id'],
             'course_id' => ['nullable', 'uuid', 'exists:courses,id'],
             'parallel_id' => ['nullable', 'uuid', 'exists:parallels,id'],
@@ -29,7 +55,33 @@ class UpdateEnrollmentRequest extends FormRequest
             'submitted_at' => ['nullable', 'date'],
 
             'representatives' => ['nullable', 'array', 'min:1'],
-            'representatives.*.legal_representative_id' => ['required_with:representatives', 'uuid', 'exists:legal_representatives,id'],
+
+            'representatives.*.legal_representative_id' => ['nullable', 'uuid', 'exists:legal_representatives,id'],
+            'representatives.*.legal_representative' => ['nullable', 'array'],
+
+            'representatives.*.legal_representative.person_id' => ['nullable', 'uuid', 'exists:persons,id'],
+            'representatives.*.legal_representative.person' => ['nullable', 'array'],
+
+            'representatives.*.legal_representative.person.legal_id' => ['nullable', 'string', 'max:80'],
+            'representatives.*.legal_representative.person.legal_id_type' => ['nullable', 'string', 'max:80'],
+            'representatives.*.legal_representative.person.first_name' => ['nullable', 'string', 'max:120'],
+            'representatives.*.legal_representative.person.middle_name' => ['nullable', 'string', 'max:120'],
+            'representatives.*.legal_representative.person.last_name' => ['nullable', 'string', 'max:120'],
+            'representatives.*.legal_representative.person.second_last_name' => ['nullable', 'string', 'max:120'],
+            'representatives.*.legal_representative.person.full_name' => ['nullable', 'string', 'max:255'],
+            'representatives.*.legal_representative.person.email' => ['nullable', 'email', 'max:255'],
+            'representatives.*.legal_representative.person.phone' => ['nullable', 'string', 'max:80'],
+            'representatives.*.legal_representative.person.birthday' => ['nullable', 'date'],
+            'representatives.*.legal_representative.person.gender' => ['nullable', 'string', 'max:50'],
+            'representatives.*.legal_representative.person.address' => ['nullable', 'string', 'max:5000'],
+            'representatives.*.legal_representative.person.country_id' => ['nullable', 'uuid', 'exists:countries,id'],
+            'representatives.*.legal_representative.person.state_id' => ['nullable', 'uuid', 'exists:states,id'],
+            'representatives.*.legal_representative.person.city_id' => ['nullable', 'uuid', 'exists:cities,id'],
+            'representatives.*.legal_representative.person.photo' => ['nullable', 'image', 'max:2048'],
+
+            'representatives.*.legal_representative.status' => ['nullable', 'string', 'max:80'],
+            'representatives.*.legal_representative.notes' => ['nullable', 'string', 'max:5000'],
+
             'representatives.*.relationship_type' => ['required_with:representatives', 'string', 'max:80'],
             'representatives.*.description' => ['nullable', 'string', 'max:5000'],
             'representatives.*.is_billable' => ['nullable', 'boolean'],
@@ -39,15 +91,11 @@ class UpdateEnrollmentRequest extends FormRequest
 
     public function messages(): array
     {
-        $messages = trans('validation/Academic/enrollment.custom');
-
-        return is_array($messages) ? $messages : [];
+        return trans('validation/Academic/enrollment.custom') ?? [];
     }
 
     public function attributes(): array
     {
-        $attributes = trans('validation/Academic/enrollment.attributes');
-
-        return is_array($attributes) ? $attributes : [];
+        return trans('validation/Academic/enrollment.attributes') ?? [];
     }
 }

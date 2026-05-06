@@ -42,6 +42,7 @@ class CourseRepository
             'code',
             'name',
             'capacity',
+            'level_number',
             'credits',
             'status',
             'created_at',
@@ -67,6 +68,7 @@ class CourseRepository
         $educationalLevelId = trim((string) Arr::get($columns, 'educational_level_id', ''));
         $instructorId = trim((string) Arr::get($columns, 'instructor_id', ''));
         $status = trim((string) Arr::get($columns, 'status', ''));
+        $levelNumber = trim((string) Arr::get($columns, 'level_number', ''));
 
         return Course::query()
             ->with($this->relations())
@@ -92,6 +94,7 @@ class CourseRepository
             ->when($educationalLevelId !== '', fn ($query) => $query->where('educational_level_id', $educationalLevelId))
             ->when($instructorId !== '', fn ($query) => $query->where('instructor_id', $instructorId))
             ->when($status !== '', fn ($query) => $query->where('status', $status))
+            ->when($levelNumber !== '', fn ($query) => $query->where('level_number', $levelNumber))
             ->orderBy($sort, $dir)
             ->paginate($perPage);
     }
@@ -99,19 +102,37 @@ class CourseRepository
     /**
      * @throws ValidationException
      */
+    /**
+     * @throws ValidationException
+     */
     public function active(array $filters = []): LengthAwarePaginator
     {
         $tenantId = $this->resolveCurrentTenantId();
 
-        $q = $filters['q'] ?? [];
-        $global = trim((string) ($q['global'] ?? ''));
-        $columns = $q['columns'] ?? [];
+        if (! $tenantId) {
+            throw ValidationException::withMessages([
+                'tenant' => __('messages.courses.tenant_not_resolved'),
+            ]);
+        }
+
+        $rawQ = Arr::get($filters, 'q', []);
+        $decodedQ = [];
+
+        if (is_string($rawQ) && trim($rawQ) !== '') {
+            $decoded = json_decode($rawQ, true);
+            $decodedQ = is_array($decoded) ? $decoded : [];
+        } elseif (is_array($rawQ)) {
+            $decodedQ = $rawQ;
+        }
+
+        $global = trim((string) Arr::get($decodedQ, 'global', ''));
+        $columns = Arr::get($decodedQ, 'columns', []);
 
         return Course::query()
             ->with([
                 'educationalLevel:id,name',
                 'instructor:id,person_id',
-                'instructor.person:id,full_name,email,photo'
+                'instructor.person:id,full_name,email,photo',
             ])
             ->where('tenant_id', $tenantId)
             ->where('status', 'active')
@@ -132,30 +153,33 @@ class CourseRepository
             })
 
             // 🔍 COLUMN FILTERS
-            ->when(!empty($columns['code']), fn ($q) =>
+            ->when(! empty($columns['code']), fn ($q) =>
             $q->where('code', 'ilike', "%{$columns['code']}%")
             )
 
-            ->when(!empty($columns['name']), fn ($q) =>
+            ->when(! empty($columns['level_number']), fn ($q) =>
+            $q->where('level_number', $columns['level_number'])
+            )
+
+            ->when(! empty($columns['name']), fn ($q) =>
             $q->where('name', 'ilike', "%{$columns['name']}%")
             )
 
-            ->when(!empty($columns['educational_level_id']), fn ($q) =>
+            ->when(! empty($columns['educational_level_id']), fn ($q) =>
             $q->where('educational_level_id', $columns['educational_level_id'])
             )
 
-            ->when(!empty($columns['instructor_id']), fn ($q) =>
+            ->when(! empty($columns['instructor_id']), fn ($q) =>
             $q->where('instructor_id', $columns['instructor_id'])
             )
 
-            ->when(!empty($columns['status']), fn ($q) =>
+            ->when(! empty($columns['status']), fn ($q) =>
             $q->where('status', $columns['status'])
             )
 
             ->orderBy('created_at', 'desc')
-
             ->paginate(
-                max(1, min((int) ($filters['per_page'] ?? 15), 100))
+                max(1, min((int) Arr::get($filters, 'per_page', 15), 100))
             );
     }
 
@@ -259,6 +283,7 @@ class CourseRepository
         return Arr::only($data, [
             'educational_level_id',
             'instructor_id',
+            'level_number',
             'code',
             'name',
             'description',

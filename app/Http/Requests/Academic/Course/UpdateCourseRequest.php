@@ -23,7 +23,7 @@ class UpdateCourseRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:5000'],
 
             'capacity' => ['sometimes', 'required', 'integer', 'min:0'],
-
+            'level_number' => ['sometimes', 'required', 'integer', 'min:1', 'max:999'],
             'credits' => ['nullable', 'integer', 'min:0', 'max:999'],
             'theoretical_hours' => ['nullable', 'integer', 'min:0', 'max:999'],
             'practical_hours' => ['nullable', 'integer', 'min:0', 'max:999'],

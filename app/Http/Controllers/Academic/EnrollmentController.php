@@ -10,11 +10,14 @@ use App\Repositories\Academic\EnrollmentRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use App\Http\Requests\Academic\Enrollment\PrepareEnrollmentRequest;
+use App\Services\Academic\EnrollmentPreparationService;
 
 class EnrollmentController extends Controller
 {
     public function __construct(
-        protected EnrollmentRepository $repo
+        protected EnrollmentRepository $repo,
+        protected EnrollmentPreparationService $preparationService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -40,6 +43,20 @@ class EnrollmentController extends Controller
         return response()->json([
             'code' => Response::HTTP_OK,
             'message' => __('messages.enrollments.active_listed'),
+            'data' => $data,
+            'error' => null,
+        ], Response::HTTP_OK);
+    }
+
+    public function prepare(PrepareEnrollmentRequest $request): JsonResponse
+    {
+        $data = $this->preparationService->prepareByLegalId(
+            $request->string('legal_id')->toString()
+        );
+
+        return response()->json([
+            'code' => Response::HTTP_OK,
+            'message' => __('messages.enrollments.prepared'),
             'data' => $data,
             'error' => null,
         ], Response::HTTP_OK);

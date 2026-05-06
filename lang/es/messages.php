@@ -220,6 +220,7 @@ return [
         'updated' => 'Matrícula actualizada correctamente.',
         'deleted' => 'Matrícula eliminada correctamente.',
         'active_listed' => 'Matrículas activas obtenidas correctamente.',
+        'prepared' => 'Los datos para preparar la matrícula se obtuvieron correctamente.',
 
         'not_found' => 'Matrícula no encontrada.',
         'already_exists' => 'El estudiante ya está matriculado para la configuración académica seleccionada.',

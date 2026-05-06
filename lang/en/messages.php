@@ -220,6 +220,7 @@ return [
         'updated' => 'Enrollment updated successfully.',
         'deleted' => 'Enrollment deleted successfully.',
         'active_listed' => 'Active enrollments retrieved successfully.',
+        'prepared' => 'Enrollment preparation data retrieved successfully.',
 
         'not_found' => 'Enrollment not found.',
         'already_exists' => 'This student is already enrolled for the selected academic configuration.',

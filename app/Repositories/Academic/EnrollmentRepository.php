@@ -3,21 +3,29 @@
 namespace App\Repositories\Academic;
 
 use App\Models\Academic\Enrollment;
+use App\Models\Academic\LegalRepresentative;
 use App\Models\Academic\Student;
 use App\Models\Academic\StudentLegalRepresentative;
+use App\Models\Academic\StudentUserLink;
 use App\Models\Administration\Tenant;
+use App\Models\General\Person;
 use App\Notifications\Academic\EnrollmentCreatedNotification;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use App\Models\Academic\StudentUserLink;
 
 class EnrollmentRepository
 {
+    protected string $disk = 'public';
+
+    protected string $directory = 'persons';
+
     protected function resolveCurrentTenantId(): ?string
     {
         if ($current = Tenant::current()) {
@@ -158,9 +166,6 @@ class EnrollmentRepository
         return $enrollment->load($this->relations());
     }
 
-    /**
-     * @throws ValidationException
-     */
     public function create(array $data): Enrollment
     {
         $tenantId = $this->resolveCurrentTenantId();
@@ -172,17 +177,19 @@ class EnrollmentRepository
         }
 
         $enrollment = DB::transaction(function () use ($data, $tenantId) {
-            $student = $this->resolveStudent($data, $tenantId);
+            $student = $this->resolveOrCreateStudent($data, $tenantId);
+
+            $data['student_id'] = $student->id;
+            $data['representatives'] = $this->resolveOrCreateRepresentatives($data, $tenantId);
 
             $this->ensureEnrollmentDoesNotExist($data, $tenantId);
-
             $this->syncLegalRepresentatives($student, $data, $tenantId);
 
             $enrollment = Enrollment::query()->create([
                 'tenant_id' => $tenantId,
                 'enrollment_code' => $this->generateEnrollmentCode(),
-                'student_id' => $student->id,
                 ...$this->extractEnrollmentPayload($data),
+                'student_id' => $student->id,
                 'submitted_at' => Arr::get($data, 'submitted_at') ?? now(),
             ]);
 
@@ -203,8 +210,16 @@ class EnrollmentRepository
         }
 
         return DB::transaction(function () use ($enrollment, $data, $tenantId) {
+            $student = null;
+
+            if (array_key_exists('student_id', $data) || array_key_exists('student', $data)) {
+                $student = $this->resolveOrCreateStudent($data, $tenantId);
+                $data['student_id'] = $student->id;
+            }
+
             if (
                 array_key_exists('student_id', $data) ||
+                array_key_exists('student', $data) ||
                 array_key_exists('academic_year_id', $data) ||
                 array_key_exists('course_id', $data) ||
                 array_key_exists('parallel_id', $data) ||
@@ -213,16 +228,17 @@ class EnrollmentRepository
                 $this->ensureEnrollmentDoesNotExistForUpdate($enrollment, $data, $tenantId);
             }
 
+            $enrollment->fill($this->extractEnrollmentPayload($data));
+            $enrollment->save();
+
             if (array_key_exists('representatives', $data)) {
-                $student = $enrollment->student;
+                $student = $student ?: $enrollment->student;
 
                 if ($student) {
+                    $data['representatives'] = $this->resolveOrCreateRepresentatives($data, $tenantId);
                     $this->syncLegalRepresentatives($student, $data, $tenantId);
                 }
             }
-
-            $enrollment->fill($this->extractEnrollmentPayload($data));
-            $enrollment->save();
 
             return $this->find($enrollment->refresh());
         });
@@ -256,7 +272,7 @@ class EnrollmentRepository
             'enrollmentStatus:id,name',
             'assignedUser:id,person_id,name,email,status',
             'student.legalRepresentativeRelationships.legalRepresentative:id,tenant_id,person_id,status',
-            'student.legalRepresentativeRelationships.legalRepresentative.person:id,full_name,email,phone,legal_id,legal_id_type',
+            'student.legalRepresentativeRelationships.legalRepresentative.person:id,full_name,email,phone,legal_id,legal_id_type,photo',
         ];
     }
 
@@ -278,20 +294,259 @@ class EnrollmentRepository
         ]);
     }
 
-    protected function resolveStudent(array $data, string $tenantId): Student
+    protected function resolveOrCreateStudent(array $data, string $tenantId): Student
     {
-        $student = Student::query()
-            ->where('tenant_id', $tenantId)
-            ->where('id', Arr::get($data, 'student_id'))
-            ->first();
+        if ($studentId = Arr::get($data, 'student_id')) {
+            $student = Student::query()
+                ->where('tenant_id', $tenantId)
+                ->where('id', $studentId)
+                ->first();
 
-        if (! $student) {
-            throw ValidationException::withMessages([
-                'student_id' => __('messages.students.not_found'),
-            ]);
+            if (! $student) {
+                throw ValidationException::withMessages([
+                    'student_id' => __('messages.students.not_found'),
+                ]);
+            }
+
+            return $student;
         }
 
-        return $student;
+        $studentData = Arr::get($data, 'student', []);
+        $person = $this->resolveOrCreatePerson($studentData, $tenantId, 'student');
+
+        $student = Student::query()
+            ->where('tenant_id', $tenantId)
+            ->where('person_id', $person->id)
+            ->first();
+
+        if ($student) {
+            $student->fill($this->extractStudentPayload($studentData));
+            $student->save();
+
+            return $student;
+        }
+
+        return Student::query()->create([
+            'tenant_id' => $tenantId,
+            'person_id' => $person->id,
+            'student_code' => $this->generateStudentCode($tenantId),
+            ...$this->extractStudentPayload($studentData),
+        ]);
+    }
+
+    protected function resolveOrCreateRepresentatives(array $data, string $tenantId): array
+    {
+        $representatives = Arr::get($data, 'representatives', []);
+
+        if (! is_array($representatives) || empty($representatives)) {
+            return [];
+        }
+
+        return collect($representatives)
+            ->map(function (array $representative) use ($tenantId) {
+                $legalRepresentative = $this->resolveOrCreateLegalRepresentative($representative, $tenantId);
+
+                return [
+                    'legal_representative_id' => $legalRepresentative->id,
+                    'relationship_type' => Arr::get($representative, 'relationship_type'),
+                    'description' => Arr::get($representative, 'description'),
+                    'is_billable' => filter_var(Arr::get($representative, 'is_billable', false), FILTER_VALIDATE_BOOLEAN),
+                    'is_emergency_contact' => filter_var(Arr::get($representative, 'is_emergency_contact', false), FILTER_VALIDATE_BOOLEAN),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function resolveOrCreateLegalRepresentative(
+        array $representative,
+        string $tenantId
+    ): LegalRepresentative {
+        if ($legalRepresentativeId = Arr::get($representative, 'legal_representative_id')) {
+            $legalRepresentative = LegalRepresentative::query()
+                ->where('tenant_id', $tenantId)
+                ->where('id', $legalRepresentativeId)
+                ->first();
+
+            if (! $legalRepresentative) {
+                throw ValidationException::withMessages([
+                    'representatives' => __('messages.legal_representatives.not_found'),
+                ]);
+            }
+
+            return $legalRepresentative;
+        }
+
+        $legalRepresentativeData = Arr::get($representative, 'legal_representative', []);
+        $person = $this->resolveOrCreatePerson($legalRepresentativeData, $tenantId, 'representative');
+
+        $legalRepresentative = LegalRepresentative::query()
+            ->where('tenant_id', $tenantId)
+            ->where('person_id', $person->id)
+            ->first();
+
+        if ($legalRepresentative) {
+            $legalRepresentative->fill($this->extractLegalRepresentativePayload($legalRepresentativeData));
+            $legalRepresentative->save();
+
+            return $legalRepresentative;
+        }
+
+        return LegalRepresentative::query()->create([
+            'tenant_id' => $tenantId,
+            'person_id' => $person->id,
+            ...$this->extractLegalRepresentativePayload($legalRepresentativeData),
+        ]);
+    }
+
+    protected function resolveOrCreatePerson(
+        array $ownerData,
+        string $tenantId,
+        string $errorPrefix
+    ): Person {
+        if ($personId = Arr::get($ownerData, 'person_id')) {
+            $person = Person::query()
+                ->where('id', $personId)
+                ->first();
+
+            if (! $person) {
+                throw ValidationException::withMessages([
+                    "{$errorPrefix}.person_id" => __('messages.persons.lookup_not_found'),
+                ]);
+            }
+
+            $this->updatePersonIfNeeded($person, Arr::get($ownerData, 'person', []));
+
+            return $person;
+        }
+
+        $personData = Arr::get($ownerData, 'person', []);
+        $personPayload = $this->extractPersonPayload($personData);
+
+        $legalId = trim((string) Arr::get($personPayload, 'legal_id', ''));
+        $legalIdType = trim((string) Arr::get($personPayload, 'legal_id_type', ''));
+
+        $person = null;
+
+        if ($legalId !== '') {
+            $person = Person::query()
+                ->where('legal_id', $legalId)
+                ->when($legalIdType !== '', fn ($query) => $query->where('legal_id_type', $legalIdType))
+                ->first();
+        }
+
+        $photo = Arr::get($personData, 'photo');
+
+        if ($photo instanceof UploadedFile) {
+            $personPayload['photo'] = $person
+                ? $this->replacePhoto($person->photo, $photo, $personPayload['legal_id'])
+                : $this->storePhoto($photo, $personPayload['legal_id']);
+        } elseif ($person) {
+            $newLegalId = (string) Arr::get($personPayload, 'legal_id', $person->legal_id);
+
+            if ($newLegalId !== $person->legal_id && $person->photo) {
+                $personPayload['photo'] = $this->renamePhoto($person->photo, $newLegalId);
+            }
+        }
+
+        if ($person) {
+            $person->fill($personPayload);
+            $person->save();
+
+            return $person;
+        }
+
+        return Person::query()->create($personPayload);
+    }
+
+    protected function updatePersonIfNeeded(Person $person, array $personData): void
+    {
+        if (empty($personData)) {
+            return;
+        }
+
+        $payload = $this->extractPersonPayload($personData);
+        $photo = Arr::get($personData, 'photo');
+        $newLegalId = (string) Arr::get($payload, 'legal_id', $person->legal_id);
+
+        if ($photo instanceof UploadedFile) {
+            $payload['photo'] = $this->replacePhoto($person->photo, $photo, $newLegalId);
+        } elseif ($newLegalId !== $person->legal_id && $person->photo) {
+            $payload['photo'] = $this->renamePhoto($person->photo, $newLegalId);
+        }
+
+        $person->fill($payload);
+
+        if ($person->isDirty()) {
+            $person->save();
+        }
+    }
+
+    protected function extractStudentPayload(array $data): array
+    {
+        return Arr::only($data, [
+            'status',
+            'notes',
+        ]);
+    }
+
+    protected function extractLegalRepresentativePayload(array $data): array
+    {
+        return Arr::only($data, [
+            'status',
+            'notes',
+        ]);
+    }
+
+    protected function extractPersonPayload(array $data): array
+    {
+        return Arr::only($data, [
+            'full_name',
+            'photo',
+            'email',
+            'phone',
+            'address',
+            'country_id',
+            'state_id',
+            'city_id',
+            'zip',
+            'legal_id',
+            'legal_id_type',
+            'birthday',
+            'gender',
+            'marital_status',
+            'blood_group',
+            'nationality',
+            'deceased_at',
+            'status_changed_at',
+        ]);
+    }
+
+    protected function generateStudentCode(string $tenantId): string
+    {
+        $prefix = 'STU';
+
+        for ($attempt = 0; $attempt < 30; $attempt++) {
+            $code = sprintf(
+                '%s-%s-%s',
+                $prefix,
+                now()->format('ym'),
+                strtoupper(Str::random(10))
+            );
+
+            $exists = Student::query()
+                ->where('tenant_id', $tenantId)
+                ->where('student_code', $code)
+                ->exists();
+
+            if (! $exists) {
+                return $code;
+            }
+        }
+
+        throw ValidationException::withMessages([
+            'student_code' => __('messages.students.code_generation_failed'),
+        ]);
     }
 
     protected function generateEnrollmentCode(): string
@@ -524,5 +779,61 @@ class EnrollmentRepository
         );
 
         return $token;
+    }
+
+    protected function storePhoto(UploadedFile $photo, string $legalId): string
+    {
+        $extension = strtolower($photo->getClientOriginalExtension() ?: $photo->extension() ?: 'jpg');
+        $filename = "{$legalId}.{$extension}";
+        $path = "{$this->directory}/{$filename}";
+
+        $this->deleteMatchingPhotoVariants($legalId);
+
+        Storage::disk($this->disk)->putFileAs(
+            $this->directory,
+            $photo,
+            $filename
+        );
+
+        return $path;
+    }
+
+    protected function replacePhoto(?string $currentPath, UploadedFile $photo, string $legalId): string
+    {
+        $this->deletePhoto($currentPath);
+
+        return $this->storePhoto($photo, $legalId);
+    }
+
+    protected function renamePhoto(string $currentPath, string $newLegalId): string
+    {
+        $extension = pathinfo($currentPath, PATHINFO_EXTENSION) ?: 'jpg';
+        $newPath = "{$this->directory}/{$newLegalId}.{$extension}";
+
+        $this->deleteMatchingPhotoVariants($newLegalId);
+
+        if (Storage::disk($this->disk)->exists($currentPath)) {
+            Storage::disk($this->disk)->move($currentPath, $newPath);
+        }
+
+        return $newPath;
+    }
+
+    protected function deletePhoto(?string $path): void
+    {
+        if ($path && Storage::disk($this->disk)->exists($path)) {
+            Storage::disk($this->disk)->delete($path);
+        }
+    }
+
+    protected function deleteMatchingPhotoVariants(string $legalId): void
+    {
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $extension) {
+            $path = "{$this->directory}/{$legalId}.{$extension}";
+
+            if (Storage::disk($this->disk)->exists($path)) {
+                Storage::disk($this->disk)->delete($path);
+            }
+        }
     }
 }

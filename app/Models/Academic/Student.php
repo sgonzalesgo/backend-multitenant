@@ -69,4 +69,9 @@ class Student extends Model
     {
         return $query->where('status', 'active');
     }
+
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class);
+    }
 }
