@@ -38,6 +38,10 @@ class StoreEnrollmentRequest extends FormRequest
             'student.person.state_id' => ['nullable', 'uuid', 'exists:states,id'],
             'student.person.city_id' => ['nullable', 'uuid', 'exists:cities,id'],
             'student.person.photo' => ['nullable', 'image', 'max:2048'],
+            'student.person.zip' => ['nullable', 'string', 'max:20'],
+            'student.person.marital_status' => ['nullable', 'string', 'max:80'],
+            'student.person.blood_group' => ['nullable', 'string', 'max:20'],
+            'student.person.nationality' => ['nullable', 'string', 'max:120'],
 
             'student.status' => ['nullable', 'string', 'max:80'],
             'student.notes' => ['nullable', 'string', 'max:5000'],
@@ -99,6 +103,10 @@ class StoreEnrollmentRequest extends FormRequest
             'representatives.*.legal_representative.person.state_id' => ['nullable', 'uuid', 'exists:states,id'],
             'representatives.*.legal_representative.person.city_id' => ['nullable', 'uuid', 'exists:cities,id'],
             'representatives.*.legal_representative.person.photo' => ['nullable', 'image', 'max:2048'],
+            'representatives.*.legal_representative.person.zip' => ['nullable', 'string', 'max:20'],
+            'representatives.*.legal_representative.person.marital_status' => ['nullable', 'string', 'max:80'],
+            'representatives.*.legal_representative.person.blood_group' => ['nullable', 'string', 'max:20'],
+            'representatives.*.legal_representative.person.nationality' => ['nullable', 'string', 'max:120'],
 
             'representatives.*.legal_representative.status' => ['nullable', 'string', 'max:80'],
             'representatives.*.legal_representative.notes' => ['nullable', 'string', 'max:5000'],

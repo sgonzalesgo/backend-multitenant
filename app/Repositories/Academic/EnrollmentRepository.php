@@ -260,19 +260,26 @@ class EnrollmentRepository
         return [
             'tenant:id,name',
 
-            'student:id,tenant_id,person_id,student_code,status',
-            'student.person:id,full_name,email,phone,legal_id,legal_id_type,photo,birthday,gender,address,country_id,state_id,city_id',
+            'student:id,tenant_id,person_id,student_code,status,notes',
+            'student.person:id,full_name,email,phone,legal_id,legal_id_type,photo,birthday,gender,address,country_id,state_id,city_id,zip,marital_status,blood_group,nationality,deceased_at,status_changed_at',
             'student.person.country:id,code,name',
             'student.person.state:id,country_id,code,name',
             'student.person.city:id,state_id,name',
+
             'academicYear:id,name',
-            'course:id,name,code',
+            'course:id,tenant_id,educational_level_id,code,name,level_number,status',
+            'course.educationalLevel:id,tenant_id,code,name,start_number,end_number,next_educational_level_id',
             'parallel:id,name',
             'shift:id,name',
             'enrollmentStatus:id,name',
             'assignedUser:id,person_id,name,email,status',
-            'student.legalRepresentativeRelationships.legalRepresentative:id,tenant_id,person_id,status',
-            'student.legalRepresentativeRelationships.legalRepresentative.person:id,full_name,email,phone,legal_id,legal_id_type,photo',
+
+            'student.legalRepresentativeRelationships:id,tenant_id,student_id,legal_representative_id,relationship_type,description,is_billable,is_emergency_contact',
+            'student.legalRepresentativeRelationships.legalRepresentative:id,tenant_id,person_id,status,notes',
+            'student.legalRepresentativeRelationships.legalRepresentative.person:id,full_name,email,phone,legal_id,legal_id_type,photo,birthday,gender,address,country_id,state_id,city_id,zip,marital_status,blood_group,nationality,deceased_at,status_changed_at',
+            'student.legalRepresentativeRelationships.legalRepresentative.person.country:id,code,name',
+            'student.legalRepresentativeRelationships.legalRepresentative.person.state:id,country_id,code,name',
+            'student.legalRepresentativeRelationships.legalRepresentative.person.city:id,state_id,name',
         ];
     }
 
@@ -296,6 +303,8 @@ class EnrollmentRepository
 
     protected function resolveOrCreateStudent(array $data, string $tenantId): Student
     {
+        $studentData = Arr::get($data, 'student', []);
+
         if ($studentId = Arr::get($data, 'student_id')) {
             $student = Student::query()
                 ->where('tenant_id', $tenantId)
@@ -308,10 +317,18 @@ class EnrollmentRepository
                 ]);
             }
 
+            if (! empty($studentData)) {
+                $student->fill($this->extractStudentPayload($studentData));
+                $student->save();
+
+                if ($student->person && Arr::has($studentData, 'person')) {
+                    $this->updatePersonIfNeeded($student->person, Arr::get($studentData, 'person', []));
+                }
+            }
+
             return $student;
         }
 
-        $studentData = Arr::get($data, 'student', []);
         $person = $this->resolveOrCreatePerson($studentData, $tenantId, 'student');
 
         $student = Student::query()
@@ -358,10 +375,15 @@ class EnrollmentRepository
             ->all();
     }
 
+    /**
+     * @throws ValidationException
+     */
     protected function resolveOrCreateLegalRepresentative(
         array $representative,
         string $tenantId
     ): LegalRepresentative {
+        $legalRepresentativeData = Arr::get($representative, 'legal_representative', []);
+
         if ($legalRepresentativeId = Arr::get($representative, 'legal_representative_id')) {
             $legalRepresentative = LegalRepresentative::query()
                 ->where('tenant_id', $tenantId)
@@ -374,10 +396,21 @@ class EnrollmentRepository
                 ]);
             }
 
+            if (! empty($legalRepresentativeData)) {
+                $legalRepresentative->fill($this->extractLegalRepresentativePayload($legalRepresentativeData));
+                $legalRepresentative->save();
+
+                if ($legalRepresentative->person && Arr::has($legalRepresentativeData, 'person')) {
+                    $this->updatePersonIfNeeded(
+                        $legalRepresentative->person,
+                        Arr::get($legalRepresentativeData, 'person', [])
+                    );
+                }
+            }
+
             return $legalRepresentative;
         }
 
-        $legalRepresentativeData = Arr::get($representative, 'legal_representative', []);
         $person = $this->resolveOrCreatePerson($legalRepresentativeData, $tenantId, 'representative');
 
         $legalRepresentative = LegalRepresentative::query()
