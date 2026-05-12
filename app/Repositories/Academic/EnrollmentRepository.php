@@ -90,9 +90,10 @@ class EnrollmentRepository
         $studentCode = trim((string) Arr::get($columns, 'student_code', ''));
         $enrollmentCode = trim((string) Arr::get($columns, 'enrollment_code', ''));
 
-        return Enrollment::query()
+        $paginator = Enrollment::query()
             ->with($this->relations())
             ->where('tenant_id', $tenantId)
+
             ->when($global !== '', function ($query) use ($global) {
                 $query->where(function ($q) use ($global) {
                     $q->where('enrollment_code', 'ilike', "%{$global}%")
@@ -112,25 +113,63 @@ class EnrollmentRepository
                         ->orWhereHas('enrollmentStatus', fn ($statusQuery) => $statusQuery->where('name', 'ilike', "%{$global}%"));
                 });
             })
+
             ->when($student !== '', function ($query) use ($student) {
                 $query->whereHas('student.person', function ($q) use ($student) {
                     $q->where('full_name', 'ilike', "%{$student}%")
                         ->orWhere('legal_id', 'ilike', "%{$student}%");
                 });
             })
+
             ->when($studentCode !== '', function ($query) use ($studentCode) {
                 $query->whereHas('student', fn ($q) => $q->where('student_code', 'ilike', "%{$studentCode}%"));
             })
-            ->when($enrollmentCode !== '', fn ($query) => $query->where('enrollment_code', 'ilike', "%{$enrollmentCode}%"))
-            ->when(Arr::get($columns, 'academic_year_id'), fn ($query, $value) => $query->where('academic_year_id', $value))
-            ->when(Arr::get($columns, 'course_id'), fn ($query, $value) => $query->where('course_id', $value))
-            ->when(Arr::get($columns, 'parallel_id'), fn ($query, $value) => $query->where('parallel_id', $value))
-            ->when(Arr::get($columns, 'shift_id'), fn ($query, $value) => $query->where('shift_id', $value))
-            ->when(Arr::get($columns, 'enrollment_status_id'), fn ($query, $value) => $query->where('enrollment_status_id', $value))
+
+            ->when(
+                $enrollmentCode !== '',
+                fn ($query) => $query->where('enrollment_code', 'ilike', "%{$enrollmentCode}%")
+            )
+
+            ->when(
+                Arr::get($columns, 'academic_year_id'),
+                fn ($query, $value) => $query->where('academic_year_id', $value)
+            )
+
+            ->when(
+                Arr::get($columns, 'course_id'),
+                fn ($query, $value) => $query->where('course_id', $value)
+            )
+
+            ->when(
+                Arr::get($columns, 'parallel_id'),
+                fn ($query, $value) => $query->where('parallel_id', $value)
+            )
+
+            ->when(
+                Arr::get($columns, 'shift_id'),
+                fn ($query, $value) => $query->where('shift_id', $value)
+            )
+
+            ->when(
+                Arr::get($columns, 'enrollment_status_id'),
+                fn ($query, $value) => $query->where('enrollment_status_id', $value)
+            )
+
             ->orderBy($sort, $dir)
             ->paginate($perPage);
+
+        $paginator->setCollection(
+            $paginator->getCollection()->map(
+                fn (Enrollment $enrollment) => $this->formatPreparedEnrollment($enrollment)
+            )
+        );
+
+        return $paginator;
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function active(array $filters = []): LengthAwarePaginator
     {
         $tenantId = $this->resolveCurrentTenantId();
@@ -143,16 +182,26 @@ class EnrollmentRepository
 
         $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
 
-        return Enrollment::query()
+        $paginator = Enrollment::query()
             ->with($this->relations())
             ->where('tenant_id', $tenantId)
             ->where('is_active', true)
+
             ->whereHas('student.person', function ($query) {
                 $query->whereNull('deleted_at')
                     ->whereNull('deceased_at');
             })
+
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
+
+        $paginator->setCollection(
+            $paginator->getCollection()->map(
+                fn (Enrollment $enrollment) => $this->formatPreparedEnrollment($enrollment)
+            )
+        );
+
+        return $paginator;
     }
 
     public function find(Enrollment $enrollment): Enrollment
@@ -166,7 +215,10 @@ class EnrollmentRepository
         return $enrollment->load($this->relations());
     }
 
-    public function create(array $data): Enrollment
+    /**
+     * @throws ValidationException
+     */
+    public function create(array $data): array
     {
         $tenantId = $this->resolveCurrentTenantId();
 
@@ -193,15 +245,17 @@ class EnrollmentRepository
                 'submitted_at' => Arr::get($data, 'submitted_at') ?? now(),
             ]);
 
-            return $this->find($enrollment->refresh());
+            return $enrollment->load($this->relations());
         });
 
         $this->notifyEnrollmentCreated($enrollment);
 
-        return $this->find($enrollment->refresh());
+        return $this->formatPreparedEnrollment(
+            $enrollment->refresh()->load($this->relations())
+        );
     }
 
-    public function update(Enrollment $enrollment, array $data): Enrollment
+    public function update(Enrollment $enrollment, array $data): array
     {
         $tenantId = $this->resolveCurrentTenantId();
 
@@ -209,7 +263,7 @@ class EnrollmentRepository
             abort(404);
         }
 
-        return DB::transaction(function () use ($enrollment, $data, $tenantId) {
+        $updatedEnrollment = DB::transaction(function () use ($enrollment, $data, $tenantId) {
             $student = null;
 
             if (array_key_exists('student_id', $data) || array_key_exists('student', $data)) {
@@ -236,12 +290,15 @@ class EnrollmentRepository
 
                 if ($student) {
                     $data['representatives'] = $this->resolveOrCreateRepresentatives($data, $tenantId);
+
                     $this->syncLegalRepresentatives($student, $data, $tenantId);
                 }
             }
 
-            return $this->find($enrollment->refresh());
+            return $enrollment->refresh()->load($this->relations());
         });
+
+        return $this->formatPreparedEnrollment($updatedEnrollment);
     }
 
     public function delete(Enrollment $enrollment): void
@@ -868,5 +925,67 @@ class EnrollmentRepository
                 Storage::disk($this->disk)->delete($path);
             }
         }
+    }
+
+    protected function formatPreparedEnrollment(?Enrollment $enrollment): array
+    {
+        if (! $enrollment) {
+            return [
+                'source' => null,
+                'found' => [
+                    'person' => false,
+                    'student' => false,
+                    'legal_representative' => false,
+                    'previous_enrollment' => false,
+                    'external_person' => false,
+                ],
+                'person' => null,
+                'student' => null,
+                'legal_representative' => null,
+                'last_enrollment' => null,
+                'representatives' => [],
+                'promotion_suggestion' => null,
+                'suggested_course' => null,
+            ];
+        }
+
+        $student = $enrollment->student;
+        $person = $student?->person;
+
+        return [
+            'source' => 'database',
+            'found' => [
+                'person' => (bool) $person,
+                'student' => (bool) $student,
+                'legal_representative' => false,
+                'previous_enrollment' => true,
+                'external_person' => false,
+            ],
+            'person' => $person,
+            'student' => $student,
+            'legal_representative' => null,
+            'last_enrollment' => $enrollment,
+            'representatives' => $this->formatEnrollmentRepresentatives($enrollment),
+            'promotion_suggestion' => null,
+            'suggested_course' => null,
+        ];
+    }
+
+    protected function formatEnrollmentRepresentatives(Enrollment $enrollment): array
+    {
+        return $enrollment->student?->legalRepresentativeRelationships
+            ?->map(function ($relationship) {
+                return [
+                    'id' => $relationship->id,
+                    'legal_representative_id' => $relationship->legal_representative_id,
+                    'relationship_type' => $relationship->relationship_type,
+                    'description' => $relationship->description,
+                    'is_billable' => (bool) $relationship->is_billable,
+                    'is_emergency_contact' => (bool) $relationship->is_emergency_contact,
+                    'legal_representative' => $relationship->legalRepresentative,
+                ];
+            })
+            ->values()
+            ->all() ?? [];
     }
 }

@@ -5,6 +5,7 @@ namespace App\Services\General;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ExternalPersonLookupService
 {
@@ -36,6 +37,11 @@ class ExternalPersonLookupService
             return null;
         }
 
+        Log::info('DINARDAP demographic row', [
+            'row' => $row,
+            'keys' => array_keys($row),
+        ]);
+
         return [
             'id' => null,
             'full_name' => Arr::get($row, 'nombre'),
@@ -48,12 +54,17 @@ class ExternalPersonLookupService
             'country' => null,
             'zip' => null,
             'legal_id' => Arr::get($row, 'cedula', $legalId),
-            'legal_id_type' => 'cedula',
+            'legal_id_type' => 'CÉDULA',
             'birthday' => $this->normalizeDate(Arr::get($row, 'fechaNacimiento')),
             'gender' => null,
-            'marital_status' => Arr::get($row, 'estadoCivil'),
+            'marital_status' => mb_strtolower(Arr::get($row, 'estadoCivil'), 'UTF-8'),
             'blood_group' => null,
-            'nationality' => null,
+            'nationality' => Arr::get($row, 'nacionalidad')
+                ?? Arr::get($row, 'nationality')
+                    ?? Arr::get($row, 'NACIONALIDAD')
+                    ?? Arr::get($row, 'nacionalidadDescripcion')
+                    ?? Arr::get($row, 'paisNacimiento')
+                    ?? 'Ecuatoriana',
             'status' => 'active',
             'deceased_at' => $this->resolveDeceasedAt(Arr::get($row, 'actaDefuncion')),
             'status_changed_at' => null,

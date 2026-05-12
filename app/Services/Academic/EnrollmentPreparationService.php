@@ -19,6 +19,9 @@ class EnrollmentPreparationService
         protected StudentPromotionService $studentPromotionService
     ) {}
 
+    /**
+     * @throws ValidationException
+     */
     public function prepareByLegalId(string $legalId): array
     {
         $tenantId = $this->resolveCurrentTenantId();
@@ -141,6 +144,27 @@ class EnrollmentPreparationService
         }
 
         return Person::query()
+            ->select([
+                'id',
+                'full_name',
+                'email',
+                'phone',
+                'legal_id',
+                'legal_id_type',
+                'photo',
+                'birthday',
+                'gender',
+                'address',
+                'country_id',
+                'state_id',
+                'city_id',
+                'zip',
+                'marital_status',
+                'blood_group',
+                'nationality',
+                'deceased_at',
+                'status_changed_at',
+            ])
             ->with([
                 'user:id,person_id,name,email,avatar,status',
                 'country:id,code,name',
