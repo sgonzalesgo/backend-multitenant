@@ -27,6 +27,7 @@
 //];
 
 
+use App\Models\Academic\AcademicSchedule;
 use App\Models\Academic\AcademicYear;
 use App\Models\Academic\Classroom;
 use App\Models\Academic\Course;
@@ -94,6 +95,7 @@ return [
         'legal_representatives' => LegalRepresentative::class,
         'courses' => Course::class,
         'enrollments' => Enrollment::class,
+        'academic_schedules' => AcademicSchedule::class,
     ],
 
     /*
@@ -130,6 +132,7 @@ return [
         LegalRepresentative::class,
         Course::class,
         Enrollment::class,
+        AcademicSchedule::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente
