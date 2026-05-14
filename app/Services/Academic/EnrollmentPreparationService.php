@@ -77,7 +77,11 @@ class EnrollmentPreparationService
                     (int) $lastEnrollment->course->level_number
                 );
 
-                $suggestedCourse = $this->findSuggestedCourse($promotionSuggestion, $tenantId);
+                $suggestedCourse = $this->findSuggestedCourse(
+                    $promotionSuggestion,
+                    $tenantId,
+                    $lastEnrollment->course?->id
+                );
 
                 $promotionSuggestion = $this->formatPromotionSuggestion(
                     $promotionSuggestion,
@@ -243,8 +247,11 @@ class EnrollmentPreparationService
             ->first();
     }
 
-    protected function findSuggestedCourse(?array $promotionSuggestion, string $tenantId): ?Course
-    {
+    protected function findSuggestedCourse(
+        ?array $promotionSuggestion,
+        string $tenantId,
+        ?string $currentCourseId = null
+    ): ?Course {
         if (
             ! $promotionSuggestion ||
             ! empty($promotionSuggestion['is_graduated']) ||
@@ -262,6 +269,7 @@ class EnrollmentPreparationService
             ->where('educational_level_id', $promotionSuggestion['next_level_id'])
             ->where('level_number', $promotionSuggestion['next_number'])
             ->where('status', 'active')
+            ->when($currentCourseId, fn ($query) => $query->where('id', '!=', $currentCourseId))
             ->orderBy('name')
             ->first();
     }

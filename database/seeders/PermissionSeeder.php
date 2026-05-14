@@ -191,6 +191,11 @@ class PermissionSeeder extends Seeder
             "Store enrollments",
             "Update enrollments",
             "Delete enrollments",
+            "List academic_schedules",
+            "Search academic_schedules",
+            "Store academic_schedules",
+            "Update academic_schedules",
+            "Delete academic_schedules",
 
         ];
 

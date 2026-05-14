@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
+use App\Models\General\Person;
 
 class CalendarEventParticipant extends Model
 {
@@ -47,5 +48,10 @@ class CalendarEventParticipant extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Person::class);
     }
 }

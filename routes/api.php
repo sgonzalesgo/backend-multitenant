@@ -52,4 +52,5 @@ Route::middleware([
     require base_path('routes/Academic/legal_representatives.php');
     require base_path('routes/Academic/courses.php');
     require base_path('routes/Academic/enrollments.php');
+    require base_path('routes/Academic/academic_schedules.php');
 });

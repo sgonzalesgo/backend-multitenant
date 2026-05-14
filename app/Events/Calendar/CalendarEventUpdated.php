@@ -35,6 +35,7 @@ class CalendarEventUpdated implements ShouldBroadcastNow
             'eventType',
             'creator',
             'participants.user',
+            'participants.person',
             'audiences',
         ]);
 
@@ -95,6 +96,12 @@ class CalendarEventUpdated implements ShouldBroadcastNow
                                 'id' => (string) $participant->user->id,
                                 'name' => $participant->user->name ?? null,
                                 'email' => $participant->user->email ?? null,
+                            ] : null,
+                            'person' => $participant->person ? [
+                                'id' => (string) $participant->person->id,
+                                'full_name' => $participant->person->full_name ?? null,
+                                'email' => $participant->person->email ?? null,
+                                'photo' => $participant->person->photo ?? null,
                             ] : null,
                         ];
                     })->values()->toArray(),

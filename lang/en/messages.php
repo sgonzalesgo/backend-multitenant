@@ -240,4 +240,17 @@ return [
         'code_generation_failed' => 'A unique enrollment code could not be generated.',
         'create_account_button' => 'Create account',
     ],
+    'academic_schedules' => [
+        'listed' => 'Academic schedules retrieved successfully.',
+        'created' => 'Academic schedule created successfully.',
+        'shown' => 'Academic schedule retrieved successfully.',
+        'updated' => 'Academic schedule updated successfully.',
+        'deleted' => 'Academic schedule deleted successfully.',
+        'active_listed' => 'Active academic schedules retrieved successfully.',
+        'already_exists' => 'An academic schedule already exists for the selected academic configuration.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+        'conflict_detected' => 'A scheduling conflict was detected with another classroom or instructor.',
+        'end_time_must_be_after_start_time' => 'The end time must be greater than the start time.',
+        'instructor_user_required' => 'The selected instructor must have an associated user account to create calendar events.',
+    ],
 ];

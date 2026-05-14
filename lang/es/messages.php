@@ -240,4 +240,17 @@ return [
         'code_generation_failed' => 'No se pudo generar un código único para la matrícula.',
         'create_account_button' => 'Crear cuenta',
     ],
+    'academic_schedules' => [
+        'listed' => 'Horarios académicos obtenidos correctamente.',
+        'created' => 'Horario académico creado correctamente.',
+        'shown' => 'Horario académico obtenido correctamente.',
+        'updated' => 'Horario académico actualizado correctamente.',
+        'deleted' => 'Horario académico eliminado correctamente.',
+        'active_listed' => 'Horarios académicos activos obtenidos correctamente.',
+        'already_exists' => 'Ya existe un horario académico para la configuración académica seleccionada.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+        'conflict_detected' => 'Se detectó un conflicto de horario con otra aula o instructor.',
+        'end_time_must_be_after_start_time' => 'La hora de fin debe ser mayor que la hora de inicio.',
+        'instructor_user_required' => 'El instructor seleccionado debe tener una cuenta de usuario asociada para crear eventos en el calendario.',
+    ],
 ];
