@@ -24,11 +24,4 @@ class PrepareEnrollmentRequest extends FormRequest
             'legal_id' => __('validation/Academic/enrollment.attributes.legal_id'),
         ];
     }
-
-    public function messages(): array
-    {
-        $messages = trans('validation/Academic/enrollment.custom');
-
-        return is_array($messages) ? $messages : [];
-    }
 }

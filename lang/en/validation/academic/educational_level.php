@@ -35,6 +35,14 @@ return [
         'has_specialty' => [
             'boolean' => 'The :attribute field must be true or false.',
         ],
+        'specialty_ids' => [
+            'array' => 'The :attribute field must be an array.',
+        ],
+
+        'specialty_ids.*' => [
+            'uuid' => 'Each selected specialty must be a valid UUID.',
+            'exists' => 'One or more selected specialties are invalid.',
+        ],
         'next_educational_level_id' => [
             'uuid' => 'The :attribute must be a valid UUID.',
             'exists' => 'The selected :attribute is invalid.',
@@ -56,6 +64,8 @@ return [
         'start_number' => 'start number',
         'end_number' => 'end number',
         'has_specialty' => 'has specialty',
+        'specialty_ids' => 'specialties',
+        'specialty_ids.*' => 'specialty',
         'next_educational_level_id' => 'next educational level',
         'description' => 'description',
         'is_active' => 'active status',

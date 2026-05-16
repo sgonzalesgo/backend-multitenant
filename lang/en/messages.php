@@ -253,4 +253,32 @@ return [
         'end_time_must_be_after_start_time' => 'The end time must be greater than the start time.',
         'instructor_user_required' => 'The selected instructor must have an associated user account to create calendar events.',
     ],
+    'attendance' => [
+        'subjects_retrieved' => 'Attendance subjects retrieved successfully.',
+        'days_retrieved' => 'Attendance days retrieved successfully.',
+        'session_opened' => 'Attendance session opened successfully.',
+        'session_saved' => 'Attendance session saved successfully.',
+
+        'tenant_not_resolved' => 'Unable to resolve the current tenant.',
+        'instructor_not_found' => 'Instructor not found.',
+        'event_not_found' => 'Attendance event not found.',
+        'day_not_enabled' => 'This attendance day is not enabled yet.',
+        'session_already_closed' => 'This attendance session has already been closed.',
+        'records_retrieved' => 'Attendance records retrieved successfully.',
+        'instructor_does_not_match_session' => 'The selected instructor does not match this attendance session.',
+
+        // Absence notification email
+        'absence_email_subject' => 'Student absence notification',
+        'absence_email_greeting' => 'Hello :name,',
+        'absence_email_intro' => 'We would like to inform you that the following student was marked absent from one or more classes today:',
+        'absence_email_footer' => 'If you believe this information is incorrect, please contact the school administration.',
+        'absence_email_regards' => 'Regards, School Administration',
+        'student' => 'Student',
+        'attendance_date' => 'Attendance date',
+        'course' => 'Course',
+        'subject' => 'Subject',
+        'instructor' => 'Instructor',
+        'observation' => 'Observation',
+        'all_rights_reserved' => 'All rights reserved.',
+    ],
 ];

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class EducationalLevel extends Model
 {
@@ -53,5 +54,17 @@ class EducationalLevel extends Model
             EducationalLevel::class,
             'next_educational_level_id'
         );
+    }
+
+    public function specialties(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Specialty::class,
+            'educational_level_specialty',
+            'educational_level_id',
+            'specialty_id'
+        )
+            ->withPivot('tenant_id')
+            ->withTimestamps();
     }
 }

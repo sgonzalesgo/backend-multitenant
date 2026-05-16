@@ -53,4 +53,5 @@ Route::middleware([
     require base_path('routes/Academic/courses.php');
     require base_path('routes/Academic/enrollments.php');
     require base_path('routes/Academic/academic_schedules.php');
+    require base_path('routes/Academic/attendances.php');
 });

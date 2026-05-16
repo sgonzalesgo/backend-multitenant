@@ -15,4 +15,6 @@ return [
     'impersonation_same_user' => 'No puedes suplantarte a ti mismo.',
     'email_not_verified' => 'Debes verificar tu correo antes de iniciar sesión.',
     'account_inactive'   => 'Tu cuenta está inactiva. Contacta a soporte.',
+    'user_not_found' => 'Usuario no encontrado.',
+    'impersonation_session_not_found' => 'No se encontró una sesión de impersonación activa.',
 ];

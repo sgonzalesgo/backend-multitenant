@@ -253,4 +253,32 @@ return [
         'end_time_must_be_after_start_time' => 'La hora de fin debe ser mayor que la hora de inicio.',
         'instructor_user_required' => 'El instructor seleccionado debe tener una cuenta de usuario asociada para crear eventos en el calendario.',
     ],
+    'attendance' => [
+        'subjects_retrieved' => 'Asignaturas de asistencia obtenidas correctamente.',
+        'days_retrieved' => 'Días de asistencia obtenidos correctamente.',
+        'session_opened' => 'Sesión de asistencia abierta correctamente.',
+        'session_saved' => 'Sesión de asistencia guardada correctamente.',
+
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+        'instructor_not_found' => 'Instructor no encontrado.',
+        'event_not_found' => 'No se encontró el evento de asistencia.',
+        'day_not_enabled' => 'Este día de asistencia aún no está habilitado.',
+        'session_already_closed' => 'Esta sesión de asistencia ya ha sido cerrada.',
+        'records_retrieved' => 'Registros de asistencia obtenidos correctamente.',
+        'instructor_does_not_match_session' => 'El instructor seleccionado no coincide con esta sesión de asistencia.',
+
+        // Correo de notificación de ausencia
+        'absence_email_subject' => 'Notificación de inasistencia del estudiante',
+        'absence_email_greeting' => 'Hola :name,',
+        'absence_email_intro' => 'Le informamos que el siguiente estudiante fue marcado como ausente en una o más clases el día de hoy:',
+        'absence_email_footer' => 'Si considera que esta información es incorrecta, por favor contacte a la administración del colegio.',
+        'absence_email_regards' => 'Saludos, Eduolivo',
+        'student' => 'Estudiante',
+        'attendance_date' => 'Fecha de asistencia',
+        'course' => 'Curso',
+        'subject' => 'Asignatura',
+        'instructor' => 'Instructor',
+        'observation' => 'Observación',
+        'all_rights_reserved' => 'Todos los derechos reservados.',
+    ],
 ];

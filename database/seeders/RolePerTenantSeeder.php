@@ -200,6 +200,11 @@ class RolePerTenantSeeder extends Seeder
                 "Store academic_schedules",
                 "Update academic_schedules",
                 "Delete academic_schedules",
+                "List attendances",
+                "Search attendances",
+                "Store attendances",
+                "Update attendances",
+                "Delete attendances",
             ],
         ];
 

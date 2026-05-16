@@ -3,6 +3,7 @@
 namespace App\Repositories\Academic;
 
 use App\Models\Academic\Instructor;
+use App\Models\Administration\Tenant;
 use App\Models\General\Person;
 use App\Models\Administration\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -11,6 +12,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class InstructorRepository
 {
@@ -18,8 +20,26 @@ class InstructorRepository
 
     protected string $directory = 'persons';
 
+    protected function resolveCurrentTenantId(): ?string
+    {
+        $currentTenant = Tenant::current();
+
+        return $currentTenant ? (string) $currentTenant->id : null;
+    }
+
+    /**
+     * @throws ValidationException
+     */
     public function list(array $filters = []): LengthAwarePaginator
     {
+        $tenantId = $this->resolveCurrentTenantId();
+
+        if (! $tenantId) {
+            throw ValidationException::withMessages([
+                'tenant' => __('messages.instructors.tenant_not_resolved'),
+            ]);
+        }
+
         $rawQ = Arr::get($filters, 'q', '');
         $sort = Arr::get($filters, 'sort', 'created_at');
         $dir = strtolower((string) Arr::get($filters, 'dir', 'desc')) === 'asc' ? 'asc' : 'desc';
@@ -56,6 +76,7 @@ class InstructorRepository
 
         return Instructor::query()
             ->with($this->relations())
+            ->where('tenant_id', $tenantId)
             ->when($global !== '', function ($query) use ($global) {
                 $query->where(function ($q) use ($global) {
                     $q->where('academic_title', 'ilike', "%{$global}%")
@@ -85,12 +106,24 @@ class InstructorRepository
             ->paginate($perPage);
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function active(array $filters = []): LengthAwarePaginator
     {
+        $tenantId = $this->resolveCurrentTenantId();
+
+        if (! $tenantId) {
+            throw ValidationException::withMessages([
+                'tenant' => __('messages.instructors.tenant_not_resolved'),
+            ]);
+        }
+
         $search = trim((string) ($filters['q'] ?? ''));
 
         return Instructor::query()
             ->with($this->relations())
+            ->where('tenant_id', $tenantId)
             ->where('status', 'active')
             ->whereHas('person', function ($query) {
                 $query->whereNull('deleted_at')
@@ -111,12 +144,29 @@ class InstructorRepository
 
     public function find(Instructor $instructor): Instructor
     {
+        $tenantId = $this->resolveCurrentTenantId();
+
+        if (! $tenantId || (string) $instructor->tenant_id !== $tenantId) {
+            abort(404);
+        }
+
         return $instructor->load($this->relations());
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function create(array $data, ?UploadedFile $photo = null): Instructor
     {
-        return DB::transaction(function () use ($data, $photo) {
+        $tenantId = $this->resolveCurrentTenantId();
+
+        if (! $tenantId) {
+            throw ValidationException::withMessages([
+                'tenant' => __('messages.instructors.tenant_not_resolved'),
+            ]);
+        }
+
+        return DB::transaction(function () use ($data, $photo, $tenantId) {
             $personPayload = $this->extractPersonPayload($data);
 
             if ($photo) {
@@ -128,6 +178,7 @@ class InstructorRepository
             $this->syncUser($person, $data, true);
 
             $instructor = Instructor::query()->create([
+                'tenant_id' => $tenantId,
                 'person_id' => $person->id,
                 ...$this->extractInstructorPayload($data),
             ]);
@@ -138,6 +189,12 @@ class InstructorRepository
 
     public function update(Instructor $instructor, array $data, ?UploadedFile $photo = null): Instructor
     {
+        $tenantId = $this->resolveCurrentTenantId();
+
+        if (! $tenantId || (string) $instructor->tenant_id !== $tenantId) {
+            abort(404);
+        }
+
         return DB::transaction(function () use ($instructor, $data, $photo) {
             $person = $instructor->person;
 
@@ -165,6 +222,12 @@ class InstructorRepository
 
     public function delete(Instructor $instructor): void
     {
+        $tenantId = $this->resolveCurrentTenantId();
+
+        if (! $tenantId || (string) $instructor->tenant_id !== $tenantId) {
+            abort(404);
+        }
+
         DB::transaction(function () use ($instructor) {
             $instructor->delete();
 

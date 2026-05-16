@@ -105,6 +105,19 @@ class UpdateEducationalLevelRequest extends FormRequest
                 'boolean',
             ],
 
+            'specialty_ids' => [
+                'nullable',
+                'array',
+            ],
+
+            'specialty_ids.*' => [
+                'uuid',
+                Rule::exists('specialties', 'id')
+                    ->where(fn ($q) => $q
+                        ->where('tenant_id', $tenantId)
+                        ->whereNull('deleted_at')),
+            ],
+
             'next_educational_level_id' => [
                 'nullable',
                 'uuid',

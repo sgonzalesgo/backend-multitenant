@@ -41,8 +41,10 @@ class UpdateEnrollmentRequest extends FormRequest
             'student.status' => ['nullable', 'string', 'max:80'],
             'student.notes' => ['nullable', 'string', 'max:5000'],
 
+            // 🔹 Enrollment
             'academic_year_id' => ['sometimes', 'required', 'uuid', 'exists:academic_years,id'],
             'course_id' => ['nullable', 'uuid', 'exists:courses,id'],
+            'specialty_id' => ['nullable', 'uuid', 'exists:specialties,id'],
             'parallel_id' => ['nullable', 'uuid', 'exists:parallels,id'],
             'shift_id' => ['nullable', 'uuid', 'exists:shifts,id'],
             'enrollment_status_id' => ['nullable', 'uuid', 'exists:enrollment_statuses,id'],

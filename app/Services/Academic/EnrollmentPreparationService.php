@@ -232,7 +232,8 @@ class EnrollmentPreparationService
 
                 'academicYear:id,name',
                 'course:id,tenant_id,educational_level_id,code,name,level_number,status',
-                'course.educationalLevel:id,tenant_id,code,name,start_number,end_number,next_educational_level_id',
+                'course.educationalLevel:id,tenant_id,code,name,has_specialty,start_number,end_number,next_educational_level_id',
+                'course.educationalLevel.specialties:id,tenant_id,code,name,description,is_active',
                 'course.educationalLevel.nextEducationalLevel:id,tenant_id,code,name,start_number,end_number',
                 'parallel:id,name',
                 'shift:id,name',
@@ -263,7 +264,8 @@ class EnrollmentPreparationService
 
         return Course::query()
             ->with([
-                'educationalLevel:id,tenant_id,code,name,start_number,end_number,next_educational_level_id',
+                'educationalLevel:id,tenant_id,code,name,has_specialty,start_number,end_number,next_educational_level_id',
+                'educationalLevel.specialties:id,tenant_id,code,name,description,is_active',
             ])
             ->where('tenant_id', $tenantId)
             ->where('educational_level_id', $promotionSuggestion['next_level_id'])
@@ -370,3 +372,4 @@ class EnrollmentPreparationService
         ]);
     }
 }
+

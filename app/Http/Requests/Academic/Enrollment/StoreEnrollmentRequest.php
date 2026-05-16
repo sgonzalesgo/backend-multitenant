@@ -15,7 +15,7 @@ class StoreEnrollmentRequest extends FormRequest
     {
         return [
 
-            // 🔹 Student
+            // Student
             'student_id' => ['nullable', 'uuid', 'exists:students,id'],
             'student' => ['required_without:student_id', 'array'],
 
@@ -45,6 +45,7 @@ class StoreEnrollmentRequest extends FormRequest
             // 🔹 Enrollment
             'academic_year_id' => ['required', 'uuid', 'exists:academic_years,id'],
             'course_id' => ['nullable', 'uuid', 'exists:courses,id'],
+            'specialty_id' => ['nullable', 'uuid', 'exists:specialties,id'],
             'parallel_id' => ['nullable', 'uuid', 'exists:parallels,id'],
             'shift_id' => ['nullable', 'uuid', 'exists:shifts,id'],
             'enrollment_status_id' => ['nullable', 'uuid', 'exists:enrollment_statuses,id'],

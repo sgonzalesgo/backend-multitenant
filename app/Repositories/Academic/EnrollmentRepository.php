@@ -47,6 +47,9 @@ class EnrollmentRepository
         return (string) $token->tenant_id;
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function list(array $filters = []): LengthAwarePaginator
     {
         $tenantId = $this->resolveCurrentTenantId();
@@ -138,6 +141,11 @@ class EnrollmentRepository
             ->when(
                 Arr::get($columns, 'course_id'),
                 fn ($query, $value) => $query->where('course_id', $value)
+            )
+
+            ->when(
+                Arr::get($columns, 'specialty_id'),
+                fn ($query, $value) => $query->where('specialty_id', $value)
             )
 
             ->when(
@@ -276,6 +284,7 @@ class EnrollmentRepository
                 array_key_exists('student', $data) ||
                 array_key_exists('academic_year_id', $data) ||
                 array_key_exists('course_id', $data) ||
+                array_key_exists('specialty_id', $data) ||
                 array_key_exists('parallel_id', $data) ||
                 array_key_exists('shift_id', $data)
             ) {
@@ -325,7 +334,9 @@ class EnrollmentRepository
 
             'academicYear:id,name',
             'course:id,tenant_id,educational_level_id,code,name,level_number,status',
-            'course.educationalLevel:id,tenant_id,code,name,start_number,end_number,next_educational_level_id',
+            'specialty:id,tenant_id,code,name,description,is_active',
+            'course.educationalLevel:id,tenant_id,code,name,has_specialty,start_number,end_number,next_educational_level_id',
+            'course.educationalLevel.specialties:id,tenant_id,code,name,description,is_active',
             'parallel:id,name',
             'shift:id,name',
             'enrollmentStatus:id,name',
@@ -346,6 +357,7 @@ class EnrollmentRepository
             'student_id',
             'academic_year_id',
             'course_id',
+            'specialty_id',
             'parallel_id',
             'shift_id',
             'enrollment_status_id',
@@ -435,10 +447,7 @@ class EnrollmentRepository
     /**
      * @throws ValidationException
      */
-    protected function resolveOrCreateLegalRepresentative(
-        array $representative,
-        string $tenantId
-    ): LegalRepresentative {
+    protected function resolveOrCreateLegalRepresentative(array $representative, string $tenantId): LegalRepresentative {
         $legalRepresentativeData = Arr::get($representative, 'legal_representative', []);
 
         if ($legalRepresentativeId = Arr::get($representative, 'legal_representative_id')) {
@@ -489,11 +498,10 @@ class EnrollmentRepository
         ]);
     }
 
-    protected function resolveOrCreatePerson(
-        array $ownerData,
-        string $tenantId,
-        string $errorPrefix
-    ): Person {
+    /**
+     * @throws ValidationException
+     */
+    protected function resolveOrCreatePerson(array $ownerData, string $tenantId, string $errorPrefix): Person {
         if ($personId = Arr::get($ownerData, 'person_id')) {
             $person = Person::query()
                 ->where('id', $personId)
@@ -612,6 +620,9 @@ class EnrollmentRepository
         ]);
     }
 
+    /**
+     * @throws ValidationException
+     */
     protected function generateStudentCode(string $tenantId): string
     {
         $prefix = 'STU';
@@ -639,6 +650,9 @@ class EnrollmentRepository
         ]);
     }
 
+    /**
+     * @throws ValidationException
+     */
     protected function generateEnrollmentCode(): string
     {
         for ($attempt = 0; $attempt < 10; $attempt++) {
@@ -654,6 +668,9 @@ class EnrollmentRepository
         ]);
     }
 
+    /**
+     * @throws ValidationException
+     */
     protected function ensureEnrollmentDoesNotExist(array $data, string $tenantId): void
     {
         $query = Enrollment::query()
@@ -662,6 +679,7 @@ class EnrollmentRepository
             ->where('academic_year_id', Arr::get($data, 'academic_year_id'));
 
         $this->whereNullable($query, 'course_id', Arr::get($data, 'course_id'));
+        $this->whereNullable($query, 'specialty_id', Arr::get($data, 'specialty_id'));
         $this->whereNullable($query, 'parallel_id', Arr::get($data, 'parallel_id'));
         $this->whereNullable($query, 'shift_id', Arr::get($data, 'shift_id'));
 
@@ -672,14 +690,14 @@ class EnrollmentRepository
         }
     }
 
-    protected function ensureEnrollmentDoesNotExistForUpdate(
-        Enrollment $enrollment,
-        array $data,
-        string $tenantId
-    ): void {
+    /**
+     * @throws ValidationException
+     */
+    protected function ensureEnrollmentDoesNotExistForUpdate(Enrollment $enrollment, array $data, string $tenantId): void {
         $studentId = Arr::get($data, 'student_id', $enrollment->student_id);
         $academicYearId = Arr::get($data, 'academic_year_id', $enrollment->academic_year_id);
         $courseId = Arr::get($data, 'course_id', $enrollment->course_id);
+        $specialtyId = Arr::get($data, 'specialty_id', $enrollment->specialty_id);
         $parallelId = Arr::get($data, 'parallel_id', $enrollment->parallel_id);
         $shiftId = Arr::get($data, 'shift_id', $enrollment->shift_id);
 
@@ -690,6 +708,7 @@ class EnrollmentRepository
             ->where('academic_year_id', $academicYearId);
 
         $this->whereNullable($query, 'course_id', $courseId);
+        $this->whereNullable($query, 'specialty_id', $specialtyId);
         $this->whereNullable($query, 'parallel_id', $parallelId);
         $this->whereNullable($query, 'shift_id', $shiftId);
 
@@ -832,10 +851,7 @@ class EnrollmentRepository
         }
     }
 
-    protected function createStudentUserLink(
-        Enrollment $enrollment,
-        StudentLegalRepresentative $relationship
-    ): ?StudentUserLink {
+    protected function createStudentUserLink(Enrollment $enrollment, StudentLegalRepresentative $relationship): ?StudentUserLink {
         $representative = $relationship->legalRepresentative;
         $person = $representative?->person;
         $student = $enrollment->student;

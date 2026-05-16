@@ -7,6 +7,8 @@ use App\Models\Administration\Tenant;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class EducationalLevelRepository
 {
@@ -87,7 +89,7 @@ class EducationalLevelRepository
         }
 
         return EducationalLevel::query()
-            ->with('nextEducationalLevel')
+            ->with(['nextEducationalLevel', 'specialties'])
             ->where('tenant_id', $tenantId)
 
             ->when($global !== '', function ($query) use ($global) {
@@ -144,7 +146,7 @@ class EducationalLevelRepository
         }
 
         return EducationalLevel::query()
-            ->with('nextEducationalLevel')
+            ->with(['nextEducationalLevel', 'specialties'])
             ->where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->orderBy('sort_order')
@@ -159,10 +161,20 @@ class EducationalLevelRepository
             abort(400, __('messages.educational_levels.tenant_not_resolved'));
         }
 
-        return EducationalLevel::create([
-            'tenant_id' => $tenantId,
-            ...$data,
-        ])->refresh();
+        $specialtyIds = Arr::pull($data, 'specialty_ids', []);
+
+        return DB::transaction(function () use ($data, $tenantId, $specialtyIds) {
+            $educationalLevel = EducationalLevel::create([
+                'tenant_id' => $tenantId,
+                ...$data,
+            ]);
+
+            $this->syncSpecialties($educationalLevel, $specialtyIds, $tenantId);
+
+            return $educationalLevel
+                ->refresh()
+                ->load(['nextEducationalLevel', 'specialties']);
+        });
     }
 
     public function update(EducationalLevel $educationalLevel, array $data): EducationalLevel
@@ -173,9 +185,19 @@ class EducationalLevelRepository
             abort(404);
         }
 
-        $educationalLevel->update($data);
+        $specialtyIds = Arr::pull($data, 'specialty_ids', null);
 
-        return $educationalLevel->refresh();
+        return DB::transaction(function () use ($educationalLevel, $data, $tenantId, $specialtyIds) {
+            $educationalLevel->update($data);
+
+            if (is_array($specialtyIds)) {
+                $this->syncSpecialties($educationalLevel, $specialtyIds, $tenantId);
+            }
+
+            return $educationalLevel
+                ->refresh()
+                ->load(['nextEducationalLevel', 'specialties']);
+        });
     }
 
     public function delete(EducationalLevel $educationalLevel): void
@@ -197,6 +219,26 @@ class EducationalLevelRepository
             abort(404);
         }
 
-        return $educationalLevel->load('nextEducationalLevel');
+        return $educationalLevel->load(['nextEducationalLevel', 'specialties']);
+    }
+
+    private function syncSpecialties(
+        EducationalLevel $educationalLevel,
+        array $specialtyIds,
+        string $tenantId
+    ): void {
+        $educationalLevel->specialties()->detach();
+
+        $attachData = collect($specialtyIds)
+            ->unique()
+            ->mapWithKeys(fn ($specialtyId) => [
+                $specialtyId => [
+                    'id' => (string) Str::uuid(),
+                    'tenant_id' => $tenantId,
+                ],
+            ])
+            ->all();
+
+        $educationalLevel->specialties()->attach($attachData);
     }
 }

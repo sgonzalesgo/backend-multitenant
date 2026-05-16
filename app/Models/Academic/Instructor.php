@@ -22,6 +22,7 @@ class Instructor extends Model
     protected $fillable = [
         'person_id',
         'department_id',
+        'tenant_id',
         'academic_title',
         'academic_level',
         'status',

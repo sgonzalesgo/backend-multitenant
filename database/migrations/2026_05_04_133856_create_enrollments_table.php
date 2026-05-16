@@ -17,6 +17,7 @@ return new class extends Migration
             $table->uuid('student_id');
             $table->uuid('academic_year_id');
             $table->uuid('course_id')->nullable();
+            $table->uuid('specialty_id')->nullable();
             $table->uuid('parallel_id')->nullable();
             $table->uuid('shift_id')->nullable();
             $table->uuid('enrollment_status_id')->nullable();
@@ -39,6 +40,7 @@ return new class extends Migration
             $table->foreign('student_id')->references('id')->on('students');
             $table->foreign('academic_year_id')->references('id')->on('academic_years');
             $table->foreign('course_id')->references('id')->on('courses');
+            $table->foreign('specialty_id')->references('id')->on('specialties');
             $table->foreign('parallel_id')->references('id')->on('parallels');
             $table->foreign('shift_id')->references('id')->on('shifts');
             $table->foreign('enrollment_status_id')->references('id')->on('enrollment_statuses');
@@ -49,6 +51,7 @@ return new class extends Migration
                 'student_id',
                 'academic_year_id',
                 'course_id',
+                'specialty_id',
                 'parallel_id',
                 'shift_id',
             ], 'enrollments_unique_student_period');
@@ -57,6 +60,7 @@ return new class extends Migration
             $table->index(['tenant_id', 'student_id']);
             $table->index(['tenant_id', 'academic_year_id']);
             $table->index(['tenant_id', 'course_id']);
+            $table->index(['tenant_id', 'specialty_id']);
             $table->index(['tenant_id', 'is_active']);
         });
     }

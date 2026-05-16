@@ -34,6 +34,14 @@ return [
         'has_specialty' => [
             'boolean' => 'El campo :attribute debe ser verdadero o falso.',
         ],
+        'specialty_ids' => [
+            'array' => 'El campo :attribute debe ser un arreglo.',
+        ],
+
+        'specialty_ids.*' => [
+            'uuid' => 'Cada especialidad seleccionada debe ser un UUID válido.',
+            'exists' => 'Una o más especialidades seleccionadas no son válidas.',
+        ],
         'next_educational_level_id' => [
             'uuid' => 'El campo :attribute debe ser un UUID válido.',
             'exists' => 'El :attribute seleccionado no es válido.',
@@ -55,6 +63,8 @@ return [
         'start_number' => 'número inicial',
         'end_number' => 'número final',
         'has_specialty' => 'tiene especialidad',
+        'specialty_ids' => 'especialidades',
+        'specialty_ids.*' => 'especialidad',
         'next_educational_level_id' => 'siguiente nivel educativo',
         'description' => 'descripción',
         'is_active' => 'estado activo',

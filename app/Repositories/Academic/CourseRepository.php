@@ -130,7 +130,8 @@ class CourseRepository
 
         return Course::query()
             ->with([
-                'educationalLevel:id,name',
+                'educationalLevel:id,tenant_id,code,name,has_specialty',
+                'educationalLevel.specialties:id,tenant_id,code,name,description,is_active',
                 'instructor:id,person_id',
                 'instructor.person:id,full_name,email,photo',
             ])
@@ -272,7 +273,8 @@ class CourseRepository
     {
         return [
             'tenant:id,name',
-            'educationalLevel:id,tenant_id,name',
+            'educationalLevel:id,tenant_id,code,name,has_specialty',
+            'educationalLevel.specialties:id,tenant_id,code,name,description,is_active',
             'instructor:id,person_id,status',
             'instructor.person:id,full_name,email,phone,legal_id,legal_id_type,photo',
         ];

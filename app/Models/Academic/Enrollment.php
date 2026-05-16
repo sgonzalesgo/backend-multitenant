@@ -25,6 +25,7 @@ class Enrollment extends Model
         'student_id',
         'academic_year_id',
         'course_id',
+        'specialty_id',
         'parallel_id',
         'shift_id',
         'enrollment_status_id',
@@ -65,6 +66,11 @@ class Enrollment extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function specialty(): BelongsTo
+    {
+        return $this->belongsTo(Specialty::class);
     }
 
     public function parallel(): BelongsTo

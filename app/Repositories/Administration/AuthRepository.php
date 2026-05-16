@@ -578,7 +578,17 @@ class AuthRepository
         abort_unless($this->actorCanImpersonate($actor), 403, __('errors.impersonation_forbidden'));
 
         /** @var User $target */
-        $target = User::query()->where('email', $email)->firstOrFail();
+        /** @var User|null $target */
+        $target = User::query()
+            ->where('email', $email)
+            ->first();
+
+        if (! $target) {
+            throw new HttpException(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('errors.user_not_found')
+            );
+        }
 
         if ($actor->getKey() === $target->getKey()) {
             abort(422, __('errors.impersonation_same_user'));
@@ -721,13 +731,20 @@ class AuthRepository
 
     public function revertImpersonationBySession(User $currentImpersonatedUser, string $sessionId): array
     {
-        /** @var ImpersonationSession $session */
+        /** @var ImpersonationSession|null $session */
         $session = ImpersonationSession::query()
             ->with(['impersonator', 'actorTenant'])
             ->active()
             ->where('session_id', $sessionId)
             ->where('impersonated_id', $currentImpersonatedUser->id)
-            ->firstOrFail();
+            ->first();
+
+        if (! $session) {
+            throw new HttpException(
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                __('errors.impersonation_session_not_found')
+            );
+        }
 
         /** @var User|null $impersonator */
         $impersonator = $session->impersonator;
