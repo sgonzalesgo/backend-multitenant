@@ -23,6 +23,11 @@ return new class extends Migration
                 ->constrained('courses')
                 ->cascadeOnDelete();
 
+            $table->foreignUuid('specialty_id')
+                ->nullable()
+                ->constrained('specialties')
+                ->nullOnDelete();
+
             $table->foreignUuid('parallel_id')
                 ->constrained('parallels')
                 ->cascadeOnDelete();
@@ -46,12 +51,14 @@ return new class extends Migration
                 'tenant_id',
                 'academic_year_id',
                 'course_id',
+                'specialty_id',
                 'parallel_id',
                 'shift_id',
             ], 'academic_schedules_unique_context');
 
             $table->index(['tenant_id', 'academic_year_id']);
             $table->index(['tenant_id', 'course_id']);
+            $table->index(['tenant_id', 'specialty_id']);
             $table->index(['tenant_id', 'parallel_id']);
             $table->index(['tenant_id', 'shift_id']);
             $table->index(['tenant_id', 'status']);

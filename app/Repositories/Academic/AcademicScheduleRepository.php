@@ -75,6 +75,7 @@ class AcademicScheduleRepository
                         ->orWhere('general_observation', 'ilike', "%{$global}%")
                         ->orWhereHas('academicYear', fn ($sq) => $sq->where('name', 'ilike', "%{$global}%"))
                         ->orWhereHas('course', fn ($sq) => $sq->where('name', 'ilike', "%{$global}%"))
+                        ->orWhereHas('specialty', fn ($sq) => $sq->where('name', 'ilike', "%{$global}%"))
                         ->orWhereHas('parallel', fn ($sq) => $sq->where('name', 'ilike', "%{$global}%"))
                         ->orWhereHas('modality', fn ($sq) => $sq->where('name', 'ilike', "%{$global}%"))
                         ->orWhereHas('shift', fn ($sq) => $sq->where('name', 'ilike', "%{$global}%"));
@@ -83,6 +84,7 @@ class AcademicScheduleRepository
 
             ->when(Arr::get($columns, 'academic_year_id'), fn ($q, $v) => $q->where('academic_year_id', $v))
             ->when(Arr::get($columns, 'course_id'), fn ($q, $v) => $q->where('course_id', $v))
+            ->when(Arr::get($columns, 'specialty_id'), fn ($q, $v) => $q->where('specialty_id', $v))
             ->when(Arr::get($columns, 'parallel_id'), fn ($q, $v) => $q->where('parallel_id', $v))
             ->when(Arr::get($columns, 'modality_id'), fn ($q, $v) => $q->where('modality_id', $v))
             ->when(Arr::get($columns, 'shift_id'), fn ($q, $v) => $q->where('shift_id', $v))
@@ -156,6 +158,7 @@ class AcademicScheduleRepository
                 ...$academicSchedule->only([
                     'academic_year_id',
                     'course_id',
+                    'specialty_id',
                     'parallel_id',
                     'modality_id',
                     'shift_id',
@@ -165,6 +168,7 @@ class AcademicScheduleRepository
                 ...Arr::only($data, [
                     'academic_year_id',
                     'course_id',
+                    'specialty_id',
                     'parallel_id',
                     'modality_id',
                     'shift_id',
@@ -262,13 +266,12 @@ class AcademicScheduleRepository
     /**
      * @throws ValidationException
      */
-    protected function createCalendarEventsForFrequency(
-        AcademicSchedule $academicSchedule,
-        AcademicScheduleFrequency $frequency
-    ): ?CalendarEvent {
+    protected function createCalendarEventsForFrequency(AcademicSchedule $academicSchedule, AcademicScheduleFrequency $frequency): ?CalendarEvent {
         $academicSchedule->loadMissing([
             'academicYear',
             'course',
+            'course.educationalLevel',
+            'specialty',
             'parallel',
             'shift',
             'modality',
@@ -357,6 +360,9 @@ class AcademicScheduleRepository
                     'academic_schedule_frequency_id' => (string) $frequency->id,
                     'academic_year_id' => (string) $academicSchedule->academic_year_id,
                     'course_id' => (string) $academicSchedule->course_id,
+                    'specialty_id' => $academicSchedule->specialty_id
+                        ? (string) $academicSchedule->specialty_id
+                        : null,
                     'parallel_id' => (string) $academicSchedule->parallel_id,
                     'shift_id' => (string) $academicSchedule->shift_id,
                     'modality_id' => (string) $academicSchedule->modality_id,
@@ -385,16 +391,17 @@ class AcademicScheduleRepository
         return $firstCalendarEvent;
     }
 
-    protected function syncCalendarParticipants(
-        CalendarEvent $calendarEvent,
-        AcademicSchedule $academicSchedule,
-        AcademicScheduleFrequency $frequency
-    ): void {
+    protected function syncCalendarParticipants(CalendarEvent $calendarEvent, AcademicSchedule $academicSchedule, AcademicScheduleFrequency $frequency): void {
         $enrollments = Enrollment::query()
             ->with('student.person.user')
             ->where('tenant_id', $academicSchedule->tenant_id)
             ->where('academic_year_id', $academicSchedule->academic_year_id)
             ->where('course_id', $academicSchedule->course_id)
+            ->when(
+                $academicSchedule->specialty_id,
+                fn ($query) => $query->where('specialty_id', $academicSchedule->specialty_id),
+                fn ($query) => $query->whereNull('specialty_id')
+            )
             ->where('parallel_id', $academicSchedule->parallel_id)
             ->where('shift_id', $academicSchedule->shift_id)
             ->where('is_active', true)
@@ -512,6 +519,7 @@ class AcademicScheduleRepository
             ->where('tenant_id', $tenantId)
             ->where('academic_year_id', Arr::get($data, 'academic_year_id'))
             ->where('course_id', Arr::get($data, 'course_id'))
+            ->where('specialty_id', Arr::get($data, 'specialty_id'))
             ->where('parallel_id', Arr::get($data, 'parallel_id'))
             ->where('shift_id', Arr::get($data, 'shift_id'))
             ->exists();
@@ -526,16 +534,13 @@ class AcademicScheduleRepository
     /**
      * @throws ValidationException
      */
-    protected function ensureScheduleDoesNotExistForUpdate(
-        AcademicSchedule $academicSchedule,
-        array $data,
-        string $tenantId
-    ): void {
+    protected function ensureScheduleDoesNotExistForUpdate(AcademicSchedule $academicSchedule, array $data, string $tenantId): void {
         $exists = AcademicSchedule::query()
             ->where('tenant_id', $tenantId)
             ->where('id', '!=', $academicSchedule->id)
             ->where('academic_year_id', Arr::get($data, 'academic_year_id'))
             ->where('course_id', Arr::get($data, 'course_id'))
+            ->where('specialty_id', Arr::get($data, 'specialty_id'))
             ->where('parallel_id', Arr::get($data, 'parallel_id'))
             ->where('shift_id', Arr::get($data, 'shift_id'))
             ->exists();
@@ -552,6 +557,7 @@ class AcademicScheduleRepository
         return Arr::only($data, [
             'academic_year_id',
             'course_id',
+            'specialty_id',
             'parallel_id',
             'modality_id',
             'shift_id',
@@ -578,7 +584,9 @@ class AcademicScheduleRepository
         return [
             'tenant:id,name',
             'academicYear:id,name,start_date,end_date,is_active,is_current',
-            'course:id,tenant_id,code,name,level_number,status',
+            'course:id,tenant_id,educational_level_id,code,name,level_number,status',
+            'course.educationalLevel:id,tenant_id,code,name,has_specialty',
+            'specialty:id,tenant_id,code,name,is_active',
             'parallel:id,tenant_id,code,name,is_active',
             'modality:id,tenant_id,code,name,is_active',
             'shift:id,tenant_id,code,name,is_active',
@@ -640,13 +648,11 @@ class AcademicScheduleRepository
         );
     }
 
-    protected function buildCalendarDescription(
-        AcademicSchedule $academicSchedule,
-        AcademicScheduleFrequency $frequency
-    ): string {
+    protected function buildCalendarDescription(AcademicSchedule $academicSchedule, AcademicScheduleFrequency $frequency): string {
         return trim(implode(PHP_EOL, array_filter([
             'Academic schedule class',
             'Course: ' . ($academicSchedule->course?->name ?? ''),
+            'Specialty: ' . ($academicSchedule->specialty?->name ?? ''),
             'Parallel: ' . ($academicSchedule->parallel?->name ?? ''),
             'Shift: ' . ($academicSchedule->shift?->name ?? ''),
             'Modality: ' . ($academicSchedule->modality?->name ?? ''),

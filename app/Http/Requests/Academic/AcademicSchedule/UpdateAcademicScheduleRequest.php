@@ -16,6 +16,7 @@ class UpdateAcademicScheduleRequest extends FormRequest
         return [
             'academic_year_id' => ['sometimes', 'required', 'uuid', 'exists:academic_years,id'],
             'course_id' => ['sometimes', 'required', 'uuid', 'exists:courses,id'],
+            'specialty_id' => ['nullable', 'uuid', 'exists:specialties,id'],
             'parallel_id' => ['sometimes', 'required', 'uuid', 'exists:parallels,id'],
             'modality_id' => ['sometimes', 'required', 'uuid', 'exists:modalities,id'],
             'shift_id' => ['sometimes', 'required', 'uuid', 'exists:shifts,id'],

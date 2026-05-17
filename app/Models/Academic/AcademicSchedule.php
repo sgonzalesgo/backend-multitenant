@@ -23,6 +23,7 @@ class AcademicSchedule extends Model
         'tenant_id',
         'academic_year_id',
         'course_id',
+        'specialty_id',
         'parallel_id',
         'modality_id',
         'shift_id',
@@ -43,6 +44,11 @@ class AcademicSchedule extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function specialty(): BelongsTo
+    {
+        return $this->belongsTo(Specialty::class);
     }
 
     public function parallel(): BelongsTo
