@@ -295,4 +295,5 @@ return [
         'already_exists' => 'A non-working day already exists for this date.',
         'tenant_not_resolved' => 'The tenant could not be resolved.',
     ],
+    'dashboard_retrieved_successfully' => 'Student dashboard retrieved successfully.',
 ];

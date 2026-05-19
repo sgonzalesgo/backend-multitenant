@@ -295,4 +295,5 @@ return [
         'already_exists' => 'Ya existe un día no laborable para esta fecha.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant.',
     ],
+    'dashboard_retrieved_successfully' => 'Dashboard del estudiante obtenido correctamente.',
 ];
