@@ -28,8 +28,11 @@ class AttendanceSession extends Model
         'academic_schedule_frequency_id',
         'academic_year_id',
         'course_id',
+        'specialty_id',
         'parallel_id',
+        'modality_id',
         'subject_id',
+        'shift_id',
         'instructor_id',
         'attendance_date',
         'status',
@@ -96,5 +99,20 @@ class AttendanceSession extends Model
     public function records(): HasMany
     {
         return $this->hasMany(AttendanceRecord::class);
+    }
+
+    public function specialty(): BelongsTo
+    {
+        return $this->belongsTo(Specialty::class);
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class);
+    }
+
+    public function modality(): BelongsTo
+    {
+        return $this->belongsTo(Modality::class);
     }
 }

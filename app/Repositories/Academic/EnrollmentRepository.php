@@ -159,6 +159,11 @@ class EnrollmentRepository
             )
 
             ->when(
+                Arr::get($columns, 'modality_id'),
+                fn ($query, $value) => $query->where('modality_id', $value)
+            )
+
+            ->when(
                 Arr::get($columns, 'enrollment_status_id'),
                 fn ($query, $value) => $query->where('enrollment_status_id', $value)
             )
@@ -286,7 +291,8 @@ class EnrollmentRepository
                 array_key_exists('course_id', $data) ||
                 array_key_exists('specialty_id', $data) ||
                 array_key_exists('parallel_id', $data) ||
-                array_key_exists('shift_id', $data)
+                array_key_exists('shift_id', $data) ||
+                array_key_exists('modality_id', $data)
             ) {
                 $this->ensureEnrollmentDoesNotExistForUpdate($enrollment, $data, $tenantId);
             }
@@ -338,6 +344,7 @@ class EnrollmentRepository
             'course.educationalLevel:id,tenant_id,code,name,has_specialty,start_number,end_number,next_educational_level_id',
             'course.educationalLevel.specialties:id,tenant_id,code,name,description,is_active',
             'parallel:id,name',
+            'modality:id,name,code',
             'shift:id,name',
             'enrollmentStatus:id,name',
             'assignedUser:id,person_id,name,email,status',
@@ -359,6 +366,7 @@ class EnrollmentRepository
             'course_id',
             'specialty_id',
             'parallel_id',
+            'modality_id',
             'shift_id',
             'enrollment_status_id',
             'assigned_user_id',
@@ -671,6 +679,9 @@ class EnrollmentRepository
     /**
      * @throws ValidationException
      */
+    /**
+     * @throws ValidationException
+     */
     protected function ensureEnrollmentDoesNotExist(array $data, string $tenantId): void
     {
         $query = Enrollment::query()
@@ -681,6 +692,7 @@ class EnrollmentRepository
         $this->whereNullable($query, 'course_id', Arr::get($data, 'course_id'));
         $this->whereNullable($query, 'specialty_id', Arr::get($data, 'specialty_id'));
         $this->whereNullable($query, 'parallel_id', Arr::get($data, 'parallel_id'));
+        $this->whereNullable($query, 'modality_id', Arr::get($data, 'modality_id'));
         $this->whereNullable($query, 'shift_id', Arr::get($data, 'shift_id'));
 
         if ($query->exists()) {
@@ -693,12 +705,21 @@ class EnrollmentRepository
     /**
      * @throws ValidationException
      */
-    protected function ensureEnrollmentDoesNotExistForUpdate(Enrollment $enrollment, array $data, string $tenantId): void {
+    /**
+     * @throws ValidationException
+     */
+    protected function ensureEnrollmentDoesNotExistForUpdate(
+        Enrollment $enrollment,
+        array $data,
+        string $tenantId
+    ): void {
         $studentId = Arr::get($data, 'student_id', $enrollment->student_id);
         $academicYearId = Arr::get($data, 'academic_year_id', $enrollment->academic_year_id);
+
         $courseId = Arr::get($data, 'course_id', $enrollment->course_id);
         $specialtyId = Arr::get($data, 'specialty_id', $enrollment->specialty_id);
         $parallelId = Arr::get($data, 'parallel_id', $enrollment->parallel_id);
+        $modalityId = Arr::get($data, 'modality_id', $enrollment->modality_id);
         $shiftId = Arr::get($data, 'shift_id', $enrollment->shift_id);
 
         $query = Enrollment::query()
@@ -710,6 +731,7 @@ class EnrollmentRepository
         $this->whereNullable($query, 'course_id', $courseId);
         $this->whereNullable($query, 'specialty_id', $specialtyId);
         $this->whereNullable($query, 'parallel_id', $parallelId);
+        $this->whereNullable($query, 'modality_id', $modalityId);
         $this->whereNullable($query, 'shift_id', $shiftId);
 
         if ($query->exists()) {

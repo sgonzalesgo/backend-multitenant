@@ -281,4 +281,18 @@ return [
         'observation' => 'Observation',
         'all_rights_reserved' => 'All rights reserved.',
     ],
+    'academic_context' => [
+        'resolved' => 'Academic context resolved successfully.',
+        'tenant_not_resolved' => 'The tenant could not be resolved.',
+    ],
+    'academic_non_working_days' => [
+        'listed' => 'Academic non-working days listed successfully.',
+        'active_listed' => 'Active academic non-working days listed successfully.',
+        'created' => 'Academic non-working day created successfully.',
+        'shown' => 'Academic non-working day retrieved successfully.',
+        'updated' => 'Academic non-working day updated successfully.',
+        'deleted' => 'Academic non-working day deleted successfully.',
+        'already_exists' => 'A non-working day already exists for this date.',
+        'tenant_not_resolved' => 'The tenant could not be resolved.',
+    ],
 ];

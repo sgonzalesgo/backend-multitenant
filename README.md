@@ -163,3 +163,7 @@ php artisan make:command NotifyDailyAbsencesCommand
 En esta ubicacion esta lo que corre el comando y establece a que hora se envia el correo de ausencias a los representantes legales
 routes/console.php
 
+
+#------------------------------- permiso especial para poder gestionar todas las asistencias como administrador -----------------------------------
+Manage all_attendances
+

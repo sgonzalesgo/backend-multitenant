@@ -53,6 +53,7 @@ return new class extends Migration
                 'course_id',
                 'specialty_id',
                 'parallel_id',
+                'modality_id',
                 'shift_id',
             ], 'academic_schedules_unique_context');
 

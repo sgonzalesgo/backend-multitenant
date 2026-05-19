@@ -14,11 +14,54 @@ class AttendanceDaysRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'academic_year_id' => ['required', 'uuid', 'exists:academic_years,id'],
-            'course_id' => ['required', 'uuid', 'exists:courses,id'],
-            'parallel_id' => ['required', 'uuid', 'exists:parallels,id'],
-            'subject_id' => ['required', 'uuid', 'exists:subjects,id'],
-            'instructor_id' => ['required', 'uuid', 'exists:instructors,id'],
+
+            'academic_year_id' => [
+                'required',
+                'uuid',
+                'exists:academic_years,id',
+            ],
+
+            'course_id' => [
+                'required',
+                'uuid',
+                'exists:courses,id',
+            ],
+
+            'specialty_id' => [
+                'nullable',
+                'uuid',
+                'exists:specialties,id',
+            ],
+
+            'modality_id' => [
+                'required',
+                'uuid',
+                'exists:modalities,id',
+            ],
+
+            'parallel_id' => [
+                'required',
+                'uuid',
+                'exists:parallels,id',
+            ],
+
+            'shift_id' => [
+                'required',
+                'uuid',
+                'exists:shifts,id',
+            ],
+
+            'subject_id' => [
+                'required',
+                'uuid',
+                'exists:subjects,id',
+            ],
+
+            'instructor_id' => [
+                'required',
+                'uuid',
+                'exists:instructors,id',
+            ]
         ];
     }
 

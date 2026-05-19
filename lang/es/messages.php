@@ -281,4 +281,18 @@ return [
         'observation' => 'Observación',
         'all_rights_reserved' => 'Todos los derechos reservados.',
     ],
+    'academic_context' => [
+        'resolved' => 'Contexto académico resuelto correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant.',
+    ],
+    'academic_non_working_days' => [
+        'listed' => 'Días no laborables académicos listados correctamente.',
+        'active_listed' => 'Días no laborables académicos activos listados correctamente.',
+        'created' => 'Día no laborable académico creado correctamente.',
+        'shown' => 'Día no laborable académico obtenido correctamente.',
+        'updated' => 'Día no laborable académico actualizado correctamente.',
+        'deleted' => 'Día no laborable académico eliminado correctamente.',
+        'already_exists' => 'Ya existe un día no laborable para esta fecha.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant.',
+    ],
 ];

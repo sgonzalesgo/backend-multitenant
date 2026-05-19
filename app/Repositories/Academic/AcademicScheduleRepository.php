@@ -403,6 +403,7 @@ class AcademicScheduleRepository
                 fn ($query) => $query->whereNull('specialty_id')
             )
             ->where('parallel_id', $academicSchedule->parallel_id)
+            ->where('modality_id', $academicSchedule->modality_id)
             ->where('shift_id', $academicSchedule->shift_id)
             ->where('is_active', true)
             ->get();
@@ -521,6 +522,7 @@ class AcademicScheduleRepository
             ->where('course_id', Arr::get($data, 'course_id'))
             ->where('specialty_id', Arr::get($data, 'specialty_id'))
             ->where('parallel_id', Arr::get($data, 'parallel_id'))
+            ->where('modality_id', Arr::get($data, 'modality_id'))
             ->where('shift_id', Arr::get($data, 'shift_id'))
             ->exists();
 
@@ -542,6 +544,7 @@ class AcademicScheduleRepository
             ->where('course_id', Arr::get($data, 'course_id'))
             ->where('specialty_id', Arr::get($data, 'specialty_id'))
             ->where('parallel_id', Arr::get($data, 'parallel_id'))
+            ->where('modality_id', Arr::get($data, 'modality_id'))
             ->where('shift_id', Arr::get($data, 'shift_id'))
             ->exists();
 

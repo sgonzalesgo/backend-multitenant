@@ -8,4 +8,5 @@ Route::prefix('attendance')->controller(AttendanceController::class)->group(func
         Route::post('/open-day', 'openDay')->middleware('permission:Store attendances');
         Route::post('/{attendanceSession}/save', 'save')->middleware('permission:Update attendances');
         Route::get('/records', 'records')->middleware('permission:Search attendances');
+        Route::post('/{attendanceSession}/reopen', 'reopen')->middleware('permission:Reopen attendances');
     });

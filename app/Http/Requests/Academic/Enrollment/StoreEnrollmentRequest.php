@@ -44,10 +44,11 @@ class StoreEnrollmentRequest extends FormRequest
 
             // 🔹 Enrollment
             'academic_year_id' => ['required', 'uuid', 'exists:academic_years,id'],
-            'course_id' => ['nullable', 'uuid', 'exists:courses,id'],
+            'course_id' => ['required', 'uuid', 'exists:courses,id'],
             'specialty_id' => ['nullable', 'uuid', 'exists:specialties,id'],
-            'parallel_id' => ['nullable', 'uuid', 'exists:parallels,id'],
-            'shift_id' => ['nullable', 'uuid', 'exists:shifts,id'],
+            'parallel_id' => ['required', 'uuid', 'exists:parallels,id'],
+            'shift_id' => ['required', 'uuid', 'exists:shifts,id'],
+            'modality_id' => ['required', 'uuid', 'exists:modalities,id'],
             'enrollment_status_id' => ['nullable', 'uuid', 'exists:enrollment_statuses,id'],
             'assigned_user_id' => ['nullable', 'uuid', 'exists:users,id'],
 

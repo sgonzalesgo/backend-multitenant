@@ -67,4 +67,14 @@ class AttendanceController extends Controller
             'error' => null,
         ]);
     }
+
+    public function reopen(AttendanceSession $attendanceSession): JsonResponse
+    {
+        return response()->json([
+            'code' => 200,
+            'message' => __('messages.attendance.session_reopened'),
+            'data' => $this->repo->reopen($attendanceSession),
+            'error' => null,
+        ]);
+    }
 }

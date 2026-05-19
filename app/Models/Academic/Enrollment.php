@@ -28,6 +28,7 @@ class Enrollment extends Model
         'specialty_id',
         'parallel_id',
         'shift_id',
+        'modality_id',
         'enrollment_status_id',
         'assigned_user_id',
         'is_new',
@@ -81,6 +82,11 @@ class Enrollment extends Model
     public function shift(): BelongsTo
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    public function modality(): BelongsTo
+    {
+        return $this->belongsTo(Modality::class);
     }
 
     public function enrollmentStatus(): BelongsTo

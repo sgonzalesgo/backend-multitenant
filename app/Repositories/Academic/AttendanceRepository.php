@@ -8,10 +8,12 @@ use App\Models\Academic\Enrollment;
 use App\Models\Academic\Instructor;
 use App\Models\Administration\Tenant;
 use App\Models\Calendar\CalendarEvent;
+use App\Models\General\AcademicNonWorkingDay;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Collection;
 
 class AttendanceRepository
 {
@@ -167,8 +169,17 @@ class AttendanceRepository
             ->where('metadata->academic_year_id', Arr::get($data, 'academic_year_id'))
             ->where('metadata->course_id', Arr::get($data, 'course_id'))
             ->where('metadata->parallel_id', Arr::get($data, 'parallel_id'))
+            ->where('metadata->shift_id', Arr::get($data, 'shift_id'))
             ->where('metadata->subject_id', Arr::get($data, 'subject_id'))
             ->where('metadata->instructor_id', $instructorId)
+            ->when(
+                Arr::get($data, 'specialty_id'),
+                fn ($query, $value) => $query->where('metadata->specialty_id', $value)
+            )
+            ->when(
+                Arr::get($data, 'modality_id'),
+                fn ($query, $value) => $query->where('metadata->modality_id', $value)
+            )
             ->orderBy('start_at')
             ->get();
 
@@ -178,17 +189,37 @@ class AttendanceRepository
             ->get()
             ->keyBy(fn (AttendanceSession $session) => (string) $session->calendar_event_id);
 
+        $nonWorkingDays = $this->getNonWorkingDaysForAttendance(
+            $tenantId,
+            Arr::get($data, 'academic_year_id'),
+            $events
+        );
+
         $firstPendingFound = false;
 
         return $events
-            ->map(function (CalendarEvent $event) use ($sessions, &$firstPendingFound) {
+            ->map(function (CalendarEvent $event) use ($sessions, $nonWorkingDays, &$firstPendingFound) {
+                $date = optional($event->start_at)?->toDateString();
+
+                $nonWorkingDay = $date
+                    ? $nonWorkingDays->get($date)
+                    : null;
+
+                $isNonWorkingDay = $nonWorkingDay !== null;
+
                 $session = $sessions->get((string) $event->id);
 
-                $status = $session?->status ?? 'pending';
+                $status = $isNonWorkingDay
+                    ? 'non_working_day'
+                    : ($session?->status ?? 'pending');
 
                 $enabled = false;
 
-                if ($status !== 'closed' && ! $firstPendingFound) {
+                if (
+                    ! $isNonWorkingDay &&
+                    $status !== 'closed' &&
+                    ! $firstPendingFound
+                ) {
                     $enabled = true;
                     $firstPendingFound = true;
                 }
@@ -197,13 +228,30 @@ class AttendanceRepository
                     'calendar_event_id' => (string) $event->id,
                     'attendance_session_id' => $session?->id ? (string) $session->id : null,
 
-                    'date' => optional($event->start_at)?->toDateString(),
+                    'academic_year_id' => data_get($event->metadata, 'academic_year_id'),
+                    'course_id' => data_get($event->metadata, 'course_id'),
+                    'specialty_id' => data_get($event->metadata, 'specialty_id'),
+                    'parallel_id' => data_get($event->metadata, 'parallel_id'),
+                    'modality_id' => data_get($event->metadata, 'modality_id'),
+                    'shift_id' => data_get($event->metadata, 'shift_id'),
+                    'subject_id' => data_get($event->metadata, 'subject_id'),
+                    'instructor_id' => data_get($event->metadata, 'instructor_id'),
+
+                    'date' => $date,
                     'start_at' => optional($event->start_at)?->toIso8601String(),
                     'end_at' => optional($event->end_at)?->toIso8601String(),
 
                     'title' => $event->title,
                     'status' => $status,
                     'is_enabled' => $enabled,
+
+                    'is_non_working_day' => $isNonWorkingDay,
+                    'non_working_day' => $nonWorkingDay ? [
+                        'id' => (string) $nonWorkingDay->id,
+                        'name' => $nonWorkingDay->name,
+                        'type' => $nonWorkingDay->type,
+                        'observation' => $nonWorkingDay->observation,
+                    ] : null,
 
                     'closed_at' => optional($session?->closed_at)?->toIso8601String(),
                 ];
@@ -229,9 +277,23 @@ class AttendanceRepository
         return DB::transaction(function () use ($data, $tenantId, $instructorId) {
             $event = $this->findEventForAttendanceDay($data, $tenantId, $instructorId);
 
+            $existingSession = AttendanceSession::query()
+                ->where('tenant_id', $tenantId)
+                ->where('calendar_event_id', $event->id)
+                ->first();
+
+            if ($existingSession) {
+                $this->syncDraftRecordsWithActiveEnrollments($existingSession);
+
+                return $existingSession->refresh()->load($this->relations());
+            }
+
             $this->ensureDayIsEnabled($event, $data, $tenantId, $instructorId);
 
             $attendanceDate = CarbonImmutable::parse(Arr::get($data, 'attendance_date'))->toDateString();
+
+            $academicScheduleId = data_get($event->metadata, 'academic_schedule_id');
+            $academicScheduleFrequencyId = data_get($event->metadata, 'academic_schedule_frequency_id');
 
             $session = AttendanceSession::query()->firstOrCreate(
                 [
@@ -239,14 +301,17 @@ class AttendanceRepository
                     'calendar_event_id' => $event->id,
                 ],
                 [
-                    'academic_schedule_id' => data_get($event->metadata, 'academic_schedule_id'),
-                    'academic_schedule_frequency_id' => data_get($event->metadata, 'academic_schedule_frequency_id'),
+                    'academic_schedule_id' => $academicScheduleId,
+                    'academic_schedule_frequency_id' => $academicScheduleFrequencyId,
 
-                    'academic_year_id' => Arr::get($data, 'academic_year_id'),
-                    'course_id' => Arr::get($data, 'course_id'),
-                    'parallel_id' => Arr::get($data, 'parallel_id'),
-                    'subject_id' => Arr::get($data, 'subject_id'),
-                    'instructor_id' => $instructorId,
+                    'academic_year_id' => data_get($event->metadata, 'academic_year_id') ?? Arr::get($data, 'academic_year_id'),
+                    'course_id' => data_get($event->metadata, 'course_id') ?? Arr::get($data, 'course_id'),
+                    'specialty_id' => data_get($event->metadata, 'specialty_id') ?? Arr::get($data, 'specialty_id'),
+                    'parallel_id' => data_get($event->metadata, 'parallel_id') ?? Arr::get($data, 'parallel_id'),
+                    'modality_id' => data_get($event->metadata, 'modality_id') ?? Arr::get($data, 'modality_id'),
+                    'shift_id' => data_get($event->metadata, 'shift_id') ?? Arr::get($data, 'shift_id'),
+                    'subject_id' => data_get($event->metadata, 'subject_id') ?? Arr::get($data, 'subject_id'),
+                    'instructor_id' => data_get($event->metadata, 'instructor_id') ?? $instructorId,
 
                     'attendance_date' => $attendanceDate,
                     'status' => 'draft',
@@ -254,7 +319,7 @@ class AttendanceRepository
                 ]
             );
 
-            $this->createMissingRecords($session);
+            $this->syncDraftRecordsWithActiveEnrollments($session);
 
             return $session->refresh()->load($this->relations());
         });
@@ -323,7 +388,7 @@ class AttendanceRepository
     /**
      * Historial de asistencia por:
      *
-     * academic_year + course + parallel + subject + instructor
+     * academic_year + course + specialty + parallel + modality + shift + subject + instructor
      */
     public function records(array $data): array
     {
@@ -337,7 +402,10 @@ class AttendanceRepository
             ->with([
                 'academicYear:id,name,start_date,end_date',
                 'course:id,name,code',
+                'specialty:id,name,code',
                 'parallel:id,name,code',
+                'modality:id,name,code',
+                'shift:id,name,code',
                 'subject:id,name,code',
                 'instructor:id,person_id',
                 'instructor.person:id,full_name,email,photo',
@@ -345,16 +413,29 @@ class AttendanceRepository
                 'records:id,attendance_session_id,enrollment_id,student_id,person_id,status,late_minutes,observation',
                 'records.person:id,full_name,email,legal_id,photo',
                 'records.student:id,person_id,student_code,status',
-                'records.enrollment:id,enrollment_code,student_id,academic_year_id,course_id,parallel_id,is_active',
+                'records.enrollment:id,enrollment_code,student_id,academic_year_id,course_id,specialty_id,parallel_id,modality_id,shift_id,is_active',
             ])
             ->where('tenant_id', $tenantId)
             ->where('academic_year_id', Arr::get($data, 'academic_year_id'))
             ->where('course_id', Arr::get($data, 'course_id'))
             ->where('parallel_id', Arr::get($data, 'parallel_id'))
+            ->where('modality_id', Arr::get($data, 'modality_id'))
+            ->where('shift_id', Arr::get($data, 'shift_id'))
             ->where('subject_id', Arr::get($data, 'subject_id'))
             ->where('instructor_id', $instructorId)
-            ->when(Arr::get($data, 'from_date'), fn ($query, $value) => $query->whereDate('attendance_date', '>=', $value))
-            ->when(Arr::get($data, 'to_date'), fn ($query, $value) => $query->whereDate('attendance_date', '<=', $value))
+            ->when(
+                Arr::get($data, 'specialty_id'),
+                fn ($query, $value) => $query->where('specialty_id', $value),
+                fn ($query) => $query->whereNull('specialty_id')
+            )
+            ->when(
+                Arr::get($data, 'from_date'),
+                fn ($query, $value) => $query->whereDate('attendance_date', '>=', $value)
+            )
+            ->when(
+                Arr::get($data, 'to_date'),
+                fn ($query, $value) => $query->whereDate('attendance_date', '<=', $value)
+            )
             ->orderBy('attendance_date')
             ->get();
 
@@ -391,10 +472,28 @@ class AttendanceRepository
                         'name' => $session->course->name,
                     ] : null,
 
+                    'specialty' => $session->specialty ? [
+                        'id' => (string) $session->specialty->id,
+                        'code' => $session->specialty->code,
+                        'name' => $session->specialty->name,
+                    ] : null,
+
                     'parallel' => $session->parallel ? [
                         'id' => (string) $session->parallel->id,
                         'code' => $session->parallel->code,
                         'name' => $session->parallel->name,
+                    ] : null,
+
+                    'modality' => $session->modality ? [
+                        'id' => (string) $session->modality->id,
+                        'code' => $session->modality->code,
+                        'name' => $session->modality->name,
+                    ] : null,
+
+                    'shift' => $session->shift ? [
+                        'id' => (string) $session->shift->id,
+                        'code' => $session->shift->code,
+                        'name' => $session->shift->name,
                     ] : null,
 
                     'subject' => $session->subject ? [
@@ -451,49 +550,40 @@ class AttendanceRepository
      * Busca el evento real generado por AcademicSchedule para un día específico.
      * @throws ValidationException
      */
-    protected function findEventForAttendanceDay(
-        array $data,
-        string $tenantId,
-        string $instructorId
-    ): CalendarEvent {
-        $attendanceDate = CarbonImmutable::parse(Arr::get($data, 'attendance_date'))->toDateString();
+    protected function findEventForAttendanceDay(array $data, string $tenantId, string $instructorId): CalendarEvent
+    {
+        if (Arr::get($data, 'calendar_event_id')) {
+            $event = CalendarEvent::query()
+                ->where('tenant_id', $tenantId)
+                ->where('source', 'academic_schedule')
+                ->where('id', Arr::get($data, 'calendar_event_id'))
+                ->where('metadata->instructor_id', $instructorId)
+                ->first();
 
-        $event = CalendarEvent::query()
-            ->where('tenant_id', $tenantId)
-            ->where('source', 'academic_schedule')
-            ->where('metadata->academic_year_id', Arr::get($data, 'academic_year_id'))
-            ->where('metadata->course_id', Arr::get($data, 'course_id'))
-            ->where('metadata->parallel_id', Arr::get($data, 'parallel_id'))
-            ->where('metadata->subject_id', Arr::get($data, 'subject_id'))
-            ->where('metadata->instructor_id', $instructorId)
-            ->whereDate('start_at', $attendanceDate)
-            ->first();
-
-        if (! $event) {
-            throw ValidationException::withMessages([
-                'attendance_date' => __('messages.attendance.event_not_found'),
-            ]);
+            if ($event) {
+                return $event;
+            }
         }
 
-        return $event;
+        throw ValidationException::withMessages([
+            'attendance_date' => __('messages.attendance.event_not_found'),
+        ]);
     }
 
     /**
      * Valida que el día seleccionado sea el primer día pendiente.
      * @throws ValidationException
      */
-    protected function ensureDayIsEnabled(
-        CalendarEvent $selectedEvent,
-        array $data,
-        string $tenantId,
-        string $instructorId
-    ): void {
+    protected function ensureDayIsEnabled(CalendarEvent $selectedEvent, array $data, string $tenantId, string $instructorId): void {
         $days = $this->days([
-            'academic_year_id' => Arr::get($data, 'academic_year_id'),
-            'course_id' => Arr::get($data, 'course_id'),
-            'parallel_id' => Arr::get($data, 'parallel_id'),
-            'subject_id' => Arr::get($data, 'subject_id'),
-            'instructor_id' => $instructorId,
+            'academic_year_id' => data_get($selectedEvent->metadata, 'academic_year_id') ?? Arr::get($data, 'academic_year_id'),
+            'course_id' => data_get($selectedEvent->metadata, 'course_id') ?? Arr::get($data, 'course_id'),
+            'specialty_id' => data_get($selectedEvent->metadata, 'specialty_id') ?? Arr::get($data, 'specialty_id'),
+            'parallel_id' => data_get($selectedEvent->metadata, 'parallel_id') ?? Arr::get($data, 'parallel_id'),
+            'modality_id' => data_get($selectedEvent->metadata, 'modality_id') ?? Arr::get($data, 'modality_id'),
+            'shift_id' => data_get($selectedEvent->metadata, 'shift_id') ?? Arr::get($data, 'shift_id'),
+            'subject_id' => data_get($selectedEvent->metadata, 'subject_id') ?? Arr::get($data, 'subject_id'),
+            'instructor_id' => data_get($selectedEvent->metadata, 'instructor_id') ?? $instructorId,
         ]);
 
         $selectedDay = collect($days)->firstWhere(
@@ -526,6 +616,16 @@ class AttendanceRepository
             ->where('academic_year_id', $session->academic_year_id)
             ->where('course_id', $session->course_id)
             ->where('parallel_id', $session->parallel_id)
+            ->when(
+                $session->specialty_id,
+                fn ($query, $value) => $query->where('specialty_id', $value),
+                fn ($query) => $query->whereNull('specialty_id')
+            )
+            ->when(
+                $session->modality_id,
+                fn ($query, $value) => $query->where('modality_id', $value)
+            )
+            ->where('shift_id', $session->shift_id)
             ->where('is_active', true)
             ->whereNotIn('id', $existingEnrollmentIds)
             ->get();
@@ -553,7 +653,10 @@ class AttendanceRepository
         return [
             'academicYear:id,name,start_date,end_date',
             'course:id,name,code',
+            'specialty:id,name,code',
             'parallel:id,name,code',
+            'modality:id,name,code',
+            'shift:id,name,code',
             'subject:id,name,code',
 
             'instructor:id,person_id',
@@ -564,7 +667,138 @@ class AttendanceRepository
             'records:id,attendance_session_id,enrollment_id,student_id,person_id,status,late_minutes,observation',
             'records.student:id,person_id,student_code,status',
             'records.person:id,full_name,email,photo,legal_id',
-            'records.enrollment:id,enrollment_code,student_id,academic_year_id,course_id,parallel_id,is_active',
+            'records.enrollment:id,enrollment_code,student_id,academic_year_id,course_id,specialty_id,parallel_id,modality_id,shift_id,is_active',
         ];
+    }
+
+    protected function getNonWorkingDaysForAttendance(string $tenantId, ?string $academicYearId, Collection $events): Collection {
+        $dates = $events
+            ->map(fn (CalendarEvent $event) => optional($event->start_at)?->toDateString())
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($dates->isEmpty()) {
+            return collect();
+        }
+
+        return AcademicNonWorkingDay::query()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->where('affects_attendance', true)
+            ->whereIn('date', $dates)
+            ->where(function ($query) use ($academicYearId) {
+                $query->whereNull('academic_year_id');
+
+                if ($academicYearId) {
+                    $query->orWhere('academic_year_id', $academicYearId);
+                }
+            })
+            ->orderByDesc('academic_year_id')
+            ->get()
+            ->keyBy(fn (AcademicNonWorkingDay $day) => $day->date->format('Y-m-d'));
+    }
+
+    /**
+     * Sincroniza los records de una sesión en borrador con las matrículas activas actuales.
+     *
+     * Si una matrícula dejó de tener enrollment_status = active, se elimina de la sesión draft.
+     * Si una matrícula activa no tiene record, se crea.
+     */
+    protected function syncDraftRecordsWithActiveEnrollments(AttendanceSession $session): void
+    {
+        if ($session->status === 'closed') {
+            return;
+        }
+
+        $activeEnrollments = Enrollment::query()
+            ->with('student.person')
+            ->where('tenant_id', $session->tenant_id)
+            ->where('academic_year_id', $session->academic_year_id)
+            ->where('course_id', $session->course_id)
+            ->where('parallel_id', $session->parallel_id)
+            ->when(
+                $session->specialty_id,
+                fn ($query, $value) => $query->where('specialty_id', $value),
+                fn ($query) => $query->whereNull('specialty_id')
+            )
+            ->where('modality_id', $session->modality_id)
+            ->where('shift_id', $session->shift_id)
+            ->whereHas('enrollmentStatus', function ($query) {
+                $query->where('code', 'active');
+            })
+            ->get();
+
+        $activeEnrollmentIds = $activeEnrollments
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        AttendanceRecord::query()
+            ->where('tenant_id', $session->tenant_id)
+            ->where('attendance_session_id', $session->id)
+            ->when(
+                ! empty($activeEnrollmentIds),
+                fn ($query) => $query->whereNotIn('enrollment_id', $activeEnrollmentIds),
+                fn ($query) => $query
+            )
+            ->delete();
+
+        $existingEnrollmentIds = AttendanceRecord::query()
+            ->where('tenant_id', $session->tenant_id)
+            ->where('attendance_session_id', $session->id)
+            ->pluck('enrollment_id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        foreach ($activeEnrollments as $enrollment) {
+            if (! $enrollment->student || ! $enrollment->student->person) {
+                continue;
+            }
+
+            if (in_array((string) $enrollment->id, $existingEnrollmentIds, true)) {
+                continue;
+            }
+
+            AttendanceRecord::query()->create([
+                'tenant_id' => $session->tenant_id,
+                'attendance_session_id' => $session->id,
+                'enrollment_id' => $enrollment->id,
+                'student_id' => $enrollment->student_id,
+                'person_id' => $enrollment->student->person->id,
+                'status' => 'present',
+                'late_minutes' => 0,
+                'observation' => null,
+            ]);
+        }
+    }
+
+    /**
+     * Reabre una sesión de asistencia cerrada.
+     *
+     * Solo administradores o usuarios autorizados deberían poder ejecutar esto.
+     */
+    public function reopen(AttendanceSession $session): AttendanceSession
+    {
+        $tenantId = $this->requireTenantId();
+
+        if ((string) $session->tenant_id !== $tenantId) {
+            abort(404);
+        }
+
+        if ($session->status !== 'closed') {
+            throw ValidationException::withMessages([
+                'attendance_session' => __('messages.attendance.session_is_not_closed'),
+            ]);
+        }
+
+        $session->update([
+            'status' => 'draft',
+            'closed_at' => null,
+        ]);
+
+        $this->syncDraftRecordsWithActiveEnrollments($session);
+
+        return $session->refresh()->load($this->relations());
     }
 }

@@ -17,9 +17,15 @@ class AttendanceRecordsRequest extends FormRequest
         return [
             'academic_year_id' => ['required', 'uuid', 'exists:academic_years,id'],
             'course_id' => ['required', 'uuid', 'exists:courses,id'],
+
+            'specialty_id' => ['nullable', 'uuid', 'exists:specialties,id'],
             'parallel_id' => ['required', 'uuid', 'exists:parallels,id'],
+            'modality_id' => ['nullable', 'uuid', 'exists:modalities,id'],
+            'shift_id' => ['nullable', 'uuid', 'exists:shifts,id'],
+
             'subject_id' => ['required', 'uuid', 'exists:subjects,id'],
             'instructor_id' => ['required', 'uuid', 'exists:instructors,id'],
+
             'from_date' => ['nullable', 'date'],
             'to_date' => ['nullable', 'date', 'after_or_equal:from_date'],
             'status' => ['nullable', 'string', 'in:present,absent,late,excused'],

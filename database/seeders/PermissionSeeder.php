@@ -201,6 +201,14 @@ class PermissionSeeder extends Seeder
             "Store attendances",
             "Update attendances",
             "Delete attendances",
+            "Search academic_context",  //filtro general
+            "List academic_non_working_days",
+            "Search academic_non_working_days",
+            "Store academic_non_working_days",
+            "Update academic_non_working_days",
+            "Delete academic_non_working_days",
+            "Reopen attendances",
+            "Manage all_attendances"
 
         ];
 
