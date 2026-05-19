@@ -54,6 +54,7 @@ use App\Models\Administration\TenantPosition;
 use App\Models\Administration\User;
 use App\Models\Calendar\CalendarEvent;
 use App\Models\Calendar\CalendarEventType;
+use App\Models\General\AcademicNonWorkingDay;
 use App\Models\General\Department;
 use App\Models\General\Person;
 
@@ -96,6 +97,7 @@ return [
         'courses' => Course::class,
         'enrollments' => Enrollment::class,
         'academic_schedules' => AcademicSchedule::class,
+        'academic_non_working_days' => AcademicNonWorkingDay::class,
     ],
 
     /*
@@ -133,6 +135,7 @@ return [
         Course::class,
         Enrollment::class,
         AcademicSchedule::class,
+        AcademicNonWorkingDay::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente
