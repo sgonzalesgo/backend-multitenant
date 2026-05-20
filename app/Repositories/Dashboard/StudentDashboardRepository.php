@@ -77,6 +77,7 @@ class StudentDashboardRepository
             'summary' => $this->getSummary($tenantId, $student, $selectedEnrollment),
             'attendance' => $this->getAttendanceSummary($tenantId, $student, $selectedEnrollment),
             'schedule' => $this->getSchedule($tenantId, $selectedEnrollment),
+            'subjects' => $this->getSubjects($tenantId, $selectedEnrollment),
             'grades' => [],
             'performance_series' => [],
             'tasks' => [],
@@ -221,14 +222,14 @@ class StudentDashboardRepository
         $attendance = $this->getAttendanceSummary($tenantId, $student, $enrollment);
 
         $schedule = $this->getSchedule($tenantId, $enrollment);
+        $subjects = $this->getSubjects($tenantId, $enrollment);
 
         return [
             'attendance' => $attendance['percentage'],
-            'subjects' => collect($schedule)
-                ->pluck('subject_id')
-                ->filter()
-                ->unique()
-                ->count(),
+            'subjects' => count($subjects),
+            'averageSubjects' => collect($subjects)->where('is_average', true)->count(),
+            'behaviorSubjects' => collect($subjects)->where('is_behavior', true)->count(),
+            'nonAverageSubjects' => collect($subjects)->where('is_average', false)->count(),
             'average' => null,
             'pendingTasks' => 0,
             'behavior' => null,
@@ -493,5 +494,72 @@ class StudentDashboardRepository
         }
 
         return CarbonImmutable::parse($start)->format('H:i') . ' - ' . CarbonImmutable::parse($end)->format('H:i');
+    }
+
+    protected function getSubjects(string $tenantId, ?Enrollment $enrollment): array
+    {
+        if (! $enrollment) {
+            return [];
+        }
+
+        return AcademicSchedule::query()
+            ->with([
+                'frequencies.subject:id,tenant_id,code,name,is_average,is_behavior,is_active',
+                'frequencies.instructor:id,person_id',
+                'frequencies.instructor.person:id,full_name,email,photo',
+            ])
+            ->where('tenant_id', $tenantId)
+            ->where('academic_year_id', $enrollment->academic_year_id)
+            ->where('course_id', $enrollment->course_id)
+            ->where('parallel_id', $enrollment->parallel_id)
+            ->where('shift_id', $enrollment->shift_id)
+            ->when(
+                $enrollment->specialty_id,
+                fn ($query) => $query->where('specialty_id', $enrollment->specialty_id),
+                fn ($query) => $query->whereNull('specialty_id')
+            )
+            ->when(
+                $enrollment->modality_id,
+                fn ($query) => $query->where('modality_id', $enrollment->modality_id)
+            )
+            ->whereIn('status', ['draft', 'in_progress', 'accepted'])
+            ->get()
+            ->flatMap(fn ($schedule) => $schedule->frequencies)
+            ->filter(fn ($frequency) => $frequency->subject)
+            ->groupBy(fn ($frequency) => (string) $frequency->subject->id)
+            ->map(function ($frequencies) {
+                $firstFrequency = $frequencies->first();
+                $subject = $firstFrequency->subject;
+
+                $instructors = $frequencies
+                    ->map(fn ($frequency) => $frequency->instructor)
+                    ->filter()
+                    ->unique(fn ($instructor) => (string) $instructor->id)
+                    ->map(function ($instructor) {
+                        $person = $instructor->person;
+
+                        return [
+                            'id' => (string) $instructor->id,
+                            'person_id' => $person?->id ? (string) $person->id : null,
+                            'full_name' => $person?->full_name,
+                            'email' => $person?->email,
+                            'photo' => $person?->photo,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                return [
+                    'id' => (string) $subject->id,
+                    'code' => $subject->code,
+                    'name' => $subject->name,
+                    'is_average' => (bool) $subject->is_average,
+                    'is_behavior' => (bool) $subject->is_behavior,
+                    'is_active' => (bool) $subject->is_active,
+                    'instructors' => $instructors,
+                ];
+            })
+            ->values()
+            ->all();
     }
 }
