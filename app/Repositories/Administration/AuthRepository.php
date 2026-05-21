@@ -43,11 +43,14 @@ class AuthRepository
     {
         try {
             /** @var User|null $user */
-            $user = User::query()->where('email', $email)->first();
+            $user = User::query()
+                ->where('email', 'ILIKE', $email)
+                ->first();
 
             if (!$user || !Hash::check($password, (string) $user->password)) {
                 throw new HttpException(401, __('auth.invalid_credentials'));
             }
+
 
             if ($user->status === 'inactive') {
                 throw new HttpException(403, __('auth.account_inactive'));
@@ -197,15 +200,47 @@ class AuthRepository
         return $this->resolveFallbackTenantFor($user);
     }
 
+//    protected function resolveFallbackTenantFor(User $user): ?Tenant
+//    {
+//        $teamFk = config('permission.team_foreign_key', 'tenant_id');
+//
+//        $tenantIds = DB::table('model_has_roles')
+//            ->where('model_type', User::class)
+//            ->where('model_id', $user->getKey())
+//            ->whereNotNull($teamFk)
+//            ->pluck($teamFk)
+//            ->unique()
+//            ->filter()
+//            ->values();
+//
+//        if ($tenantIds->isEmpty()) {
+//            return null;
+//        }
+//
+//        return Tenant::query()
+//            ->whereIn('id', $tenantIds->all())
+//            ->orderBy('name')
+//            ->first();
+//    }
+
     protected function resolveFallbackTenantFor(User $user): ?Tenant
     {
         $teamFk = config('permission.team_foreign_key', 'tenant_id');
 
-        $tenantIds = DB::table('model_has_roles')
+        $tenantIdsFromRoles = DB::table('model_has_roles')
             ->where('model_type', User::class)
             ->where('model_id', $user->getKey())
             ->whereNotNull($teamFk)
-            ->pluck($teamFk)
+            ->pluck($teamFk);
+
+        $tenantIdsFromPermissions = DB::table('model_has_permissions')
+            ->where('model_type', User::class)
+            ->where('model_id', $user->getKey())
+            ->whereNotNull($teamFk)
+            ->pluck($teamFk);
+
+        $tenantIds = $tenantIdsFromRoles
+            ->merge($tenantIdsFromPermissions)
             ->unique()
             ->filter()
             ->values();
@@ -219,7 +254,6 @@ class AuthRepository
             ->orderBy('name')
             ->first();
     }
-
     /**
      * Devuelve el tenant guardado en el access token actual.
      */
@@ -266,12 +300,21 @@ class AuthRepository
         $globalListTenantsPermission = 'List tenants';
         $teamFk = config('permission.team_foreign_key', 'tenant_id');
 
+        $hasRoleInTenant = DB::table('model_has_roles')
+            ->where('model_type', User::class)
+            ->where('model_id', $user->getKey())
+            ->where($teamFk, $tenant->id)
+            ->exists();
+
+        $hasDirectPermissionInTenant = DB::table('model_has_permissions')
+            ->where('model_type', User::class)
+            ->where('model_id', $user->getKey())
+            ->where($teamFk, $tenant->id)
+            ->exists();
+
         $canSwitch = $user->can($globalListTenantsPermission)
-            || DB::table('model_has_roles')
-                ->where('model_type', User::class)
-                ->where('model_id', $user->getKey())
-                ->where($teamFk, $tenant->id)
-                ->exists();
+            || $hasRoleInTenant
+            || $hasDirectPermissionInTenant;
 
         if (!$canSwitch) {
             abort(403, __('auth.no_access'));
@@ -534,7 +577,6 @@ class AuthRepository
 
         if ($user->can($globalListTenantsPermission)) {
             return Tenant::query()
-                ->select('id', 'name')
                 ->orderBy('name')
                 ->get()
                 ->toArray();
@@ -542,11 +584,20 @@ class AuthRepository
 
         $teamFk = config('permission.team_foreign_key', 'tenant_id');
 
-        $tenantIds = DB::table('model_has_roles')
+        $tenantIdsFromRoles = DB::table('model_has_roles')
             ->where('model_type', User::class)
             ->where('model_id', $user->getKey())
             ->whereNotNull($teamFk)
-            ->pluck($teamFk)
+            ->pluck($teamFk);
+
+        $tenantIdsFromPermissions = DB::table('model_has_permissions')
+            ->where('model_type', User::class)
+            ->where('model_id', $user->getKey())
+            ->whereNotNull($teamFk)
+            ->pluck($teamFk);
+
+        $tenantIds = $tenantIdsFromRoles
+            ->merge($tenantIdsFromPermissions)
             ->unique()
             ->filter()
             ->values();
@@ -580,7 +631,7 @@ class AuthRepository
         /** @var User $target */
         /** @var User|null $target */
         $target = User::query()
-            ->where('email', $email)
+            ->where('email', 'ILIKE', $email)
             ->first();
 
         if (! $target) {
@@ -604,11 +655,20 @@ class AuthRepository
 
             $teamFk = config('permission.team_foreign_key', 'tenant_id');
 
-            $targetTenantIds = DB::table('model_has_roles')
+            $tenantIdsFromRoles = DB::table('model_has_roles')
                 ->where('model_type', User::class)
                 ->where('model_id', $target->getKey())
                 ->whereNotNull($teamFk)
-                ->pluck($teamFk)
+                ->pluck($teamFk);
+
+            $tenantIdsFromPermissions = DB::table('model_has_permissions')
+                ->where('model_type', User::class)
+                ->where('model_id', $target->getKey())
+                ->whereNotNull($teamFk)
+                ->pluck($teamFk);
+
+            $targetTenantIds = $tenantIdsFromRoles
+                ->merge($tenantIdsFromPermissions)
                 ->unique()
                 ->filter()
                 ->values();
@@ -675,6 +735,8 @@ class AuthRepository
                     ->update([
                         'tenant_id' => $effectiveTargetTenantId,
                     ]);
+
+                $impAccess->token->refresh();
             }
 
             $impRefreshId = Str::random(64);
