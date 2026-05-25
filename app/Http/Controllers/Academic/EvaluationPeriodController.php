@@ -34,7 +34,7 @@ class EvaluationPeriodController extends Controller
     public function active(Request $request): JsonResponse
     {
         $evaluationPeriods = $this->repo->active(
-            $request->only(['academic_year_id'])
+            $request->only(['academic_year_id', 'type'])
         );
 
         return response()->json([

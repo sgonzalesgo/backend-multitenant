@@ -4,6 +4,7 @@ namespace App\Models\Academic;
 
 use App\Models\Administration\Tenant;
 use App\Models\General\Person;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,11 +29,16 @@ class AttendanceRecord extends Model
         'late_minutes',
         'observation',
         'absence_notified_at',
+        'requires_justification',
+        'justification_status',
+        'justified_at',
     ];
 
     protected $casts = [
         'late_minutes' => 'integer',
         'absence_notified_at' => 'datetime',
+        'requires_justification' => 'boolean',
+        'justified_at' => 'datetime',
     ];
 
     public function tenant(): BelongsTo
@@ -58,5 +64,13 @@ class AttendanceRecord extends Model
     public function person(): BelongsTo
     {
         return $this->belongsTo(Person::class);
+    }
+
+    public function justification(): HasOne
+    {
+        return $this->hasOne(
+            AttendanceJustification::class,
+            'attendance_record_id'
+        );
     }
 }

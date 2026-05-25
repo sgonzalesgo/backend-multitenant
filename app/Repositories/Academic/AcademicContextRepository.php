@@ -209,6 +209,7 @@ class AcademicContextRepository
 
         $sessions = AttendanceSession::query()
             ->where('tenant_id', $tenantId)
+            ->where('evaluation_period_id', Arr::get($filters, 'evaluation_period_id'))
             ->whereIn('calendar_event_id', $events->pluck('id'))
             ->get()
             ->keyBy(fn (AttendanceSession $session) => (string) $session->calendar_event_id);
@@ -222,7 +223,7 @@ class AcademicContextRepository
         $firstPendingFound = false;
 
         return $events
-            ->map(function (CalendarEvent $event) use ($sessions, $nonWorkingDays, &$firstPendingFound) {
+            ->map(function (CalendarEvent $event) use ($sessions, $nonWorkingDays, &$firstPendingFound, $filters) {
                 $date = optional($event->start_at)?->toDateString();
 
                 $nonWorkingDay = $date
@@ -256,6 +257,7 @@ class AcademicContextRepository
                     'academic_schedule_frequency_id' => data_get($event->metadata, 'academic_schedule_frequency_id'),
 
                     'academic_year_id' => data_get($event->metadata, 'academic_year_id'),
+                    'evaluation_period_id' => Arr::get($filters, 'evaluation_period_id'),
                     'course_id' => data_get($event->metadata, 'course_id'),
                     'specialty_id' => data_get($event->metadata, 'specialty_id'),
                     'parallel_id' => data_get($event->metadata, 'parallel_id'),

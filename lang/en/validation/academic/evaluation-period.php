@@ -10,6 +10,8 @@ return [
         'default_order' => 'default order',
         'start_date' => 'start date',
         'end_date' => 'end date',
+        'allow_attendance' => 'attendance enabled',
+        'allow_grades' => 'grades enabled',
         'is_active' => 'status',
     ],
 
@@ -51,6 +53,13 @@ return [
             'after_or_equal' => 'The :attribute must be a date after or equal to the start date.',
         ],
         'is_active' => [
+            'boolean' => 'The :attribute field must be true or false.',
+        ],
+        'allow_attendance' => [
+            'boolean' => 'The :attribute field must be true or false.',
+        ],
+
+        'allow_grades' => [
             'boolean' => 'The :attribute field must be true or false.',
         ],
     ],

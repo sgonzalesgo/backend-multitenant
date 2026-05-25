@@ -10,6 +10,8 @@ return [
         'default_order' => 'orden por defecto',
         'start_date' => 'fecha de inicio',
         'end_date' => 'fecha de fin',
+        'allow_attendance' => 'habilitar asistencia',
+        'allow_grades' => 'habilitar calificaciones',
         'is_active' => 'estado',
     ],
 
@@ -51,6 +53,13 @@ return [
             'after_or_equal' => 'La :attribute debe ser una fecha posterior o igual a la fecha de inicio.',
         ],
         'is_active' => [
+            'boolean' => 'El :attribute debe ser verdadero o falso.',
+        ],
+        'allow_attendance' => [
+            'boolean' => 'El :attribute debe ser verdadero o falso.',
+        ],
+
+        'allow_grades' => [
             'boolean' => 'El :attribute debe ser verdadero o falso.',
         ],
     ],

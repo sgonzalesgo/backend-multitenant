@@ -21,6 +21,7 @@ class SaveAttendanceSessionRequest extends FormRequest
             'close' => ['sometimes', 'boolean'],
 
             'records' => ['required', 'array', 'min:1'],
+            'evaluation_period_id' => ['required', 'uuid', 'exists:evaluation_periods,id'],
 
             'records.*.id' => ['nullable', 'uuid', 'exists:attendance_records,id'],
             'records.*.enrollment_id' => ['required', 'uuid', 'exists:enrollments,id'],

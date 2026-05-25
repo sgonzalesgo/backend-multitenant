@@ -24,6 +24,8 @@ class EvaluationPeriodRepository
             'start_date',
             'end_date',
             'is_active',
+            'allow_attendance',
+            'allow_grades',
             'created_at',
             'updated_at',
         ], true)) {
@@ -39,6 +41,8 @@ class EvaluationPeriodRepository
         $endDate = '';
         $isActive = '';
         $createdAt = '';
+        $allowAttendance = '';
+        $allowGrades = '';
 
         if ($rawQ !== '') {
             $decoded = json_decode($rawQ, true);
@@ -53,6 +57,8 @@ class EvaluationPeriodRepository
                 $endDate = trim((string) Arr::get($decoded, 'columns.end_date', ''));
                 $isActive = trim((string) Arr::get($decoded, 'columns.is_active', ''));
                 $createdAt = trim((string) Arr::get($decoded, 'columns.created_at', ''));
+                $allowAttendance = trim((string) Arr::get($decoded, 'columns.allow_attendance', ''));
+                $allowGrades = trim((string) Arr::get($decoded, 'columns.allow_grades', ''));
             } else {
                 $global = $rawQ;
             }
@@ -86,7 +92,29 @@ class EvaluationPeriodRepository
                     $query->inactive();
                 }
             })
-            ->when($createdAt !== '', fn ($query) => $query->whereDate('created_at', $createdAt));
+            ->when($createdAt !== '', fn ($query) => $query->whereDate('created_at', $createdAt))
+            ->when($allowAttendance !== '', function ($query) use ($allowAttendance) {
+                $normalized = strtolower($allowAttendance);
+
+                if (in_array($normalized, ['1', 'true', 'yes', 'si', 'sí', 'enabled', 'habilitado'], true)) {
+                    $query->where('allow_attendance', true);
+                }
+
+                if (in_array($normalized, ['0', 'false', 'no', 'disabled', 'deshabilitado'], true)) {
+                    $query->where('allow_attendance', false);
+                }
+            })
+            ->when($allowGrades !== '', function ($query) use ($allowGrades) {
+                $normalized = strtolower($allowGrades);
+
+                if (in_array($normalized, ['1', 'true', 'yes', 'si', 'sí', 'enabled', 'habilitado'], true)) {
+                    $query->where('allow_grades', true);
+                }
+
+                if (in_array($normalized, ['0', 'false', 'no', 'disabled', 'deshabilitado'], true)) {
+                    $query->where('allow_grades', false);
+                }
+            });
 
         if ($sort === 'is_active') {
             $query->orderByRaw(
@@ -106,13 +134,13 @@ class EvaluationPeriodRepository
     public function active(array $filters = []): Collection
     {
         $academicYearId = Arr::get($filters, 'academic_year_id');
-        $today = Carbon::today()->toDateString();
+        $type = Arr::get($filters, 'type');
 
         return EvaluationPeriod::query()
             ->with('academicYear')
             ->when($academicYearId, fn ($query) => $query->where('academic_year_id', $academicYearId))
-            ->whereDate('start_date', '<=', $today)
-            ->whereDate('end_date', '>=', $today)
+            ->when($type === 'attendance', fn ($query) => $query->where('allow_attendance', true))
+            ->when($type === 'grades', fn ($query) => $query->where('allow_grades', true))
             ->orderBy('default_order', 'asc')
             ->get();
     }
@@ -127,6 +155,8 @@ class EvaluationPeriodRepository
             'default_order' => Arr::get($data, 'default_order', 1),
             'start_date' => Arr::get($data, 'start_date'),
             'end_date' => Arr::get($data, 'end_date'),
+            'allow_attendance' => Arr::get($data, 'allow_attendance', true),
+            'allow_grades' => Arr::get($data, 'allow_grades', true),
         ]);
 
         return $evaluationPeriod->refresh();
@@ -142,6 +172,8 @@ class EvaluationPeriodRepository
             'default_order' => Arr::get($data, 'default_order', $evaluationPeriod->default_order),
             'start_date' => Arr::get($data, 'start_date', $evaluationPeriod->start_date),
             'end_date' => Arr::get($data, 'end_date', $evaluationPeriod->end_date),
+            'allow_attendance' => Arr::get($data, 'allow_attendance', $evaluationPeriod->allow_attendance),
+            'allow_grades' => Arr::get($data, 'allow_grades', $evaluationPeriod->allow_grades),
         ]);
 
         $evaluationPeriod->save();

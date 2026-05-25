@@ -209,7 +209,12 @@ class PermissionSeeder extends Seeder
             "Delete academic_non_working_days",
             "Reopen attendances",
             "Manage all_attendances",
-            "View student_dashboards"
+            "View student_dashboards",
+            "List attendance_justifications",
+            "Create attendance_justifications",
+            "Approve attendance_justifications",
+            "Reject attendance_justifications",
+            "Delete attendance_justifications",
 
         ];
 

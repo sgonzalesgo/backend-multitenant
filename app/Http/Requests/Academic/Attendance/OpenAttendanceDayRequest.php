@@ -15,6 +15,7 @@ class OpenAttendanceDayRequest extends FormRequest
     {
         return [
             'academic_year_id' => ['required', 'uuid', 'exists:academic_years,id'],
+            'evaluation_period_id' => ['required', 'uuid', 'exists:evaluation_periods,id'],
             'course_id' => ['required', 'uuid', 'exists:courses,id'],
             'parallel_id' => ['required', 'uuid', 'exists:parallels,id'],
             'shift_id' => ['required', 'uuid', 'exists:shifts,id'],

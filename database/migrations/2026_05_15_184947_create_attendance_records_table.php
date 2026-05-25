@@ -21,7 +21,16 @@ return new class extends Migration
             $table->foreignUuid('student_id')->constrained('students')->cascadeOnDelete();
             $table->foreignUuid('person_id')->constrained('persons')->cascadeOnDelete();
 
-            $table->string('status', 40)->default('present'); // present, absent, late, excused
+            // present, absent, late, excused
+            $table->string('status', 40)->default('present');
+
+            // JUSTIFICATION FLOW
+            $table->boolean('requires_justification')->default(false);
+
+            // pending, approved, rejected
+            $table->string('justification_status', 40)->nullable();
+
+            $table->timestamp('justified_at')->nullable();
 
             $table->timestamp('absence_notified_at')->nullable();
 
@@ -44,6 +53,25 @@ return new class extends Migration
             $table->index(
                 ['tenant_id', 'status', 'absence_notified_at'],
                 'attendance_records_absence_notification_idx'
+            );
+
+            $table->index(
+                ['tenant_id', 'requires_justification'],
+                'attendance_records_requires_justification_idx'
+            );
+
+            $table->index(
+                ['tenant_id', 'justification_status'],
+                'attendance_records_justification_status_idx'
+            );
+
+            $table->index(
+                [
+                    'tenant_id',
+                    'requires_justification',
+                    'justification_status',
+                ],
+                'attendance_records_justification_pending_idx'
             );
         });
     }

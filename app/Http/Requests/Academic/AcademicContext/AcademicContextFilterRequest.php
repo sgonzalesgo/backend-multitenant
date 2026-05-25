@@ -17,7 +17,9 @@ class AcademicContextFilterRequest extends FormRequest
         return [
             'academic_year_id' => ['required', 'uuid', 'exists:academic_years,id'],
 
-            'academic_period_id' => ['nullable', 'uuid', 'exists:evaluation_periods,id'],
+            'evaluation_period_id' => ['nullable', 'uuid', 'exists:evaluation_periods,id'],
+            'evaluation_period_ids' => ['nullable', 'array'],
+            'evaluation_period_ids.*' => ['uuid', 'exists:evaluation_periods,id'],
 
             'educational_level_id' => ['nullable', 'uuid', 'exists:educational_levels,id'],
             'course_id' => ['nullable', 'uuid', 'exists:courses,id'],
@@ -39,9 +41,9 @@ class AcademicContextFilterRequest extends FormRequest
         $validator->after(function ($validator) {
             $context = $this->input('context');
 
-            if ($context === 'grades') {
+            if ($context === 'attendance') {
                 $this->validateRequiredFields($validator, [
-                    'academic_period_id',
+                    'evaluation_period_id',
                     'course_id',
                     'parallel_id',
                     'shift_id',
@@ -52,7 +54,9 @@ class AcademicContextFilterRequest extends FormRequest
                 $this->validateSpecialtyWhenRequired($validator);
             }
 
-            if ($context === 'attendance') {
+            if ($context === 'grades') {
+                $this->validateAtLeastOneEvaluationPeriod($validator);
+
                 $this->validateRequiredFields($validator, [
                     'course_id',
                     'parallel_id',
@@ -65,6 +69,7 @@ class AcademicContextFilterRequest extends FormRequest
             }
 
             if ($context === 'reports') {
+                $this->validateAtLeastOneEvaluationPeriod($validator);
                 $this->validateSpecialtyWhenRequired($validator);
             }
         });
@@ -81,6 +86,21 @@ class AcademicContextFilterRequest extends FormRequest
                     ])
                 );
             }
+        }
+    }
+
+    protected function validateAtLeastOneEvaluationPeriod($validator): void
+    {
+        if (
+            ! $this->filled('evaluation_period_id') &&
+            ! $this->filled('evaluation_period_ids')
+        ) {
+            $validator->errors()->add(
+                'evaluation_period_id',
+                __('validation.required', [
+                    'attribute' => 'evaluation_period_id',
+                ])
+            );
         }
     }
 

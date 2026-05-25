@@ -21,6 +21,12 @@ class AttendanceDaysRequest extends FormRequest
                 'exists:academic_years,id',
             ],
 
+            'evaluation_period_id' => [
+                'required',
+                'uuid',
+                'exists:evaluation_periods,id',
+            ],
+
             'course_id' => [
                 'required',
                 'uuid',

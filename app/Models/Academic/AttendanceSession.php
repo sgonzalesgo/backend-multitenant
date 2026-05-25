@@ -5,6 +5,7 @@ namespace App\Models\Academic;
 use App\Models\Administration\Tenant;
 use App\Models\Administration\User;
 use App\Models\Calendar\CalendarEvent;
+use App\Models\Academic\EvaluationPeriod;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,7 @@ class AttendanceSession extends Model
         'academic_schedule_id',
         'academic_schedule_frequency_id',
         'academic_year_id',
+        'evaluation_period_id',
         'course_id',
         'specialty_id',
         'parallel_id',
@@ -114,5 +116,10 @@ class AttendanceSession extends Model
     public function modality(): BelongsTo
     {
         return $this->belongsTo(Modality::class);
+    }
+
+    public function evaluationPeriod(): BelongsTo
+    {
+        return $this->belongsTo(EvaluationPeriod::class);
     }
 }

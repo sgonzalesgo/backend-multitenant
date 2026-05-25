@@ -10,9 +10,18 @@ return [
             'exists' => 'The selected academic year does not exist.',
         ],
 
-        'academic_period_id' => [
-            'uuid' => 'The academic period must be a valid UUID.',
-            'exists' => 'The selected academic period does not exist.',
+        'evaluation_period_id' => [
+            'uuid' => 'The evaluation period must be a valid UUID.',
+            'exists' => 'The selected evaluation period does not exist.',
+        ],
+
+        'evaluation_period_ids' => [
+            'array' => 'The evaluation periods must be a valid array.',
+        ],
+
+        'evaluation_period_ids.*' => [
+            'uuid' => 'Each evaluation period must be a valid UUID.',
+            'exists' => 'One or more selected evaluation periods do not exist.',
         ],
 
         'educational_level_id' => [

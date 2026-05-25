@@ -69,6 +69,15 @@ class StoreEvaluationPeriodRequest extends FormRequest
                 'date',
                 'after_or_equal:start_date',
             ],
+            'allow_attendance' => [
+                'sometimes',
+                'boolean',
+            ],
+
+            'allow_grades' => [
+                'sometimes',
+                'boolean',
+            ],
         ];
     }
 

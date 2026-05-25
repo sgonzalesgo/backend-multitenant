@@ -57,4 +57,5 @@ Route::middleware([
     require base_path('routes/academic/academic_context.php');
     require base_path('routes/general/academic_non_working_days.php');
     require base_path('routes/dashboard/dashboard.php');
+      require base_path('routes/academic/attendance_justification.php');
 });

@@ -23,12 +23,16 @@ class EvaluationPeriod extends Model
         'default_order',
         'start_date',
         'end_date',
+        'allow_attendance',
+        'allow_grades',
     ];
 
     protected $casts = [
         'default_order' => 'integer',
         'start_date' => 'date',
         'end_date' => 'date',
+        'allow_attendance' => 'boolean',
+        'allow_grades' => 'boolean',
     ];
 
     protected $appends = [
@@ -67,5 +71,15 @@ class EvaluationPeriod extends Model
             $q->whereDate('start_date', '>', $today)
                 ->orWhereDate('end_date', '<', $today);
         });
+    }
+
+    public function scopeAttendanceEnabled(Builder $query): Builder
+    {
+        return $query->where('allow_attendance', true);
+    }
+
+    public function scopeGradesEnabled(Builder $query): Builder
+    {
+        return $query->where('allow_grades', true);
     }
 }

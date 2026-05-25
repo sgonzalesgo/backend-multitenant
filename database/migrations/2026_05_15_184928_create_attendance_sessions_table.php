@@ -33,6 +33,11 @@ return new class extends Migration
                 ->constrained('academic_years')
                 ->cascadeOnDelete();
 
+            $table->foreignUuid('evaluation_period_id')
+                ->nullable()
+                ->constrained('evaluation_periods')
+                ->nullOnDelete();
+
             $table->foreignUuid('course_id')
                 ->constrained('courses')
                 ->cascadeOnDelete();
@@ -81,12 +86,18 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->unique(
-                ['tenant_id', 'calendar_event_id'],
-                'attendance_sessions_unique_event'
+                ['tenant_id', 'calendar_event_id', 'evaluation_period_id'],
+                'attendance_sessions_unique_event_period'
             );
 
             $table->index(
-                ['tenant_id', 'academic_year_id']
+                ['tenant_id', 'academic_year_id'],
+                'attendance_sessions_year_idx'
+            );
+
+            $table->index(
+                ['tenant_id', 'academic_year_id', 'evaluation_period_id'],
+                'attendance_sessions_period_idx'
             );
 
             $table->index(
@@ -98,6 +109,7 @@ return new class extends Migration
                 [
                     'tenant_id',
                     'academic_year_id',
+                    'evaluation_period_id',
                     'course_id',
                     'specialty_id',
                     'parallel_id',
@@ -111,6 +123,7 @@ return new class extends Migration
                 [
                     'tenant_id',
                     'academic_year_id',
+                    'evaluation_period_id',
                     'course_id',
                     'specialty_id',
                     'parallel_id',
@@ -124,19 +137,23 @@ return new class extends Migration
             );
 
             $table->index(
-                ['tenant_id', 'academic_year_id', 'subject_id']
+                ['tenant_id', 'academic_year_id', 'evaluation_period_id', 'subject_id'],
+                'attendance_sessions_subject_period_idx'
             );
 
             $table->index(
-                ['tenant_id', 'academic_year_id', 'instructor_id']
+                ['tenant_id', 'academic_year_id', 'evaluation_period_id', 'instructor_id'],
+                'attendance_sessions_instructor_period_idx'
             );
 
             $table->index(
-                ['tenant_id', 'attendance_date']
+                ['tenant_id', 'attendance_date'],
+                'attendance_sessions_date_idx'
             );
 
             $table->index(
-                ['tenant_id', 'status']
+                ['tenant_id', 'status'],
+                'attendance_sessions_status_idx'
             );
         });
     }

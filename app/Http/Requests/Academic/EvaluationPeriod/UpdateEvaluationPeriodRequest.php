@@ -91,6 +91,15 @@ class UpdateEvaluationPeriodRequest extends FormRequest
                 'date',
                 'after_or_equal:' . $startDate,
             ],
+            'allow_attendance' => [
+                'sometimes',
+                'boolean',
+            ],
+
+            'allow_grades' => [
+                'sometimes',
+                'boolean',
+            ],
         ];
     }
 

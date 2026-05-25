@@ -9,6 +9,7 @@ use App\Models\Academic\Instructor;
 use App\Models\Administration\Tenant;
 use App\Models\Calendar\CalendarEvent;
 use App\Models\General\AcademicNonWorkingDay;
+use App\Models\Academic\EvaluationPeriod;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -67,9 +68,10 @@ class AttendanceRepository
     }
 
     /**
-     * Retorna las combinaciones disponibles para pasar asistencia:
+     * Retorna las combinaciones disponibles para pasar asistencia.
      *
-     * tenant + academic_year + course + parallel + subject + instructor
+     * tenant + academic_year + course + specialty + parallel + modality + shift + subject + instructor
+     *
      * @throws ValidationException
      */
     public function mySubjects(array $filters = []): array
@@ -97,7 +99,10 @@ class AttendanceRepository
             ->where('tenant_id', $tenantId)
             ->where('source', 'academic_schedule')
             ->where('metadata->instructor_id', (string) $instructorId)
-            ->when($academicYearId, fn ($query) => $query->where('metadata->academic_year_id', $academicYearId))
+            ->when(
+                $academicYearId,
+                fn ($query) => $query->where('metadata->academic_year_id', $academicYearId)
+            )
             ->orderBy('start_at')
             ->get();
 
@@ -105,7 +110,10 @@ class AttendanceRepository
             ->groupBy(fn (CalendarEvent $event) => implode('|', [
                 data_get($event->metadata, 'academic_year_id'),
                 data_get($event->metadata, 'course_id'),
+                data_get($event->metadata, 'specialty_id'),
                 data_get($event->metadata, 'parallel_id'),
+                data_get($event->metadata, 'modality_id'),
+                data_get($event->metadata, 'shift_id'),
                 data_get($event->metadata, 'subject_id'),
                 data_get($event->metadata, 'instructor_id'),
             ]))
@@ -115,7 +123,10 @@ class AttendanceRepository
 
                 $academicYearId = data_get($event->metadata, 'academic_year_id');
                 $courseId = data_get($event->metadata, 'course_id');
+                $specialtyId = data_get($event->metadata, 'specialty_id');
                 $parallelId = data_get($event->metadata, 'parallel_id');
+                $modalityId = data_get($event->metadata, 'modality_id');
+                $shiftId = data_get($event->metadata, 'shift_id');
                 $subjectId = data_get($event->metadata, 'subject_id');
                 $instructorId = data_get($event->metadata, 'instructor_id');
 
@@ -123,7 +134,14 @@ class AttendanceRepository
                     ->where('tenant_id', $tenantId)
                     ->where('academic_year_id', $academicYearId)
                     ->where('course_id', $courseId)
+                    ->when(
+                        $specialtyId,
+                        fn ($query) => $query->where('specialty_id', $specialtyId),
+                        fn ($query) => $query->whereNull('specialty_id')
+                    )
                     ->where('parallel_id', $parallelId)
+                    ->where('modality_id', $modalityId)
+                    ->where('shift_id', $shiftId)
                     ->where('subject_id', $subjectId)
                     ->where('instructor_id', $instructorId)
                     ->where('status', 'closed')
@@ -132,7 +150,10 @@ class AttendanceRepository
                 return [
                     'academic_year_id' => $academicYearId,
                     'course_id' => $courseId,
+                    'specialty_id' => $specialtyId,
                     'parallel_id' => $parallelId,
+                    'modality_id' => $modalityId,
+                    'shift_id' => $shiftId,
                     'subject_id' => $subjectId,
                     'instructor_id' => $instructorId,
 
@@ -163,6 +184,11 @@ class AttendanceRepository
 
         $this->ensureInstructorExists($instructorId);
 
+        $this->ensureEvaluationPeriodAllowsAttendance(
+            (string) Arr::get($data, 'evaluation_period_id'),
+            (string) Arr::get($data, 'academic_year_id')
+        );
+
         $events = CalendarEvent::query()
             ->where('tenant_id', $tenantId)
             ->where('source', 'academic_schedule')
@@ -185,6 +211,7 @@ class AttendanceRepository
 
         $sessions = AttendanceSession::query()
             ->where('tenant_id', $tenantId)
+            ->where('evaluation_period_id', Arr::get($data, 'evaluation_period_id'))
             ->whereIn('calendar_event_id', $events->pluck('id'))
             ->get()
             ->keyBy(fn (AttendanceSession $session) => (string) $session->calendar_event_id);
@@ -198,7 +225,7 @@ class AttendanceRepository
         $firstPendingFound = false;
 
         return $events
-            ->map(function (CalendarEvent $event) use ($sessions, $nonWorkingDays, &$firstPendingFound) {
+            ->map(function (CalendarEvent $event) use ($sessions, $nonWorkingDays, &$firstPendingFound, $data) {
                 $date = optional($event->start_at)?->toDateString();
 
                 $nonWorkingDay = $date
@@ -229,6 +256,7 @@ class AttendanceRepository
                     'attendance_session_id' => $session?->id ? (string) $session->id : null,
 
                     'academic_year_id' => data_get($event->metadata, 'academic_year_id'),
+                    'evaluation_period_id' => Arr::get($data, 'evaluation_period_id'),
                     'course_id' => data_get($event->metadata, 'course_id'),
                     'specialty_id' => data_get($event->metadata, 'specialty_id'),
                     'parallel_id' => data_get($event->metadata, 'parallel_id'),
@@ -274,12 +302,19 @@ class AttendanceRepository
 
         $this->ensureInstructorExists($instructorId);
 
+        $this->ensureEvaluationPeriodAllowsAttendance(
+            (string) Arr::get($data, 'evaluation_period_id'),
+            (string) Arr::get($data, 'academic_year_id'),
+            CarbonImmutable::parse(Arr::get($data, 'attendance_date'))->toDateString()
+        );
+
         return DB::transaction(function () use ($data, $tenantId, $instructorId) {
             $event = $this->findEventForAttendanceDay($data, $tenantId, $instructorId);
 
             $existingSession = AttendanceSession::query()
                 ->where('tenant_id', $tenantId)
                 ->where('calendar_event_id', $event->id)
+                ->where('evaluation_period_id', Arr::get($data, 'evaluation_period_id'))
                 ->first();
 
             if ($existingSession) {
@@ -299,6 +334,7 @@ class AttendanceRepository
                 [
                     'tenant_id' => $tenantId,
                     'calendar_event_id' => $event->id,
+                    'evaluation_period_id' => Arr::get($data, 'evaluation_period_id'),
                 ],
                 [
                     'academic_schedule_id' => $academicScheduleId,
@@ -347,6 +383,12 @@ class AttendanceRepository
             ]);
         }
 
+        if ((string) $session->evaluation_period_id !== (string) Arr::get($data, 'evaluation_period_id')) {
+            throw ValidationException::withMessages([
+                'evaluation_period_id' => __('messages.attendance.evaluation_period_does_not_match_session'),
+            ]);
+        }
+
         if ($session->status === 'closed') {
             throw ValidationException::withMessages([
                 'attendance_session' => __('messages.attendance.session_already_closed'),
@@ -359,7 +401,7 @@ class AttendanceRepository
             ]);
 
             foreach (Arr::get($data, 'records', []) as $recordData) {
-                $status = Arr::get($recordData, 'status');
+                $status = (string) Arr::get($recordData, 'status');
 
                 AttendanceRecord::query()
                     ->where('tenant_id', $session->tenant_id)
@@ -371,6 +413,8 @@ class AttendanceRepository
                             ? (int) Arr::get($recordData, 'late_minutes', 0)
                             : 0,
                         'observation' => Arr::get($recordData, 'observation'),
+
+                        ...$this->buildJustificationStateForStatus($status),
                     ]);
             }
 
@@ -398,6 +442,11 @@ class AttendanceRepository
 
         $this->ensureInstructorExists($instructorId);
 
+        $this->ensureEvaluationPeriodAllowsAttendance(
+            (string) Arr::get($data, 'evaluation_period_id'),
+            (string) Arr::get($data, 'academic_year_id')
+        );
+
         $sessions = AttendanceSession::query()
             ->with([
                 'academicYear:id,name,start_date,end_date',
@@ -410,13 +459,14 @@ class AttendanceRepository
                 'instructor:id,person_id',
                 'instructor.person:id,full_name,email,photo',
                 'calendarEvent:id,title,start_at,end_at',
-                'records:id,attendance_session_id,enrollment_id,student_id,person_id,status,late_minutes,observation',
+                'records:id,attendance_session_id,enrollment_id,student_id,person_id,status,late_minutes,observation,requires_justification,justification_status,justified_at',
                 'records.person:id,full_name,email,legal_id,photo',
                 'records.student:id,person_id,student_code,status',
                 'records.enrollment:id,enrollment_code,student_id,academic_year_id,course_id,specialty_id,parallel_id,modality_id,shift_id,is_active',
             ])
             ->where('tenant_id', $tenantId)
             ->where('academic_year_id', Arr::get($data, 'academic_year_id'))
+            ->where('evaluation_period_id', Arr::get($data, 'evaluation_period_id'))
             ->where('course_id', Arr::get($data, 'course_id'))
             ->where('parallel_id', Arr::get($data, 'parallel_id'))
             ->where('modality_id', Arr::get($data, 'modality_id'))
@@ -464,6 +514,14 @@ class AttendanceRepository
                     'academic_year' => $session->academicYear ? [
                         'id' => (string) $session->academicYear->id,
                         'name' => $session->academicYear->name,
+                    ] : null,
+
+                    'evaluation_period' => $session->evaluationPeriod ? [
+                        'id' => (string) $session->evaluationPeriod->id,
+                        'code' => $session->evaluationPeriod->code,
+                        'name' => $session->evaluationPeriod->name,
+                        'start_date' => optional($session->evaluationPeriod->start_date)?->toDateString(),
+                        'end_date' => optional($session->evaluationPeriod->end_date)?->toDateString(),
                     ] : null,
 
                     'course' => $session->course ? [
@@ -532,6 +590,9 @@ class AttendanceRepository
                                 'email' => $record->person?->email,
                                 'legal_id' => $record->person?->legal_id,
                                 'photo' => $record->person?->photo,
+                                'requires_justification' => (bool) $record->requires_justification,
+                                'justification_status' => $record->justification_status,
+                                'justified_at' => optional($record->justified_at)?->toIso8601String(),
 
                                 'status' => $record->status,
                                 'late_minutes' => (int) $record->late_minutes,
@@ -574,9 +635,11 @@ class AttendanceRepository
      * Valida que el día seleccionado sea el primer día pendiente.
      * @throws ValidationException
      */
-    protected function ensureDayIsEnabled(CalendarEvent $selectedEvent, array $data, string $tenantId, string $instructorId): void {
+    protected function ensureDayIsEnabled(CalendarEvent $selectedEvent, array $data, string $tenantId, string $instructorId): void
+    {
         $days = $this->days([
             'academic_year_id' => data_get($selectedEvent->metadata, 'academic_year_id') ?? Arr::get($data, 'academic_year_id'),
+            'evaluation_period_id' => Arr::get($data, 'evaluation_period_id'),
             'course_id' => data_get($selectedEvent->metadata, 'course_id') ?? Arr::get($data, 'course_id'),
             'specialty_id' => data_get($selectedEvent->metadata, 'specialty_id') ?? Arr::get($data, 'specialty_id'),
             'parallel_id' => data_get($selectedEvent->metadata, 'parallel_id') ?? Arr::get($data, 'parallel_id'),
@@ -644,6 +707,9 @@ class AttendanceRepository
                 'status' => 'present',
                 'late_minutes' => 0,
                 'observation' => null,
+                'requires_justification' => false,
+                'justification_status' => null,
+                'justified_at' => null,
             ]);
         }
     }
@@ -664,10 +730,11 @@ class AttendanceRepository
 
             'calendarEvent:id,title,start_at,end_at,metadata',
 
-            'records:id,attendance_session_id,enrollment_id,student_id,person_id,status,late_minutes,observation',
+            'records:id,attendance_session_id,enrollment_id,student_id,person_id,status,late_minutes,observation,requires_justification,justification_status,justified_at',
             'records.student:id,person_id,student_code,status',
             'records.person:id,full_name,email,photo,legal_id',
             'records.enrollment:id,enrollment_code,student_id,academic_year_id,course_id,specialty_id,parallel_id,modality_id,shift_id,is_active',
+            'evaluationPeriod:id,code,name,start_date,end_date,allow_attendance,allow_grades',
         ];
     }
 
@@ -769,6 +836,9 @@ class AttendanceRepository
                 'status' => 'present',
                 'late_minutes' => 0,
                 'observation' => null,
+                'requires_justification' => false,
+                'justification_status' => null,
+                'justified_at' => null,
             ]);
         }
     }
@@ -800,5 +870,50 @@ class AttendanceRepository
         $this->syncDraftRecordsWithActiveEnrollments($session);
 
         return $session->refresh()->load($this->relations());
+    }
+
+    /**
+     * Valida que el periodo seleccionado pertenezca al año académico
+     * y esté habilitado para asistencia.
+     *
+     * @throws ValidationException
+     */
+    protected function ensureEvaluationPeriodAllowsAttendance(string $evaluationPeriodId, string $academicYearId, ?string $attendanceDate = null): void
+    {
+        $query = EvaluationPeriod::query()
+            ->where('id', $evaluationPeriodId)
+            ->where('academic_year_id', $academicYearId)
+            ->where('allow_attendance', true);
+
+        if ($attendanceDate) {
+            $query->whereDate('start_date', '<=', $attendanceDate)
+                ->whereDate('end_date', '>=', $attendanceDate);
+        }
+
+        $exists = $query->exists();
+
+        if (! $exists) {
+            throw ValidationException::withMessages([
+                'evaluation_period_id' => __('messages.attendance.invalid_evaluation_period'),
+            ]);
+        }
+    }
+
+    protected function buildJustificationStateForStatus(string $status): array
+    {
+        if ($status === 'absent') {
+            return [
+                'requires_justification' => true,
+                'justification_status' => 'pending',
+                'justified_at' => null,
+            ];
+        }
+
+        return [
+            'requires_justification' => false,
+            'justification_status' => null,
+            'justified_at' => null,
+        ];
+
     }
 }
