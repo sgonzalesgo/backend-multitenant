@@ -215,10 +215,25 @@ class RolePerTenantSeeder extends Seeder
                 "Manage all_attendances",
                 "View student_dashboards",
                 "List attendance_justifications",
-                "Create attendance_justifications",
+                "Store attendance_justifications",
                 "Approve attendance_justifications",
                 "Reject attendance_justifications",
                 "Delete attendance_justifications",
+
+                "List grade_component_templates",
+                "Store grade_component_templates",
+                "View grade_component_templates",
+                "Update grade_component_templates",
+                "Delete grade_component_templates",
+                "Generate grade_components",
+
+                "List grade_component_definitions",
+                "Store grade_component_definitions",
+                "View grade_component_definitions",
+                "Update grade_component_definitions",
+                "Delete grade_component_definitions",
+
+                "Download grade_excel_templates"
             ],
         ];
 

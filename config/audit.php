@@ -36,6 +36,8 @@ use App\Models\Academic\Enrollment;
 use App\Models\Academic\EnrollmentStatus;
 use App\Models\Academic\EvaluationPeriod;
 use App\Models\Academic\EvaluationType;
+use App\Models\Academic\GradeComponentDefinition;
+use App\Models\Academic\GradeComponentTemplate;
 use App\Models\Academic\Instructor;
 use App\Models\Academic\LegalRepresentative;
 use App\Models\Academic\Modality;
@@ -98,6 +100,8 @@ return [
         'enrollments' => Enrollment::class,
         'academic_schedules' => AcademicSchedule::class,
         'academic_non_working_days' => AcademicNonWorkingDay::class,
+        'grade_component_definitions' => GradeComponentDefinition::class,
+        'grade_component_templates' => GradeComponentTemplate::class,
     ],
 
     /*
@@ -136,6 +140,8 @@ return [
         Enrollment::class,
         AcademicSchedule::class,
         AcademicNonWorkingDay::class,
+        GradeComponentDefinition::class,
+        GradeComponentTemplate::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente

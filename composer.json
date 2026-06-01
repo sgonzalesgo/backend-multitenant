@@ -13,6 +13,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/socialite": "^5.24",
         "laravel/tinker": "^2.10.1",
+        "phpoffice/phpspreadsheet": "^5.7",
         "predis/predis": "^3.3",
         "socialiteproviders/facebook": "^4.1",
         "socialiteproviders/google": "^4.1",

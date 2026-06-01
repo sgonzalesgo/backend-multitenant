@@ -311,5 +311,41 @@ return [
         'document_uploaded_success' => 'Document uploaded successfully.',
         'approved_cannot_be_modified' => 'An approved justification cannot be modified.',
     ],
+    'grade_component_template' => [
+        'tenant_not_resolved' => 'Unable to determine the current tenant.',
+        'list_success' => 'Grade component templates retrieved successfully.',
+        'show_success' => 'Grade component template retrieved successfully.',
+        'created_success' => 'Grade component template created successfully.',
+        'updated_success' => 'Grade component template updated successfully.',
+        'deleted_success' => 'Grade component template deleted successfully.',
+        'components_generated_success' => 'Grade components generated successfully.',
+        'template_inactive' => 'The selected grade component template is inactive.',
+        'template_has_no_items' => 'The selected grade component template has no active items.',
+        'weight_exceeds_100' => 'The total weight of numeric components cannot exceed 100%.',
+    ],
+
+    'grade_component_definition' => [
+        'tenant_not_resolved' => 'Unable to determine the current tenant.',
+        'list_success' => 'Grade component definitions retrieved successfully.',
+        'show_success' => 'Grade component definition retrieved successfully.',
+        'created_success' => 'Grade component definition created successfully.',
+        'updated_success' => 'Grade component definition updated successfully.',
+        'deleted_success' => 'Grade component definition deleted successfully.',
+        'in_use' => 'The grade component definition is being used by one or more templates and cannot be deleted.',
+    ],
+
+    'grade_excel_template' => [
+        'tenant_not_resolved' => 'Unable to determine the current institution.',
+        'course_not_found' => 'The selected course does not exist.',
+        'parallel_not_found' => 'The selected parallel does not exist.',
+        'subject_not_found' => 'The selected subject does not exist.',
+        'template_not_found' => 'The Excel template could not be found.',
+        'components_not_generated' => 'No grading components were found for the selected filters.',
+        'students_not_found' => 'No enrolled students were found for the selected filters.',
+        'sheet_not_found' => 'The required worksheet could not be found in the Excel template.',
+        'preschool_not_supported_yet' => 'Preschool template generation is not available yet.',
+        'unsupported_educational_level' => 'The selected educational level is not supported for template generation.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Student dashboard retrieved successfully.',
 ];

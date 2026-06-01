@@ -311,5 +311,41 @@ return [
         'document_uploaded_success' => 'Documento cargado correctamente.',
         'approved_cannot_be_modified' => 'Una justificación aprobada no puede modificarse.',
     ],
+    'grade_component_template' => [
+        'tenant_not_resolved' => 'No fue posible determinar el tenant actual.',
+        'list_success' => 'Plantillas de componentes de calificación obtenidas correctamente.',
+        'show_success' => 'Plantilla de componentes de calificación obtenida correctamente.',
+        'created_success' => 'Plantilla de componentes de calificación creada correctamente.',
+        'updated_success' => 'Plantilla de componentes de calificación actualizada correctamente.',
+        'deleted_success' => 'Plantilla de componentes de calificación eliminada correctamente.',
+        'components_generated_success' => 'Componentes de calificación generados correctamente.',
+        'template_inactive' => 'La plantilla de componentes de calificación seleccionada está inactiva.',
+        'template_has_no_items' => 'La plantilla de componentes de calificación seleccionada no tiene ítems activos.',
+        'weight_exceeds_100' => 'La suma de los pesos de los componentes numéricos no puede exceder el 100%.',
+    ],
+
+    'grade_component_definition' => [
+        'tenant_not_resolved' => 'No fue posible determinar el tenant actual.',
+        'list_success' => 'Definiciones de componentes de calificación obtenidas correctamente.',
+        'show_success' => 'Definición de componente de calificación obtenida correctamente.',
+        'created_success' => 'Definición de componente de calificación creada correctamente.',
+        'updated_success' => 'Definición de componente de calificación actualizada correctamente.',
+        'deleted_success' => 'Definición de componente de calificación eliminada correctamente.',
+        'in_use' => 'La definición de componente de calificación está siendo utilizada por una o más plantillas y no puede eliminarse.',
+    ],
+
+    'grade_excel_template' => [
+        'tenant_not_resolved' => 'No fue posible identificar la institución actual.',
+        'course_not_found' => 'El curso seleccionado no existe.',
+        'parallel_not_found' => 'El paralelo seleccionado no existe.',
+        'subject_not_found' => 'La asignatura seleccionada no existe.',
+        'template_not_found' => 'No se encontró la plantilla de Excel.',
+        'components_not_generated' => 'No se encontraron componentes de calificación para los filtros seleccionados.',
+        'students_not_found' => 'No se encontraron estudiantes matriculados para los filtros seleccionados.',
+        'sheet_not_found' => 'No se encontró la hoja requerida dentro de la plantilla de Excel.',
+        'preschool_not_supported_yet' => 'La generación de plantillas para Inicial aún no está disponible.',
+        'unsupported_educational_level' => 'El nivel educativo seleccionado no es compatible con la generación de plantillas.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Dashboard del estudiante obtenido correctamente.',
 ];

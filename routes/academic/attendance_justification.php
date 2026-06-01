@@ -18,7 +18,7 @@ Route::controller(AttendanceJustificationController::class)->group(function () {
     Route::post(
         'attendance-justifications',
         'store'
-    )->middleware('permission:Create attendance_justifications');
+    )->middleware('permission:Store attendance_justifications');
 
     Route::post(
         'attendance-justifications/{attendanceJustification}/approve',
