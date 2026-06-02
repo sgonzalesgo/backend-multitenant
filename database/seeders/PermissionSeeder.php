@@ -215,6 +215,7 @@ class PermissionSeeder extends Seeder
             "Approve attendance_justifications",
             "Reject attendance_justifications",
             "Delete attendance_justifications",
+
             "List grade_component_templates",
             "Store grade_component_templates",
             "View grade_component_templates",
@@ -226,7 +227,31 @@ class PermissionSeeder extends Seeder
             "View grade_component_definitions",
             "Update grade_component_definitions",
             "Delete grade_component_definitions",
-            "Download grade_excel_templates"
+            "Download grade_excel_templates",
+
+            "List qualitative_evaluation_areas",
+            "Search qualitative_evaluation_areas",
+            "Store qualitative_evaluation_areas",
+            "Update qualitative_evaluation_areas",
+            "Delete qualitative_evaluation_areas",
+
+            "List qualitative_skill_definitions",
+            "Search qualitative_skill_definitions",
+            "Store qualitative_skill_definitions",
+            "Update qualitative_skill_definitions",
+            "Delete qualitative_skill_definitions",
+
+            "List qualitative_evaluation_templates",
+            "Search qualitative_evaluation_templates",
+            "Store qualitative_evaluation_templates",
+            "Update qualitative_evaluation_templates",
+            "Delete qualitative_evaluation_templates",
+
+            "List qualitative_evaluation_components",
+            "Store qualitative_evaluation_components",
+            "Delete qualitative_evaluation_components",
+
+            "Download qualitative_excel_templates"
 
         ];
 

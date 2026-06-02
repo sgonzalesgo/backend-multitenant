@@ -18,7 +18,9 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class GradeExcelTemplateRepository
 {
-    protected string $templatePath = 'templates/grades/grade_input_template.xlsx';
+
+
+//    protected string $templatePath = 'templates/grades/grade_input_template.xlsx';
 
     protected int $studentStartRow = 4;
 
@@ -97,7 +99,7 @@ class GradeExcelTemplateRepository
 
         $sourceSheetName = $this->resolveSourceSheetName($course);
 
-        $templateFullPath = storage_path('app/'.$this->templatePath);
+        $templateFullPath = config('excel_grade_files.templates.grade_input_numeric');
 
         if (! File::exists($templateFullPath)) {
             throw ValidationException::withMessages([

@@ -61,4 +61,9 @@ Route::middleware([
     require base_path('routes/academic/grade_component_definition.php');
     require base_path('routes/academic/grade_component_template.php');
     require base_path('routes/academic/grade_excel_template.php');
+    require base_path('routes/academic/qualitative_evaluation_areas.php');
+    require base_path('routes/academic/qualitative_skill_definitions.php');
+     require base_path('routes/academic/qualitative_evaluation_templates.php');
+    require base_path('routes/academic/qualitative_evaluation_components.php');
+    require base_path('routes/academic/qualitative_excel_templates.php');
 });

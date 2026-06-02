@@ -347,5 +347,56 @@ return [
         'unsupported_educational_level' => 'El nivel educativo seleccionado no es compatible con la generación de plantillas.',
     ],
 
+    'qualitative_evaluation_areas' => [
+        'listed' => 'Ámbitos de evaluación cualitativa obtenidos correctamente.',
+        'created' => 'Ámbito de evaluación cualitativa creado correctamente.',
+        'shown' => 'Ámbito de evaluación cualitativa obtenido correctamente.',
+        'updated' => 'Ámbito de evaluación cualitativa actualizado correctamente.',
+        'deleted' => 'Ámbito de evaluación cualitativa eliminado correctamente.',
+        'active_listed' => 'Ámbitos de evaluación cualitativa activos obtenidos correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
+
+    'qualitative_skill_definitions' => [
+        'listed' => 'Destrezas cualitativas obtenidas correctamente.',
+        'created' => 'Destreza cualitativa creada correctamente.',
+        'shown' => 'Destreza cualitativa obtenida correctamente.',
+        'updated' => 'Destreza cualitativa actualizada correctamente.',
+        'deleted' => 'Destreza cualitativa eliminada correctamente.',
+        'active_listed' => 'Destrezas cualitativas activas obtenidas correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+    ],
+
+    'qualitative_evaluation_templates' => [
+        'listed' => 'Plantillas de evaluación cualitativa obtenidas correctamente.',
+        'created' => 'Plantilla de evaluación cualitativa creada correctamente.',
+        'shown' => 'Plantilla de evaluación cualitativa obtenida correctamente.',
+        'updated' => 'Plantilla de evaluación cualitativa actualizada correctamente.',
+        'deleted' => 'Plantilla de evaluación cualitativa eliminada correctamente.',
+        'active_listed' => 'Plantillas de evaluación cualitativa activas obtenidas correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+        'invalid_skill_definitions' => 'Una o más destrezas seleccionadas no son válidas.',
+    ],
+
+    'qualitative_evaluation_components' => [
+        'listed' => 'Componentes de evaluación cualitativa obtenidos correctamente.',
+        'shown' => 'Componente de evaluación cualitativa obtenido correctamente.',
+        'generated' => 'Componentes de evaluación cualitativa generados correctamente.',
+        'deleted' => 'Componente de evaluación cualitativa eliminado correctamente.',
+        'tenant_not_resolved' => 'No se pudo resolver el tenant actual.',
+        'template_not_found' => 'La plantilla de evaluación cualitativa seleccionada no fue encontrada o está inactiva.',
+        'template_has_no_items' => 'La plantilla de evaluación cualitativa seleccionada no tiene ítems activos.',
+    ],
+
+    'qualitative_excel_template' => [
+        'tenant_not_resolved' => 'No fue posible identificar la institución actual.',
+        'course_not_found' => 'El curso seleccionado no existe.',
+        'parallel_not_found' => 'El paralelo seleccionado no existe.',
+        'subject_not_found' => 'La asignatura seleccionada no existe.',
+        'components_not_generated' => 'No se encontraron componentes de evaluación cualitativa para los filtros seleccionados.',
+        'students_not_found' => 'No se encontraron estudiantes matriculados para los filtros seleccionados.',
+        'template_generated' => 'Plantilla Excel cualitativa generada correctamente.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Dashboard del estudiante obtenido correctamente.',
 ];

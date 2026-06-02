@@ -347,5 +347,56 @@ return [
         'unsupported_educational_level' => 'The selected educational level is not supported for template generation.',
     ],
 
+    'qualitative_evaluation_areas' => [
+        'listed' => 'Qualitative evaluation areas retrieved successfully.',
+        'created' => 'Qualitative evaluation area created successfully.',
+        'shown' => 'Qualitative evaluation area retrieved successfully.',
+        'updated' => 'Qualitative evaluation area updated successfully.',
+        'deleted' => 'Qualitative evaluation area deleted successfully.',
+        'active_listed' => 'Active qualitative evaluation areas retrieved successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
+
+    'qualitative_skill_definitions' => [
+        'listed' => 'Qualitative skill definitions retrieved successfully.',
+        'created' => 'Qualitative skill definition created successfully.',
+        'shown' => 'Qualitative skill definition retrieved successfully.',
+        'updated' => 'Qualitative skill definition updated successfully.',
+        'deleted' => 'Qualitative skill definition deleted successfully.',
+        'active_listed' => 'Active qualitative skill definitions retrieved successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+    ],
+
+    'qualitative_evaluation_templates' => [
+        'listed' => 'Qualitative evaluation templates retrieved successfully.',
+        'created' => 'Qualitative evaluation template created successfully.',
+        'shown' => 'Qualitative evaluation template retrieved successfully.',
+        'updated' => 'Qualitative evaluation template updated successfully.',
+        'deleted' => 'Qualitative evaluation template deleted successfully.',
+        'active_listed' => 'Active qualitative evaluation templates retrieved successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+        'invalid_skill_definitions' => 'One or more selected skills are invalid.',
+    ],
+
+    'qualitative_evaluation_components' => [
+        'listed' => 'Qualitative evaluation components retrieved successfully.',
+        'shown' => 'Qualitative evaluation component retrieved successfully.',
+        'generated' => 'Qualitative evaluation components generated successfully.',
+        'deleted' => 'Qualitative evaluation component deleted successfully.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+        'template_not_found' => 'The selected qualitative evaluation template was not found or is inactive.',
+        'template_has_no_items' => 'The selected qualitative evaluation template has no active items.',
+    ],
+
+    'qualitative_excel_template' => [
+        'tenant_not_resolved' => 'Unable to determine the current institution.',
+        'course_not_found' => 'The selected course does not exist.',
+        'parallel_not_found' => 'The selected parallel does not exist.',
+        'subject_not_found' => 'The selected subject does not exist.',
+        'components_not_generated' => 'No qualitative evaluation components were found for the selected filters.',
+        'students_not_found' => 'No enrolled students were found for the selected filters.',
+        'template_generated' => 'Qualitative Excel template generated successfully.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Student dashboard retrieved successfully.',
 ];
