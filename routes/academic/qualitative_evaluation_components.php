@@ -9,4 +9,5 @@ Route::controller(QualitativeEvaluationComponentController::class)->group(functi
     Route::post('qualitative-evaluation-components/generate', 'generate')->middleware('permission:Store qualitative_evaluation_components');
     Route::get('qualitative-evaluation-components/{qualitativeEvaluationComponent}', 'show')->middleware('permission:List qualitative_evaluation_components');
     Route::delete('qualitative-evaluation-components/{qualitativeEvaluationComponent}', 'destroy')->middleware('permission:Delete qualitative_evaluation_components');
+    Route::delete('qualitative-evaluation-components/group/delete', 'destroyGroup')->middleware('permission:Delete qualitative_evaluation_components');
 });

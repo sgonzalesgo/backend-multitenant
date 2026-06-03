@@ -22,6 +22,9 @@ class QualitativeEvaluationComponentRepository
     /**
      * @throws ValidationException
      */
+    /**
+     * @throws ValidationException
+     */
     public function list(array $filters = []): LengthAwarePaginator
     {
         $tenantId = $this->resolveCurrentTenantId();
@@ -37,18 +40,7 @@ class QualitativeEvaluationComponentRepository
         $dir = strtolower((string) Arr::get($filters, 'dir', 'desc')) === 'asc' ? 'asc' : 'desc';
         $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
 
-        if (! in_array($sort, [
-            'order',
-            'is_required',
-            'is_active',
-            'created_at',
-            'updated_at',
-        ], true)) {
-            $sort = 'created_at';
-        }
-
         $decodedQ = $this->decodeQuery($rawQ);
-
         $columns = Arr::get($decodedQ, 'columns', []);
 
         $academicYearId = trim((string) Arr::get($columns, 'academic_year_id', ''));
@@ -59,11 +51,39 @@ class QualitativeEvaluationComponentRepository
         $shiftId = trim((string) Arr::get($columns, 'shift_id', ''));
         $subjectId = trim((string) Arr::get($columns, 'subject_id', ''));
         $templateId = trim((string) Arr::get($columns, 'qualitative_evaluation_template_id', ''));
-        $skillId = trim((string) Arr::get($columns, 'qualitative_skill_definition_id', ''));
         $isActive = Arr::get($columns, 'is_active', '');
 
-        return QualitativeEvaluationComponent::query()
-            ->with($this->relations())
+        $allowedSorts = [
+            'created_at',
+            'updated_at',
+            'academic_year_id',
+            'evaluation_period_id',
+            'course_id',
+            'parallel_id',
+            'subject_id',
+            'qualitative_evaluation_template_id',
+            'skills_count',
+        ];
+
+        if (! in_array($sort, $allowedSorts, true)) {
+            $sort = 'created_at';
+        }
+
+        $groupedQuery = QualitativeEvaluationComponent::query()
+            ->select([
+                'tenant_id',
+                'academic_year_id',
+                'evaluation_period_id',
+                'course_id',
+                'parallel_id',
+                'modality_id',
+                'shift_id',
+                'subject_id',
+                'qualitative_evaluation_template_id',
+                DB::raw('COUNT(*) as skills_count'),
+                DB::raw('MIN(created_at) as created_at'),
+                DB::raw('MAX(updated_at) as updated_at'),
+            ])
             ->where('tenant_id', $tenantId)
             ->when($academicYearId !== '', fn ($query) => $query->where('academic_year_id', $academicYearId))
             ->when($evaluationPeriodId !== '', fn ($query) => $query->where('evaluation_period_id', $evaluationPeriodId))
@@ -73,13 +93,153 @@ class QualitativeEvaluationComponentRepository
             ->when($shiftId !== '', fn ($query) => $query->where('shift_id', $shiftId))
             ->when($subjectId !== '', fn ($query) => $query->where('subject_id', $subjectId))
             ->when($templateId !== '', fn ($query) => $query->where('qualitative_evaluation_template_id', $templateId))
-            ->when($skillId !== '', fn ($query) => $query->where('qualitative_skill_definition_id', $skillId))
             ->when($isActive !== '', function ($query) use ($isActive) {
                 $query->where('is_active', filter_var($isActive, FILTER_VALIDATE_BOOLEAN));
             })
-            ->orderBy($sort, $dir)
-            ->paginate($perPage);
+            ->groupBy([
+                'tenant_id',
+                'academic_year_id',
+                'evaluation_period_id',
+                'course_id',
+                'parallel_id',
+                'modality_id',
+                'shift_id',
+                'subject_id',
+                'qualitative_evaluation_template_id',
+            ])
+            ->orderBy($sort, $dir);
+
+        $groups = $groupedQuery->paginate($perPage);
+
+        $items = $groups->getCollection();
+
+        $fullGroups = $items->map(function ($group) use ($tenantId) {
+            $components = QualitativeEvaluationComponent::query()
+                ->with($this->relations())
+                ->where('tenant_id', $tenantId)
+                ->where('academic_year_id', $group->academic_year_id)
+                ->where('evaluation_period_id', $group->evaluation_period_id)
+                ->where('course_id', $group->course_id)
+                ->where('parallel_id', $group->parallel_id)
+                ->where('qualitative_evaluation_template_id', $group->qualitative_evaluation_template_id)
+                ->when($group->modality_id, fn ($query) => $query->where('modality_id', $group->modality_id), fn ($query) => $query->whereNull('modality_id'))
+                ->when($group->shift_id, fn ($query) => $query->where('shift_id', $group->shift_id), fn ($query) => $query->whereNull('shift_id'))
+                ->when($group->subject_id, fn ($query) => $query->where('subject_id', $group->subject_id), fn ($query) => $query->whereNull('subject_id'))
+                ->orderBy('order')
+                ->get();
+
+            $first = $components->first();
+
+            return [
+                'id' => implode('|', [
+                    $group->academic_year_id,
+                    $group->evaluation_period_id,
+                    $group->course_id,
+                    $group->parallel_id,
+                    $group->modality_id ?: 'null',
+                    $group->shift_id ?: 'null',
+                    $group->subject_id ?: 'null',
+                    $group->qualitative_evaluation_template_id ?: 'null',
+                ]),
+
+                'tenant_id' => $group->tenant_id,
+
+                'academic_year_id' => $group->academic_year_id,
+                'evaluation_period_id' => $group->evaluation_period_id,
+                'course_id' => $group->course_id,
+                'parallel_id' => $group->parallel_id,
+                'modality_id' => $group->modality_id,
+                'shift_id' => $group->shift_id,
+                'subject_id' => $group->subject_id,
+                'qualitative_evaluation_template_id' => $group->qualitative_evaluation_template_id,
+
+                'skills_count' => (int) $group->skills_count,
+                'created_at' => $group->created_at,
+                'updated_at' => $group->updated_at,
+
+                'academic_year' => $first?->academicYear,
+                'evaluation_period' => $first?->evaluationPeriod,
+                'course' => $first?->course,
+                'parallel' => $first?->parallel,
+                'modality' => $first?->modality,
+                'shift' => $first?->shift,
+                'subject' => $first?->subject,
+                'template' => $first?->template,
+
+                'skills' => $components->map(fn ($component) => [
+                    'id' => $component->id,
+                    'qualitative_skill_definition_id' => $component->qualitative_skill_definition_id,
+                    'order' => $component->order,
+                    'is_required' => $component->is_required,
+                    'is_active' => $component->is_active,
+                    'skill_definition' => $component->skillDefinition,
+                ])->values(),
+            ];
+        });
+
+        $groups->setCollection($fullGroups);
+
+        return $groups;
     }
+
+//    public function list(array $filters = []): LengthAwarePaginator
+//    {
+//        $tenantId = $this->resolveCurrentTenantId();
+//
+//        if (! $tenantId) {
+//            throw ValidationException::withMessages([
+//                'tenant' => __('messages.qualitative_evaluation_components.tenant_not_resolved'),
+//            ]);
+//        }
+//
+//        $rawQ = Arr::get($filters, 'q', '');
+//        $sort = Arr::get($filters, 'sort', 'created_at');
+//        $dir = strtolower((string) Arr::get($filters, 'dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+//        $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
+//
+//        if (! in_array($sort, [
+//            'order',
+//            'is_required',
+//            'is_active',
+//            'created_at',
+//            'updated_at',
+//        ], true)) {
+//            $sort = 'created_at';
+//        }
+//
+//        $decodedQ = $this->decodeQuery($rawQ);
+//
+//        $columns = Arr::get($decodedQ, 'columns', []);
+//
+//        $academicYearId = trim((string) Arr::get($columns, 'academic_year_id', ''));
+//        $evaluationPeriodId = trim((string) Arr::get($columns, 'evaluation_period_id', ''));
+//        $courseId = trim((string) Arr::get($columns, 'course_id', ''));
+//        $parallelId = trim((string) Arr::get($columns, 'parallel_id', ''));
+//        $modalityId = trim((string) Arr::get($columns, 'modality_id', ''));
+//        $shiftId = trim((string) Arr::get($columns, 'shift_id', ''));
+//        $subjectId = trim((string) Arr::get($columns, 'subject_id', ''));
+//        $templateId = trim((string) Arr::get($columns, 'qualitative_evaluation_template_id', ''));
+//        $skillId = trim((string) Arr::get($columns, 'qualitative_skill_definition_id', ''));
+//        $isActive = Arr::get($columns, 'is_active', '');
+//
+//        return QualitativeEvaluationComponent::query()
+//            ->with($this->relations())
+//            ->where('tenant_id', $tenantId)
+//            ->when($academicYearId !== '', fn ($query) => $query->where('academic_year_id', $academicYearId))
+//            ->when($evaluationPeriodId !== '', fn ($query) => $query->where('evaluation_period_id', $evaluationPeriodId))
+//            ->when($courseId !== '', fn ($query) => $query->where('course_id', $courseId))
+//            ->when($parallelId !== '', fn ($query) => $query->where('parallel_id', $parallelId))
+//            ->when($modalityId !== '', fn ($query) => $query->where('modality_id', $modalityId))
+//            ->when($shiftId !== '', fn ($query) => $query->where('shift_id', $shiftId))
+//            ->when($subjectId !== '', fn ($query) => $query->where('subject_id', $subjectId))
+//            ->when($templateId !== '', fn ($query) => $query->where('qualitative_evaluation_template_id', $templateId))
+//            ->when($skillId !== '', fn ($query) => $query->where('qualitative_skill_definition_id', $skillId))
+//            ->when($isActive !== '', function ($query) use ($isActive) {
+//                $query->where('is_active', filter_var($isActive, FILTER_VALIDATE_BOOLEAN));
+//            })
+//            ->orderBy($sort, $dir)
+//            ->paginate($perPage);
+//    }
 
     public function find(QualitativeEvaluationComponent $qualitativeEvaluationComponent): QualitativeEvaluationComponent
     {
@@ -223,5 +383,40 @@ class QualitativeEvaluationComponentRepository
         }
 
         return is_array($rawQ) ? $rawQ : [];
+    }
+
+    public function deleteGroup(array $data): int
+    {
+        $tenantId = $this->resolveCurrentTenantId();
+
+        if (! $tenantId) {
+            throw ValidationException::withMessages([
+                'tenant' => __('messages.qualitative_evaluation_components.tenant_not_resolved'),
+            ]);
+        }
+
+        return QualitativeEvaluationComponent::query()
+            ->where('tenant_id', $tenantId)
+            ->where('academic_year_id', Arr::get($data, 'academic_year_id'))
+            ->where('evaluation_period_id', Arr::get($data, 'evaluation_period_id'))
+            ->where('course_id', Arr::get($data, 'course_id'))
+            ->where('parallel_id', Arr::get($data, 'parallel_id'))
+            ->where('qualitative_evaluation_template_id', Arr::get($data, 'qualitative_evaluation_template_id'))
+            ->when(
+                Arr::get($data, 'modality_id'),
+                fn ($query, $value) => $query->where('modality_id', $value),
+                fn ($query) => $query->whereNull('modality_id')
+            )
+            ->when(
+                Arr::get($data, 'shift_id'),
+                fn ($query, $value) => $query->where('shift_id', $value),
+                fn ($query) => $query->whereNull('shift_id')
+            )
+            ->when(
+                Arr::get($data, 'subject_id'),
+                fn ($query, $value) => $query->where('subject_id', $value),
+                fn ($query) => $query->whereNull('subject_id')
+            )
+            ->delete();
     }
 }

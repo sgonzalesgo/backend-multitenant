@@ -105,6 +105,9 @@ class CourseRepository
     /**
      * @throws ValidationException
      */
+    /**
+     * @throws ValidationException
+     */
     public function active(array $filters = []): LengthAwarePaginator
     {
         $tenantId = $this->resolveCurrentTenantId();
@@ -128,6 +131,21 @@ class CourseRepository
         $global = trim((string) Arr::get($decodedQ, 'global', ''));
         $columns = Arr::get($decodedQ, 'columns', []);
 
+        $educationalLevelCodes = Arr::get($columns, 'educational_level_codes', []);
+
+        if (is_string($educationalLevelCodes)) {
+            $decodedCodes = json_decode($educationalLevelCodes, true);
+
+            $educationalLevelCodes = is_array($decodedCodes)
+                ? $decodedCodes
+                : [$educationalLevelCodes];
+        }
+
+        $educationalLevelCodes = array_values(array_filter(
+            $educationalLevelCodes,
+            fn ($code) => trim((string) $code) !== ''
+        ));
+
         return Course::query()
             ->with([
                 'educationalLevel:id,tenant_id,code,name,has_specialty',
@@ -144,12 +162,20 @@ class CourseRepository
                     $q->where('code', 'ilike', "%{$global}%")
                         ->orWhere('name', 'ilike', "%{$global}%")
                         ->orWhereHas('educationalLevel', function ($q2) use ($global) {
-                            $q2->where('name', 'ilike', "%{$global}%");
+                            $q2->where('name', 'ilike', "%{$global}%")
+                                ->orWhere('code', 'ilike', "%{$global}%");
                         })
                         ->orWhereHas('instructor.person', function ($q3) use ($global) {
                             $q3->where('full_name', 'ilike', "%{$global}%")
                                 ->orWhere('email', 'ilike', "%{$global}%");
                         });
+                });
+            })
+
+            // ✅ FILTER BY EDUCATIONAL LEVEL CODES
+            ->when(! empty($educationalLevelCodes), function ($q) use ($educationalLevelCodes) {
+                $q->whereHas('educationalLevel', function ($q2) use ($educationalLevelCodes) {
+                    $q2->whereIn('code', $educationalLevelCodes);
                 });
             })
 

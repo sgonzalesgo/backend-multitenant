@@ -51,4 +51,17 @@ class QualitativeEvaluationComponentController extends Controller
             'message' => __('messages.qualitative_evaluation_components.deleted'),
         ]);
     }
+
+    public function destroyGroup(Request $request): JsonResponse
+    {
+        $deleted = $this->repository->deleteGroup($request->all());
+
+        return response()->json([
+            'code' => 200,
+            'message' => __('messages.qualitative_evaluation_components.deleted'),
+            'data' => [
+                'deleted' => $deleted,
+            ],
+        ]);
+    }
 }

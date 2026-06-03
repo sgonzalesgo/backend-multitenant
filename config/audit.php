@@ -43,6 +43,7 @@ use App\Models\Academic\LegalRepresentative;
 use App\Models\Academic\Modality;
 use App\Models\Academic\Parallel;
 use App\Models\Academic\QualitativeEvaluationArea;
+use App\Models\Academic\QualitativeEvaluationComponent;
 use App\Models\Academic\QualitativeEvaluationTemplate;
 use App\Models\Academic\QualitativeSkillDefinition;
 use App\Models\Academic\Shift;
@@ -151,6 +152,7 @@ return [
         QualitativeEvaluationArea::class,
         QualitativeSkillDefinition::class,
         QualitativeEvaluationTemplate::class,
+        QualitativeEvaluationComponent::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente
