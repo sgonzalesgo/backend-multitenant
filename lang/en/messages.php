@@ -398,5 +398,18 @@ return [
         'template_generated' => 'Qualitative Excel template generated successfully.',
     ],
 
+    'qualitative_evaluation_sessions' => [
+        'tenant_not_resolved' => 'Unable to determine the current institution.',
+        'not_found' => 'The qualitative evaluation session does not exist.',
+        'students_not_found' => 'No enrolled students were found.',
+        'components_not_generated' => 'No qualitative evaluation components were generated.',
+        'already_closed' => 'The qualitative evaluation session is already closed.',
+        'opened' => 'Qualitative evaluation session opened successfully.',
+        'shown' => 'Qualitative evaluation session retrieved successfully.',
+        'saved' => 'Qualitative evaluation saved successfully.',
+        'closed' => 'Qualitative evaluation session closed successfully.',
+        'reopened' => 'Qualitative evaluation session reopened successfully.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Student dashboard retrieved successfully.',
 ];

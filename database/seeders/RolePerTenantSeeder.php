@@ -258,7 +258,13 @@ class RolePerTenantSeeder extends Seeder
                 "Store qualitative_evaluation_components",
                 "Delete qualitative_evaluation_components",
 
-                "Download qualitative_excel_templates"
+                "Download qualitative_excel_templates",
+
+                "Open qualitative_evaluation_sessions",
+                "View qualitative_evaluation_sessions",
+                "Update qualitative_evaluation_sessions",
+                "Close qualitative_evaluation_sessions",
+                "Reopen qualitative_evaluation_sessions"
             ],
         ];
 

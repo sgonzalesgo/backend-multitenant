@@ -398,5 +398,18 @@ return [
         'template_generated' => 'Plantilla Excel cualitativa generada correctamente.',
     ],
 
+    'qualitative_evaluation_sessions' => [
+        'tenant_not_resolved' => 'No fue posible identificar la institución actual.',
+        'not_found' => 'La sesión de evaluación cualitativa no existe.',
+        'students_not_found' => 'No se encontraron estudiantes matriculados.',
+        'components_not_generated' => 'No se encontraron componentes de evaluación cualitativa generados.',
+        'already_closed' => 'La sesión de evaluación cualitativa ya está cerrada.',
+        'opened' => 'Sesión de evaluación cualitativa abierta correctamente.',
+        'shown' => 'Sesión de evaluación cualitativa obtenida correctamente.',
+        'saved' => 'Evaluación cualitativa guardada correctamente.',
+        'closed' => 'Sesión de evaluación cualitativa cerrada correctamente.',
+        'reopened' => 'Sesión de evaluación cualitativa reabierta correctamente.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Dashboard del estudiante obtenido correctamente.',
 ];

@@ -42,6 +42,8 @@ use App\Models\Academic\Instructor;
 use App\Models\Academic\LegalRepresentative;
 use App\Models\Academic\Modality;
 use App\Models\Academic\Parallel;
+use App\Models\Academic\QualitativeEvaluationArea;
+use App\Models\Academic\QualitativeSkillDefinition;
 use App\Models\Academic\Shift;
 use App\Models\Academic\Specialty;
 use App\Models\Academic\Student;
@@ -102,6 +104,8 @@ return [
         'academic_non_working_days' => AcademicNonWorkingDay::class,
         'grade_component_definitions' => GradeComponentDefinition::class,
         'grade_component_templates' => GradeComponentTemplate::class,
+        'qualitative_evaluation_areas' => QualitativeEvaluationArea::class,
+        'qualitative_skill_definitions' => QualitativeSkillDefinition::class,
     ],
 
     /*
@@ -142,6 +146,8 @@ return [
         AcademicNonWorkingDay::class,
         GradeComponentDefinition::class,
         GradeComponentTemplate::class,
+        QualitativeEvaluationArea::class,
+        QualitativeSkillDefinition::class,
 
         // OJO:
         // TenantPosition NO va aquí porque sus logs los manejas manualmente
