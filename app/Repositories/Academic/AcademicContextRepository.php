@@ -40,7 +40,7 @@ class AcademicContextRepository
     {
         $tenantId = $this->requireTenantId();
 
-        $schedules = $this->baseScheduleQuery($tenantId, $filters)
+        $schedules = $this->scheduleQueryByContext($tenantId, $filters)
             ->with($this->scheduleRelations())
             ->orderBy('created_at', 'desc')
             ->get();
@@ -55,7 +55,7 @@ class AcademicContextRepository
             'modalities' => $this->mapModalities($schedules),
             'shifts' => $this->mapShifts($schedules),
             'subjects' => $this->mapSubjects($schedules),
-            'instructors' => $this->mapInstructors($schedules),
+            'instructors' => $this->mapInstructors($schedules, $filters),
 
             'students' => $this->getStudents($tenantId, $filters),
 
@@ -68,7 +68,19 @@ class AcademicContextRepository
         ];
     }
 
-    protected function baseScheduleQuery(string $tenantId, array $filters)
+    protected function scheduleQueryByContext(string $tenantId, array $filters)
+    {
+        $context = Arr::get($filters, 'context');
+
+        return match ($context) {
+            'attendance' => $this->baseAttendanceScheduleQuery($tenantId, $filters),
+            'grades' => $this->baseGradesScheduleQuery($tenantId, $filters),
+            'reports' => $this->baseReportsScheduleQuery($tenantId, $filters),
+            default => $this->baseGradesScheduleQuery($tenantId, $filters),
+        };
+    }
+
+    protected function baseAttendanceScheduleQuery(string $tenantId, array $filters)
     {
         $canManageAllAttendances = $this->canManageAllAttendances();
 
@@ -410,9 +422,16 @@ class AcademicContextRepository
             ->values();
     }
 
-    protected function mapInstructors($schedules)
+    protected function mapInstructors($schedules, array $filters = [])
     {
-        $canManageAllAttendances = $this->canManageAllAttendances();
+        $context = Arr::get($filters, 'context');
+
+        if ($context === 'grades') {
+            $canManageAll = $this->canManageAllGrades();
+        } else {
+            $canManageAll = $this->canManageAllAttendances();
+        }
+
         $authenticatedInstructorId = $this->resolveAuthenticatedInstructorId();
 
         return $schedules
@@ -420,7 +439,7 @@ class AcademicContextRepository
             ->pluck('instructor')
             ->filter()
             ->when(
-                ! $canManageAllAttendances && $authenticatedInstructorId,
+                ! $canManageAll && $authenticatedInstructorId,
                 fn ($collection) => $collection->filter(
                     fn ($item) => (string) $item->id === (string) $authenticatedInstructorId
                 )
@@ -551,6 +570,13 @@ class AcademicContextRepository
         return $user && $user->can('Manage all_attendances');
     }
 
+    protected function canManageAllGrades(): bool
+    {
+        $user = auth()->user();
+
+        return $user && $user->can('Manage all_grades');
+    }
+
     protected function resolveAuthenticatedInstructorId(): ?string
     {
         $user = auth()->user();
@@ -564,4 +590,96 @@ class AcademicContextRepository
             ->where('person_id', $user->person_id)
             ->value('id');
     }
+
+    // flujo para grades
+    protected function baseGradesScheduleQuery(string $tenantId, array $filters)
+    {
+        $canManageAllGrades = $this->canManageAllGrades();
+
+        $authenticatedInstructorId = $this->resolveAuthenticatedInstructorId();
+
+        if (! $canManageAllGrades && ! $authenticatedInstructorId) {
+            return AcademicSchedule::query()->whereRaw('1 = 0');
+        }
+
+        return AcademicSchedule::query()
+            ->where('tenant_id', $tenantId)
+            ->where('academic_year_id', Arr::get($filters, 'academic_year_id'))
+            ->whereIn('status', ['draft', 'in_progress', 'accepted'])
+
+            ->when(
+                Arr::get($filters, 'educational_level_id'),
+                function ($query, $value) {
+                    $query->whereHas('course', function ($q) use ($value) {
+                        $q->where('educational_level_id', $value);
+                    });
+                }
+            )
+
+            ->when(
+                Arr::get($filters, 'course_id'),
+                fn ($query, $value) => $query->where('course_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'specialty_id'),
+                fn ($query, $value) => $query->where('specialty_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'parallel_id'),
+                fn ($query, $value) => $query->where('parallel_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'modality_id'),
+                fn ($query, $value) => $query->where('modality_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'shift_id'),
+                fn ($query, $value) => $query->where('shift_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'subject_id'),
+                function ($query, $value) {
+                    $query->whereHas('frequencies', function ($q) use ($value) {
+                        $q->where('subject_id', $value);
+                    });
+                }
+            )
+
+            // Si NO tiene permiso global, solo ve sus horarios
+            ->when(
+                ! $canManageAllGrades,
+                function ($query) use ($authenticatedInstructorId) {
+                    $query->whereHas('frequencies', function ($q) use ($authenticatedInstructorId) {
+                        $q->where('instructor_id', $authenticatedInstructorId);
+                    });
+                }
+            )
+
+            // Si selecciona un instructor
+            ->when(
+                Arr::get($filters, 'instructor_id'),
+                function ($query, $value) use ($canManageAllGrades, $authenticatedInstructorId) {
+                    $instructorId = $canManageAllGrades
+                        ? $value
+                        : $authenticatedInstructorId;
+
+                    $query->whereHas('frequencies', function ($q) use ($instructorId) {
+                        $q->where('instructor_id', $instructorId);
+                    });
+                }
+            );
+    }
+
+    // flujo para reportes
+    protected function baseReportsScheduleQuery(string $tenantId, array $filters)
+    {
+        return $this->baseGradesScheduleQuery($tenantId, $filters);
+    }
+
+
 }

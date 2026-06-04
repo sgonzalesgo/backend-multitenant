@@ -256,7 +256,10 @@ class PermissionSeeder extends Seeder
             "View qualitative_evaluation_sessions",
             "Update qualitative_evaluation_sessions",
             "Close qualitative_evaluation_sessions",
-            "Reopen qualitative_evaluation_sessions"
+            "Reopen qualitative_evaluation_sessions",
+
+            // para ver el menu de ingreso de calificaciones
+            "List grade_entries"
 
         ];
 

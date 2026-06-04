@@ -54,17 +54,21 @@ class AcademicContextFilterRequest extends FormRequest
                 $this->validateSpecialtyWhenRequired($validator);
             }
 
+//            if ($context === 'grades') {
+//                $this->validateAtLeastOneEvaluationPeriod($validator);
+//
+//                $this->validateRequiredFields($validator, [
+//                    'course_id',
+//                    'parallel_id',
+//                    'shift_id',
+//                    'subject_id',
+//                    'instructor_id',
+//                ]);
+//
+//                $this->validateSpecialtyWhenRequired($validator);
+//            }
+
             if ($context === 'grades') {
-                $this->validateAtLeastOneEvaluationPeriod($validator);
-
-                $this->validateRequiredFields($validator, [
-                    'course_id',
-                    'parallel_id',
-                    'shift_id',
-                    'subject_id',
-                    'instructor_id',
-                ]);
-
                 $this->validateSpecialtyWhenRequired($validator);
             }
 

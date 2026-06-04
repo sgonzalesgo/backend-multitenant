@@ -167,3 +167,6 @@ routes/console.php
 #------------------------------- permiso especial para poder gestionar todas las asistencias como administrador -----------------------------------
 Manage all_attendances
 
+#------------------------------- permiso especial para poder gestionar todas las notas como administrador -----------------------------------
+Manage all_grades
+
