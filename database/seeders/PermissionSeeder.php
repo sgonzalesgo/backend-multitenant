@@ -252,6 +252,7 @@ class PermissionSeeder extends Seeder
             "Delete qualitative_evaluation_components",
 
             "Download qualitative_excel_templates",
+            "List qualitative_evaluation_sessions",
             "Open qualitative_evaluation_sessions",
             "View qualitative_evaluation_sessions",
             "Update qualitative_evaluation_sessions",

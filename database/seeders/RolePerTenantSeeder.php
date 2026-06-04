@@ -260,6 +260,7 @@ class RolePerTenantSeeder extends Seeder
 
                 "Download qualitative_excel_templates",
 
+                "List qualitative_evaluation_sessions",
                 "Open qualitative_evaluation_sessions",
                 "View qualitative_evaluation_sessions",
                 "Update qualitative_evaluation_sessions",

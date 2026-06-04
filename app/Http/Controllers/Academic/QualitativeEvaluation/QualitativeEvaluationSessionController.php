@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Academic\QualitativeEvaluation;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Academic\QualitativeEvaluationSession\IndexQualitativeEvaluationSessionRequest;
 use App\Http\Requests\Academic\QualitativeEvaluationSession\OpenQualitativeEvaluationSessionRequest;
 use App\Http\Requests\Academic\QualitativeEvaluationSession\SaveQualitativeEvaluationSessionRequest;
 use App\Models\Academic\QualitativeEvaluationSession;
@@ -15,9 +16,18 @@ class QualitativeEvaluationSessionController extends Controller
         protected QualitativeEvaluationSessionRepository $repository
     ) {}
 
-    public function open(
-        OpenQualitativeEvaluationSessionRequest $request
-    ): JsonResponse {
+    public function index(IndexQualitativeEvaluationSessionRequest $request)
+    {
+        $sessions = $this->repository->index($request->validated());
+
+        return response()->json([
+            'code' => 200,
+            'message' => __('messages.success'),
+            'data' => $sessions,
+        ]);
+    }
+    public function open(OpenQualitativeEvaluationSessionRequest $request): JsonResponse
+    {
         return response()->json([
             'code' => 200,
             'message' => __('messages.qualitative_evaluation_sessions.opened'),
@@ -27,9 +37,8 @@ class QualitativeEvaluationSessionController extends Controller
         ]);
     }
 
-    public function show(
-        QualitativeEvaluationSession $qualitativeEvaluationSession
-    ): JsonResponse {
+    public function show(QualitativeEvaluationSession $qualitativeEvaluationSession): JsonResponse
+    {
         return response()->json([
             'code' => 200,
             'message' => __('messages.qualitative_evaluation_sessions.shown'),
@@ -39,9 +48,8 @@ class QualitativeEvaluationSessionController extends Controller
         ]);
     }
 
-    public function save(
-        SaveQualitativeEvaluationSessionRequest $request
-    ): JsonResponse {
+    public function save(SaveQualitativeEvaluationSessionRequest $request): JsonResponse
+    {
         return response()->json([
             'code' => 200,
             'message' => __('messages.qualitative_evaluation_sessions.saved'),
@@ -51,9 +59,8 @@ class QualitativeEvaluationSessionController extends Controller
         ]);
     }
 
-    public function close(
-        QualitativeEvaluationSession $qualitativeEvaluationSession
-    ): JsonResponse {
+    public function close(QualitativeEvaluationSession $qualitativeEvaluationSession): JsonResponse
+    {
         return response()->json([
             'code' => 200,
             'message' => __('messages.qualitative_evaluation_sessions.closed'),
@@ -63,9 +70,8 @@ class QualitativeEvaluationSessionController extends Controller
         ]);
     }
 
-    public function reopen(
-        QualitativeEvaluationSession $qualitativeEvaluationSession
-    ): JsonResponse {
+    public function reopen(QualitativeEvaluationSession $qualitativeEvaluationSession): JsonResponse
+    {
         return response()->json([
             'code' => 200,
             'message' => __('messages.qualitative_evaluation_sessions.reopened'),

@@ -8,6 +8,7 @@ use App\Models\Academic\QualitativeEvaluationRecord;
 use App\Models\Academic\QualitativeEvaluationRecordSkill;
 use App\Models\Academic\QualitativeEvaluationSession;
 use App\Models\Administration\Tenant;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,9 @@ class QualitativeEvaluationSessionRepository
             : null;
     }
 
+    /**
+     * @throws ValidationException
+     */
     protected function requireTenantId(): string
     {
         $tenantId = $this->resolveCurrentTenantId();
@@ -45,6 +49,174 @@ class QualitativeEvaluationSessionRepository
         return $tenantId;
     }
 
+    public function index(array $filters = []): LengthAwarePaginator
+    {
+        $tenantId = $this->requireTenantId();
+
+        $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
+
+        return QualitativeEvaluationSession::query()
+            ->with([
+                'academicYear:id,name,code',
+                'evaluationPeriod:id,name,code,start_date,end_date',
+                'course:id,name,code',
+                'specialty:id,name,code',
+                'parallel:id,name,code',
+                'modality:id,name,code',
+                'shift:id,name,code',
+                'subject:id,name,code',
+
+                'records:id,qualitative_evaluation_session_id,student_id',
+                'records.skills:id,qualitative_evaluation_record_id,qualitative_evaluation_component_id,value,observation',
+                'records.skills.component:id,order,is_required',
+            ])
+            ->where('tenant_id', $tenantId)
+
+            ->when(
+                Arr::get($filters, 'academic_year_id'),
+                fn ($query, $value) => $query->where('academic_year_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'evaluation_period_id'),
+                fn ($query, $value) => $query->where('evaluation_period_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'course_id'),
+                fn ($query, $value) => $query->where('course_id', $value)
+            )
+
+            ->when(
+                Arr::has($filters, 'specialty_id'),
+                fn ($query) => Arr::get($filters, 'specialty_id')
+                    ? $query->where('specialty_id', Arr::get($filters, 'specialty_id'))
+                    : $query->whereNull('specialty_id')
+            )
+
+            ->when(
+                Arr::get($filters, 'parallel_id'),
+                fn ($query, $value) => $query->where('parallel_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'modality_id'),
+                fn ($query, $value) => $query->where('modality_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'shift_id'),
+                fn ($query, $value) => $query->where('shift_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'subject_id'),
+                fn ($query, $value) => $query->where('subject_id', $value)
+            )
+
+            ->when(
+                Arr::get($filters, 'instructor_id'),
+                function ($query, $instructorId) use ($tenantId) {
+                    $query->whereExists(function ($sub) use ($tenantId, $instructorId) {
+                        $sub->selectRaw('1')
+                            ->from('academic_schedule_frequencies as frequencies')
+                            ->join(
+                                'academic_schedules as schedules',
+                                'schedules.id',
+                                '=',
+                                'frequencies.academic_schedule_id'
+                            )
+                            ->where('schedules.tenant_id', $tenantId)
+                            ->whereColumn(
+                                'schedules.academic_year_id',
+                                'qualitative_evaluation_sessions.academic_year_id'
+                            )
+                            ->whereColumn(
+                                'schedules.course_id',
+                                'qualitative_evaluation_sessions.course_id'
+                            )
+                            ->whereColumn(
+                                'schedules.parallel_id',
+                                'qualitative_evaluation_sessions.parallel_id'
+                            )
+                            ->whereColumn(
+                                'schedules.modality_id',
+                                'qualitative_evaluation_sessions.modality_id'
+                            )
+                            ->whereColumn(
+                                'schedules.shift_id',
+                                'qualitative_evaluation_sessions.shift_id'
+                            )
+                            ->whereColumn(
+                                'frequencies.subject_id',
+                                'qualitative_evaluation_sessions.subject_id'
+                            )
+                            ->where('frequencies.instructor_id', $instructorId)
+                            ->where(function ($q) {
+                                $q->whereColumn(
+                                    'schedules.specialty_id',
+                                    'qualitative_evaluation_sessions.specialty_id'
+                                )
+                                    ->orWhere(function ($subQuery) {
+                                        $subQuery
+                                            ->whereNull('schedules.specialty_id')
+                                            ->whereNull('qualitative_evaluation_sessions.specialty_id');
+                                    });
+                            });
+                    });
+                }
+            )
+
+            ->when(
+                Arr::get($filters, 'status'),
+                function ($query, $value) {
+                    if ($value === 'closed') {
+                        $query->where('is_closed', true);
+                    }
+
+                    if ($value === 'open') {
+                        $query->where(function ($q) {
+                            $q->where('is_closed', false)
+                                ->orWhereNull('is_closed');
+                        });
+                    }
+                }
+            )
+
+            ->when(
+                Arr::get($filters, 'q'),
+                function ($query, $value) {
+                    $query->where(function ($q) use ($value) {
+                        $q->whereHas('course', function ($sub) use ($value) {
+                            $sub->where('name', 'like', "%{$value}%")
+                                ->orWhere('code', 'like', "%{$value}%");
+                        })
+                            ->orWhereHas('parallel', function ($sub) use ($value) {
+                                $sub->where('name', 'like', "%{$value}%")
+                                    ->orWhere('code', 'like', "%{$value}%");
+                            })
+                            ->orWhereHas('subject', function ($sub) use ($value) {
+                                $sub->where('name', 'like', "%{$value}%")
+                                    ->orWhere('code', 'like', "%{$value}%");
+                            });
+                    });
+                }
+            )
+
+            ->orderByDesc('updated_at')
+            ->paginate($perPage)
+            ->through(function (QualitativeEvaluationSession $session) use ($tenantId) {
+                $session = $this->appendQualitativeSessionProgress($session);
+
+                $session->instructor = $this->resolveSessionInstructor($tenantId, $session);
+
+                return $session;
+            });
+    }
+
+    /**
+     * @throws ValidationException
+     */
     public function open(array $data): array
     {
         $tenantId = $this->requireTenantId();
@@ -340,6 +512,116 @@ class QualitativeEvaluationSessionRepository
             ->whereHas('enrollmentStatus', fn ($query) => $query->where('code', 'active'))
             ->orderByRaw('UPPER(persons.full_name) ASC')
             ->get();
+    }
+
+    protected function appendQualitativeSessionProgress(QualitativeEvaluationSession $session): QualitativeEvaluationSession
+    {
+        $recordsCount = $session->records->count();
+
+        $totalEvaluationsCount = 0;
+        $completedEvaluationsCount = 0;
+
+        foreach ($session->records as $record) {
+            foreach ($record->skills as $skill) {
+                $totalEvaluationsCount++;
+
+                if (! blank($skill->value)) {
+                    $completedEvaluationsCount++;
+                }
+            }
+        }
+
+        $pendingEvaluationsCount = max(
+            $totalEvaluationsCount - $completedEvaluationsCount,
+            0
+        );
+
+        $completedRecordsCount = $session->records
+            ->filter(fn ($record) => $this->isQualitativeRecordComplete($record))
+            ->count();
+
+        $session->students_count = $recordsCount;
+        $session->records_count = $recordsCount;
+
+        $session->completed_records_count = $completedRecordsCount;
+        $session->pending_records_count = max($recordsCount - $completedRecordsCount, 0);
+
+        $session->total_evaluations_count = $totalEvaluationsCount;
+        $session->completed_evaluations_count = $completedEvaluationsCount;
+        $session->pending_evaluations_count = $pendingEvaluationsCount;
+
+        $session->progress_percentage = $totalEvaluationsCount > 0
+            ? round(($completedEvaluationsCount / $totalEvaluationsCount) * 100, 2)
+            : 0;
+
+        $session->status = $session->is_closed
+            ? 'closed'
+            : 'open';
+
+        return $session;
+    }
+
+    protected function isQualitativeRecordComplete(QualitativeEvaluationRecord $record): bool
+    {
+        if ($record->skills->isEmpty()) {
+            return false;
+        }
+
+        return $record->skills->every(function ($skill) {
+            return ! blank($skill->value);
+        });
+    }
+
+    protected function resolveSessionInstructor(string $tenantId, QualitativeEvaluationSession $session): ?array
+    {
+        $frequency = DB::table('academic_schedule_frequencies as frequencies')
+            ->join('academic_schedules as schedules', 'schedules.id', '=', 'frequencies.academic_schedule_id')
+            ->join('instructors', 'instructors.id', '=', 'frequencies.instructor_id')
+            ->leftJoin('persons', 'persons.id', '=', 'instructors.person_id')
+            ->where('schedules.tenant_id', $tenantId)
+            ->where('schedules.academic_year_id', $session->academic_year_id)
+            ->where('schedules.course_id', $session->course_id)
+            ->where('schedules.parallel_id', $session->parallel_id)
+            ->where('schedules.modality_id', $session->modality_id)
+            ->where('schedules.shift_id', $session->shift_id)
+            ->where('frequencies.subject_id', $session->subject_id)
+            ->where(function ($query) use ($session) {
+                if ($session->specialty_id) {
+                    $query->where('schedules.specialty_id', $session->specialty_id);
+                } else {
+                    $query->whereNull('schedules.specialty_id');
+                }
+            })
+            ->select([
+                'instructors.id',
+                'instructors.person_id',
+                'instructors.academic_title',
+
+                'persons.id as person_record_id',
+                'persons.full_name',
+                'persons.legal_id',
+                'persons.email',
+                'persons.photo',
+            ])
+            ->first();
+
+        if (! $frequency) {
+            return null;
+        }
+
+        return [
+            'id' => $frequency->id,
+            'person_id' => $frequency->person_id,
+            'academic_title' => $frequency->academic_title,
+
+            'person' => [
+                'id' => $frequency->person_record_id,
+                'full_name' => $frequency->full_name,
+                'legal_id' => $frequency->legal_id,
+                'email' => $frequency->email,
+                'photo' => $frequency->photo,
+            ],
+        ];
     }
 
     protected function relations(): array
