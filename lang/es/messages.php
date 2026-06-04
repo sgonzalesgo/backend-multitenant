@@ -411,5 +411,21 @@ return [
         'reopened' => 'Sesión de evaluación cualitativa reabierta correctamente.',
     ],
 
+    'grade_session' => [
+        'tenant_not_resolved' => 'No fue posible determinar el tenant actual.',
+        'components_not_generated' => 'No se encontraron componentes de calificación generados para este contexto.',
+        'students_not_found' => 'No se encontraron estudiantes matriculados para este contexto.',
+        'session_closed' => 'La sesión de calificaciones ya está cerrada y no puede modificarse.',
+        'session_not_completed' => 'La sesión de calificaciones debe estar completa antes de cerrarse.',
+
+        'open_success' => 'Sesión de calificaciones abierta correctamente.',
+        'show_success' => 'Sesión de calificaciones obtenida correctamente.',
+        'saved_success' => 'Calificaciones guardadas correctamente.',
+        'closed_success' => 'Sesión de calificaciones cerrada correctamente.',
+        'session_not_closed' => 'La sesión de calificaciones no está cerrada.',
+        'reopened_success' => 'Sesión de calificaciones reabierta correctamente.',
+        'list_success' => 'Sesiones de calificaciones obtenidas correctamente.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Dashboard del estudiante obtenido correctamente.',
 ];

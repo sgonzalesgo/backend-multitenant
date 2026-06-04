@@ -67,4 +67,5 @@ Route::middleware([
     require base_path('routes/academic/qualitative_evaluation_components.php');
     require base_path('routes/academic/qualitative_excel_templates.php');
     require base_path('routes/academic/qualitative_evaluation_sessions.php');
+    require base_path('routes/academic/grade_session.php');
 });

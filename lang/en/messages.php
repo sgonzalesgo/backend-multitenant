@@ -411,5 +411,21 @@ return [
         'reopened' => 'Qualitative evaluation session reopened successfully.',
     ],
 
+    'grade_session' => [
+        'tenant_not_resolved' => 'Unable to determine the current tenant.',
+        'components_not_generated' => 'No grade components were found for this context.',
+        'students_not_found' => 'No enrolled students were found for this context.',
+        'session_closed' => 'The grade session is already closed and cannot be modified.',
+        'session_not_completed' => 'The grade session must be completed before it can be closed.',
+
+        'open_success' => 'Grade session opened successfully.',
+        'show_success' => 'Grade session retrieved successfully.',
+        'saved_success' => 'Grades saved successfully.',
+        'closed_success' => 'Grade session closed successfully.',
+        'session_not_closed' => 'The grade session is not closed.',
+        'reopened_success' => 'Grade session reopened successfully.',
+        'list_success' => 'Grade sessions retrieved successfully.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Student dashboard retrieved successfully.',
 ];

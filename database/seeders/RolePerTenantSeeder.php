@@ -267,7 +267,14 @@ class RolePerTenantSeeder extends Seeder
                 "Reopen qualitative_evaluation_sessions",
 
                 // para ver el menu de ingreso de calificaciones
-                "List grade_entries"
+                "List grade_entries",
+
+                "List grade_sessions",
+                "Create grade_sessions",
+                "View grade_sessions",
+                "Update grade_sessions",
+                "Close grade_sessions",
+                "Reopen grade_sessions"
             ],
         ];
 
