@@ -260,22 +260,14 @@ class RolePerTenantSeeder extends Seeder
 
                 "Download qualitative_excel_templates",
 
-                "List qualitative_evaluation_sessions",
-                "Open qualitative_evaluation_sessions",
-                "View qualitative_evaluation_sessions",
-                "Update qualitative_evaluation_sessions",
-                "Close qualitative_evaluation_sessions",
-                "Reopen qualitative_evaluation_sessions",
-
                 // para ver el menu de ingreso de calificaciones
-                "List grade_entries",
 
-                "List grade_sessions",
-                "Create grade_sessions",
-                "View grade_sessions",
-                "Update grade_sessions",
-                "Close grade_sessions",
-                "Reopen grade_sessions"
+                "List grade_entries",
+                "Create grade_entries",
+                "Search grade_entries",
+                "Update grade_entries",
+                "Close grade_entries",
+                "Reopen grade_entries"
             ],
         ];
 
