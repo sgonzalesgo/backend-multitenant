@@ -97,7 +97,9 @@ class GradeExcelTemplateRepository
             ]);
         }
 
-        $sourceSheetName = $this->resolveSourceSheetName($course);
+        $sourceSheetName = $this->resolveSourceSheetName(
+            Arr::get($data, 'educational_level_code')
+        );
 
         $templateFullPath = config('excel_grade_files.templates.grade_input_numeric');
 
@@ -179,18 +181,22 @@ class GradeExcelTemplateRepository
     /**
      * @throws ValidationException
      */
-    protected function resolveSourceSheetName(Course $course): string
+    /**
+     * @throws ValidationException
+     */
+    protected function resolveSourceSheetName(?string $educationalLevelCode): string
     {
-        $levelCode = strtoupper((string) $course->educationalLevel?->code);
+        $code = strtoupper(trim((string) $educationalLevelCode));
 
-        return match ($levelCode) {
-            'EBG' => '2DO EGB A 4TO EGB',
-            'BGU' => '5TO EGB HASTA 3RO BACHILLERATO',
-            'PR' => throw ValidationException::withMessages([
-                'course_id' => __('messages.grade_excel_template.preschool_not_supported_yet'),
+        return match ($code) {
+            'EBG24' => '2DO EGB A 4TO EGB',
+            'EBG', 'BGU' => '5TO EGB HASTA 3RO BACHILLERATO',
+            'PR', 'IN' => throw ValidationException::withMessages([
+                'educational_level_code' => __('messages.grade_excel_template.preschool_not_supported_yet'),
             ]),
+
             default => throw ValidationException::withMessages([
-                'course_id' => __('messages.grade_excel_template.unsupported_educational_level'),
+                'educational_level_code' => __('messages.grade_excel_template.unsupported_educational_level'),
             ]),
         };
     }

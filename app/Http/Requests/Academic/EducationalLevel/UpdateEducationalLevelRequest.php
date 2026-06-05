@@ -66,11 +66,6 @@ class UpdateEducationalLevelRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('educational_levels', 'name')
-                    ->ignore($educationalLevel)
-                    ->where(fn ($q) => $q
-                        ->where('tenant_id', $tenantId)
-                        ->whereNull('deleted_at')),
             ],
 
             'sort_order' => [

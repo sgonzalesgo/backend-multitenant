@@ -57,10 +57,6 @@ class StoreEducationalLevelRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('educational_levels', 'name')
-                    ->where(fn ($q) => $q
-                        ->where('tenant_id', $tenantId)
-                        ->whereNull('deleted_at')),
             ],
 
             'sort_order' => [

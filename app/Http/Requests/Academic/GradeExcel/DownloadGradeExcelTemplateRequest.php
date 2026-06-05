@@ -16,7 +16,7 @@ class DownloadGradeExcelTemplateRequest extends FormRequest
         return [
             'academic_year_id' => ['required', 'uuid', 'exists:academic_years,id'],
             'evaluation_period_id' => ['required', 'uuid', 'exists:evaluation_periods,id'],
-
+            'educational_level_code' => ['required', 'string'],
             'course_id' => ['required', 'uuid', 'exists:courses,id'],
             'specialty_id' => ['nullable', 'uuid', 'exists:specialties,id'],
             'parallel_id' => ['required', 'uuid', 'exists:parallels,id'],
