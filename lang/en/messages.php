@@ -286,6 +286,10 @@ return [
     'academic_context' => [
         'resolved' => 'Academic context resolved successfully.',
         'tenant_not_resolved' => 'The tenant could not be resolved.',
+        'evaluation_period_required' => 'An evaluation period must be selected.',
+        'evaluation_period_not_found' => 'The evaluation period was not found.',
+        'grades_not_allowed' => 'This evaluation period does not allow grade entry.',
+        'attendance_not_allowed' => 'This evaluation period does not allow attendance entry.',
     ],
     'academic_non_working_days' => [
         'listed' => 'Academic non-working days listed successfully.',

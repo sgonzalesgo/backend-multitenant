@@ -12,6 +12,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\Models\Academic\EvaluationPeriod;
+use Carbon\Carbon;
 
 
 class GradeSessionRepository
@@ -165,6 +167,11 @@ class GradeSessionRepository
     public function openSession(array $data): GradeSession
     {
         $tenantId = $this->requireTenantId();
+
+        // esto lo habilitamos para que pueda abrir cesiones de evaluación si queremos con base en periodos de evaluación
+//        $this->ensureGradesAreAllowed(
+//            Arr::get($data, 'evaluation_period_id')
+//        );
 
         $components = $this->getGradeComponents($tenantId, $data);
 
@@ -338,6 +345,11 @@ class GradeSessionRepository
         if ((string) $session->tenant_id !== $tenantId) {
             abort(404);
         }
+
+        // esto lo habilitamos para que pueda abrir cesiones de evaluación si queremos con base en periodos de evaluación
+        $this->ensureGradesAreAllowed(
+            $session->evaluation_period_id
+        );
 
         if ($session->status === 'closed') {
             throw ValidationException::withMessages([
@@ -522,6 +534,9 @@ class GradeSessionRepository
         return $this->show($session->refresh());
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function reopenSession(GradeSession $session): GradeSession
     {
         $tenantId = $this->requireTenantId();
@@ -529,6 +544,11 @@ class GradeSessionRepository
         if ((string) $session->tenant_id !== $tenantId) {
             abort(404);
         }
+
+        // esto lo habilitamos para que pueda gestionar cesiones de evaluación si queremos con base en periodos de evaluación
+        $this->ensureGradesAreAllowed(
+            $session->evaluation_period_id
+        );
 
         if ($session->status !== 'closed') {
             throw ValidationException::withMessages([
@@ -542,5 +562,52 @@ class GradeSessionRepository
         ]);
 
         return $this->show($session->refresh());
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    protected function ensureGradesAreAllowed(?string $evaluationPeriodId): void
+    {
+        $user = auth()->user();
+
+        if ($user && $user->can('Manage grades_outside_periods')) {
+            return;
+        }
+
+        if (! $evaluationPeriodId) {
+            throw ValidationException::withMessages([
+                'evaluation_period_id' => __('messages.academic_context.evaluation_period_required'),
+            ]);
+        }
+
+        $period = EvaluationPeriod::query()
+            ->where('id', $evaluationPeriodId)
+            ->first();
+
+        if (! $period) {
+            throw ValidationException::withMessages([
+                'evaluation_period_id' => __('messages.academic_context.evaluation_period_not_found'),
+            ]);
+        }
+
+        $today = Carbon::today();
+
+        $isInsidePeriod = $period->start_date !== null
+            && $period->end_date !== null
+            && $period->start_date->lte($today)
+            && $period->end_date->gte($today);
+
+        if ($isInsidePeriod) {
+            return;
+        }
+
+        if ($period->allow_grades) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'evaluation_period_id' => __('messages.academic_context.grades_not_allowed'),
+        ]);
     }
 }

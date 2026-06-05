@@ -286,6 +286,10 @@ return [
     'academic_context' => [
         'resolved' => 'Contexto académico resuelto correctamente.',
         'tenant_not_resolved' => 'No se pudo resolver el tenant.',
+        'evaluation_period_required' => 'Debe seleccionar un periodo de evaluación.',
+        'evaluation_period_not_found' => 'El periodo de evaluación no fue encontrado.',
+        'grades_not_allowed' => 'Este periodo no permite ingreso de notas.',
+        'attendance_not_allowed' => 'Este periodo no permite ingreso de asistencia.',
     ],
     'academic_non_working_days' => [
         'listed' => 'Días no laborables académicos listados correctamente.',

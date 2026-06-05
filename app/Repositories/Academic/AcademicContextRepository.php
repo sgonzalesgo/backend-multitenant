@@ -5,11 +5,14 @@ namespace App\Repositories\Academic;
 use App\Models\Academic\AcademicSchedule;
 use App\Models\Academic\AttendanceSession;
 use App\Models\Academic\Enrollment;
+use App\Models\Academic\EvaluationPeriod;
 use App\Models\Administration\Tenant;
 use App\Models\Academic\Instructor;
 use App\Models\Calendar\CalendarEvent;
 use Illuminate\Support\Arr;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use App\Models\General\AcademicNonWorkingDay;
 
@@ -47,7 +50,7 @@ class AcademicContextRepository
 
         return [
             'filters' => $filters,
-
+            'period_permissions' => $this->resolvePeriodPermissions($filters),
             'educational_levels' => $this->mapEducationalLevels($schedules),
             'courses' => $this->mapCourses($schedules),
             'specialties' => $this->mapSpecialties($schedules),
@@ -681,5 +684,84 @@ class AcademicContextRepository
         return $this->baseGradesScheduleQuery($tenantId, $filters);
     }
 
+    protected function resolvePeriodPermissions(array $filters): array
+    {
+        $context = Arr::get($filters, 'context');
+        $evaluationPeriodId = Arr::get($filters, 'evaluation_period_id');
+
+        $user = auth()->user();
+
+        if ($context === 'grades' && $user && $user->can('Manage grades_outside_periods')) {
+            return [
+                'can_manage' => true,
+                'reason' => null,
+            ];
+        }
+
+        if (! $evaluationPeriodId) {
+            return [
+                'can_manage' => false,
+                'reason' => __('messages.academic_context.evaluation_period_required'),
+            ];
+        }
+
+        $period = EvaluationPeriod::query()
+            ->where('id', $evaluationPeriodId)
+            ->first();
+
+        if (! $period) {
+            return [
+                'can_manage' => false,
+                'reason' => __('messages.academic_context.evaluation_period_not_found'),
+            ];
+        }
+
+        if ($context === 'attendance') {
+            if (! $period->allow_attendance) {
+                return [
+                    'can_manage' => false,
+                    'reason' => __('messages.academic_context.attendance_not_allowed'),
+                ];
+            }
+
+            return [
+                'can_manage' => true,
+                'reason' => null,
+            ];
+        }
+
+        if ($context === 'grades') {
+            $today = Carbon::today();
+
+            $isInsidePeriod = $period->start_date !== null
+                && $period->end_date !== null
+                && $period->start_date->lte($today)
+                && $period->end_date->gte($today);
+
+            if ($isInsidePeriod) {
+                return [
+                    'can_manage' => true,
+                    'reason' => null,
+                ];
+            }
+
+            if ($period->allow_grades) {
+                return [
+                    'can_manage' => true,
+                    'reason' => null,
+                ];
+            }
+
+            return [
+                'can_manage' => false,
+                'reason' => __('messages.academic_context.grades_not_allowed'),
+            ];
+        }
+
+        return [
+            'can_manage' => true,
+            'reason' => null,
+        ];
+    }
 
 }

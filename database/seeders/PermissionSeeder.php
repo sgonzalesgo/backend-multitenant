@@ -260,6 +260,9 @@ class PermissionSeeder extends Seeder
             "Reopen grade_entries",
             "Open grade_entries",
 
+//            permiso especial para que pueda gestionar cesiones de evaluación si queremos con base en periodos de evaluación
+            "Manage grades_outside_periods"
+
 
         ];
 

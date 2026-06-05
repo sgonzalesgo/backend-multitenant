@@ -13,6 +13,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use App\Models\Academic\EvaluationPeriod;
+use Carbon\Carbon;
 
 class QualitativeEvaluationSessionRepository
 {
@@ -292,6 +294,9 @@ class QualitativeEvaluationSessionRepository
         return $this->matrix($session);
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function save(array $data): array
     {
         $tenantId = $this->requireTenantId();
@@ -306,6 +311,11 @@ class QualitativeEvaluationSessionRepository
                 'qualitative_evaluation_session_id' => __('messages.qualitative_evaluation_sessions.not_found'),
             ]);
         }
+
+        // esto lo habilitamos para que pueda gestionar cesiones de evaluación si queremos con base en periodos de evaluación
+        $this->ensureGradesAreAllowed(
+            $session->evaluation_period_id
+        );
 
         if ($session->is_closed) {
             throw ValidationException::withMessages([
@@ -365,6 +375,11 @@ class QualitativeEvaluationSessionRepository
         if ((string) $session->tenant_id !== $tenantId) {
             abort(404);
         }
+
+        // esto lo habilitamos para que pueda gestionar cesiones de evaluación si queremos con base en periodos de evaluación
+        $this->ensureGradesAreAllowed(
+            $session->evaluation_period_id
+        );
 
         $session->is_closed = false;
         $session->save();
@@ -622,6 +637,53 @@ class QualitativeEvaluationSessionRepository
                 'photo' => $frequency->photo,
             ],
         ];
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    protected function ensureGradesAreAllowed(?string $evaluationPeriodId): void
+    {
+        $user = auth()->user();
+
+        if ($user && $user->can('Manage grades_outside_periods')) {
+            return;
+        }
+
+        if (! $evaluationPeriodId) {
+            throw ValidationException::withMessages([
+                'evaluation_period_id' => __('messages.academic_context.evaluation_period_required'),
+            ]);
+        }
+
+        $period = EvaluationPeriod::query()
+            ->where('id', $evaluationPeriodId)
+            ->first();
+
+        if (! $period) {
+            throw ValidationException::withMessages([
+                'evaluation_period_id' => __('messages.academic_context.evaluation_period_not_found'),
+            ]);
+        }
+
+        $today = Carbon::today();
+
+        $isInsidePeriod = $period->start_date !== null
+            && $period->end_date !== null
+            && $period->start_date->lte($today)
+            && $period->end_date->gte($today);
+
+        if ($isInsidePeriod) {
+            return;
+        }
+
+        if ($period->allow_grades) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'evaluation_period_id' => __('messages.academic_context.grades_not_allowed'),
+        ]);
     }
 
     protected function relations(): array

@@ -170,3 +170,6 @@ Manage all_attendances
 #------------------------------- permiso especial para poder gestionar todas las notas como administrador -----------------------------------
 Manage all_grades
 
+#------------------------------- permiso especial para poder abrir/cerrar/salvar cesiones de calificaciones de las notas como administrador -----------------------------------
+Manage grades_outside_period
+
