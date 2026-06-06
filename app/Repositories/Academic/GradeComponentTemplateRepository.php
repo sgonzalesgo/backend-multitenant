@@ -239,7 +239,7 @@ class GradeComponentTemplateRepository
     {
         $tenantId = (string) $template->tenant_id;
 
-        $template->items()->delete();
+        $template->items()->forceDelete();
 
         foreach ($items as $index => $item) {
             $template->items()->create([
@@ -254,6 +254,17 @@ class GradeComponentTemplateRepository
                 'settings' => Arr::get($item, 'settings'),
             ]);
         }
+    }
+
+    public function show(GradeComponentTemplate $template): GradeComponentTemplate
+    {
+        $tenantId = $this->requireTenantId();
+
+        if ((string) $template->tenant_id !== $tenantId) {
+            abort(404);
+        }
+
+        return $template->load($this->relations());
     }
 
     protected function relations(): array

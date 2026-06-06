@@ -43,17 +43,7 @@ class GradeComponentTemplateController extends Controller
 
     public function show(GradeComponentTemplate $gradeComponentTemplate): JsonResponse
     {
-        $template = $gradeComponentTemplate->load([
-            'academicYear:id,name,code',
-            'evaluationPeriod:id,name,code,start_date,end_date',
-            'educationalLevel:id,name,code',
-            'course:id,name,code',
-            'specialty:id,name,code',
-            'modality:id,name,code',
-            'shift:id,name,code',
-            'items' => fn ($query) => $query->orderBy('default_order'),
-            'items.evaluationType:id,name,code',
-        ]);
+        $template = $this->repository->show($gradeComponentTemplate);
 
         return response()->json([
             'code' => 200,
