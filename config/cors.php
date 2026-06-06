@@ -14,7 +14,7 @@ return [
     | broadcasting/auth es necesario para PrivateChannel (Echo/Reverb).
     |
     */
-    'paths' => ['api/*', 'auth/*', 'broadcasting/auth'],
+    'paths' => ['api/*', 'auth/*', 'storage/*', 'broadcasting/auth'],
 
     'allowed_methods' => ['*'],
 
@@ -24,7 +24,12 @@ return [
     |--------------------------------------------------------------------------
     | IMPORTANTE: No uses '*' si supports_credentials = true
     */
-    'allowed_origins' => ['https://app.eduolivo.test'],
+    'allowed_origins' => [
+        'https://app.eduolivo.test',
+        'https://api.eduolivo.test',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+    ],
 
     'allowed_origins_patterns' => [],
 
