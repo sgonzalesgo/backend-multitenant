@@ -67,8 +67,9 @@ class QualitativeEvaluationSessionRepository
                 'modality:id,name,code',
                 'shift:id,name,code',
                 'subject:id,name,code',
-
-                'records:id,qualitative_evaluation_session_id,student_id',
+                'instructor:id,person_id,academic_title',
+                'instructor.person:id,full_name,legal_id,email,photo',
+                'records:id,qualitative_evaluation_session_id,student_id,final_score,final_value',
                 'records.skills:id,qualitative_evaluation_record_id,qualitative_evaluation_component_id,value,observation',
                 'records.skills.component:id,order,is_required',
             ])
@@ -118,55 +119,7 @@ class QualitativeEvaluationSessionRepository
 
             ->when(
                 Arr::get($filters, 'instructor_id'),
-                function ($query, $instructorId) use ($tenantId) {
-                    $query->whereExists(function ($sub) use ($tenantId, $instructorId) {
-                        $sub->selectRaw('1')
-                            ->from('academic_schedule_frequencies as frequencies')
-                            ->join(
-                                'academic_schedules as schedules',
-                                'schedules.id',
-                                '=',
-                                'frequencies.academic_schedule_id'
-                            )
-                            ->where('schedules.tenant_id', $tenantId)
-                            ->whereColumn(
-                                'schedules.academic_year_id',
-                                'qualitative_evaluation_sessions.academic_year_id'
-                            )
-                            ->whereColumn(
-                                'schedules.course_id',
-                                'qualitative_evaluation_sessions.course_id'
-                            )
-                            ->whereColumn(
-                                'schedules.parallel_id',
-                                'qualitative_evaluation_sessions.parallel_id'
-                            )
-                            ->whereColumn(
-                                'schedules.modality_id',
-                                'qualitative_evaluation_sessions.modality_id'
-                            )
-                            ->whereColumn(
-                                'schedules.shift_id',
-                                'qualitative_evaluation_sessions.shift_id'
-                            )
-                            ->whereColumn(
-                                'frequencies.subject_id',
-                                'qualitative_evaluation_sessions.subject_id'
-                            )
-                            ->where('frequencies.instructor_id', $instructorId)
-                            ->where(function ($q) {
-                                $q->whereColumn(
-                                    'schedules.specialty_id',
-                                    'qualitative_evaluation_sessions.specialty_id'
-                                )
-                                    ->orWhere(function ($subQuery) {
-                                        $subQuery
-                                            ->whereNull('schedules.specialty_id')
-                                            ->whereNull('qualitative_evaluation_sessions.specialty_id');
-                                    });
-                            });
-                    });
-                }
+                fn ($query, $value) => $query->where('instructor_id', $value)
             )
 
             ->when(
@@ -208,11 +161,7 @@ class QualitativeEvaluationSessionRepository
             ->orderByDesc('updated_at')
             ->paginate($perPage)
             ->through(function (QualitativeEvaluationSession $session) use ($tenantId) {
-                $session = $this->appendQualitativeSessionProgress($session);
-
-                $session->instructor = $this->resolveSessionInstructor($tenantId, $session);
-
-                return $session;
+                return $this->appendQualitativeSessionProgress($session);
             });
     }
 
@@ -251,6 +200,7 @@ class QualitativeEvaluationSessionRepository
                     'modality_id' => Arr::get($data, 'modality_id'),
                     'shift_id' => Arr::get($data, 'shift_id'),
                     'subject_id' => Arr::get($data, 'subject_id'),
+                    'instructor_id' => Arr::get($data, 'instructor_id'),
                 ],
                 [
                     'name' => Arr::get($data, 'name', 'Evaluación cualitativa'),
@@ -283,6 +233,7 @@ class QualitativeEvaluationSessionRepository
                         ]
                     );
                 }
+                $this->recalculateRecord($record);
             }
 
             return $this->matrix($session->refresh());
@@ -348,6 +299,8 @@ class QualitativeEvaluationSessionRepository
                             'observation' => Arr::get($skillPayload, 'observation'),
                         ]);
                 }
+
+                $this->recalculateRecord($record);
             }
 
             return $this->matrix($session->refresh());
@@ -455,6 +408,8 @@ class QualitativeEvaluationSessionRepository
                     'student_code' => $record->student?->student_code,
                     'student_name' => $record->student?->person?->full_name,
                     'student_legal_id' => $record->student?->person?->legal_id,
+                    'final_score' => $record->final_score,
+                    'final_value' => $record->final_value,
                     'skills' => $skills,
                 ];
             })
@@ -473,6 +428,7 @@ class QualitativeEvaluationSessionRepository
                 'modality' => $session->modality,
                 'shift' => $session->shift,
                 'subject' => $session->subject,
+                'instructor' => $session->instructor,
             ],
             'scale' => [
                 ['value' => 'I', 'label' => 'Iniciado'],
@@ -587,58 +543,6 @@ class QualitativeEvaluationSessionRepository
         });
     }
 
-    protected function resolveSessionInstructor(string $tenantId, QualitativeEvaluationSession $session): ?array
-    {
-        $frequency = DB::table('academic_schedule_frequencies as frequencies')
-            ->join('academic_schedules as schedules', 'schedules.id', '=', 'frequencies.academic_schedule_id')
-            ->join('instructors', 'instructors.id', '=', 'frequencies.instructor_id')
-            ->leftJoin('persons', 'persons.id', '=', 'instructors.person_id')
-            ->where('schedules.tenant_id', $tenantId)
-            ->where('schedules.academic_year_id', $session->academic_year_id)
-            ->where('schedules.course_id', $session->course_id)
-            ->where('schedules.parallel_id', $session->parallel_id)
-            ->where('schedules.modality_id', $session->modality_id)
-            ->where('schedules.shift_id', $session->shift_id)
-            ->where('frequencies.subject_id', $session->subject_id)
-            ->where(function ($query) use ($session) {
-                if ($session->specialty_id) {
-                    $query->where('schedules.specialty_id', $session->specialty_id);
-                } else {
-                    $query->whereNull('schedules.specialty_id');
-                }
-            })
-            ->select([
-                'instructors.id',
-                'instructors.person_id',
-                'instructors.academic_title',
-
-                'persons.id as person_record_id',
-                'persons.full_name',
-                'persons.legal_id',
-                'persons.email',
-                'persons.photo',
-            ])
-            ->first();
-
-        if (! $frequency) {
-            return null;
-        }
-
-        return [
-            'id' => $frequency->id,
-            'person_id' => $frequency->person_id,
-            'academic_title' => $frequency->academic_title,
-
-            'person' => [
-                'id' => $frequency->person_record_id,
-                'full_name' => $frequency->full_name,
-                'legal_id' => $frequency->legal_id,
-                'email' => $frequency->email,
-                'photo' => $frequency->photo,
-            ],
-        ];
-    }
-
     /**
      * @throws ValidationException
      */
@@ -686,6 +590,70 @@ class QualitativeEvaluationSessionRepository
         ]);
     }
 
+
+    // estos metodos son para cualcular la evaluacion final de un alumno
+    protected function recalculateRecord(QualitativeEvaluationRecord $record): void
+    {
+        $record->load([
+            'skills.component',
+        ]);
+
+        $scale = config('qualitative_evaluation.scale', []);
+
+        $values = $record->skills
+            ->pluck('value')
+            ->filter()
+            ->map(function ($value) use ($scale) {
+                $item = $scale[$value] ?? null;
+
+                if (! $item || ! ($item['is_evaluable'] ?? false)) {
+                    return null;
+                }
+
+                return $item['numeric_value'] ?? null;
+            })
+            ->filter(fn ($value) => $value !== null)
+            ->values();
+
+        if ($values->isEmpty()) {
+            $record->update([
+                'final_score' => null,
+                'final_value' => null,
+            ]);
+
+            return;
+        }
+
+        $finalScore = round($values->avg(), 2);
+
+        $record->update([
+            'final_score' => $finalScore,
+            'final_value' => $this->resolveFinalValue($finalScore),
+        ]);
+    }
+
+    protected function resolveFinalValue(float $finalScore): ?string
+    {
+        $ranges = config('qualitative_evaluation.final_ranges', []);
+
+        foreach ($ranges as $value => $range) {
+            $min = $range['min'] ?? null;
+            $max = $range['max'] ?? null;
+
+            if ($min === null || $max === null) {
+                continue;
+            }
+
+            if ($finalScore >= $min && $finalScore <= $max) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    // hasta aca llegan los metodos para calcular la evaluacion final de un alumno
+
     protected function relations(): array
     {
         return [
@@ -697,6 +665,8 @@ class QualitativeEvaluationSessionRepository
             'modality:id,code,name',
             'shift:id,code,name',
             'subject:id,code,name',
+            'instructor:id,person_id,academic_title',
+            'instructor.person:id,full_name,legal_id,email,photo',
             'records.student.person:id,full_name,legal_id,email,photo',
             'records.enrollment:id,student_id,enrollment_status_id',
             'records.skills.component.skillDefinition.area:id,tenant_id,code,name',

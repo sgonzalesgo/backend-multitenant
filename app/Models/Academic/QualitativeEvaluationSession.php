@@ -23,6 +23,7 @@ class QualitativeEvaluationSession extends Model
         'modality_id',
         'shift_id',
         'subject_id',
+        'instructor_id',
         'name',
         'is_closed',
     ];
@@ -74,5 +75,10 @@ class QualitativeEvaluationSession extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class, 'subject_id');
+    }
+
+    public function instructor(): BelongsTo
+    {
+        return $this->belongsTo(Instructor::class, 'instructor_id');
     }
 }

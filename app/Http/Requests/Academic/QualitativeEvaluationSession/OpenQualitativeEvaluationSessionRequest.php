@@ -47,6 +47,8 @@ class OpenQualitativeEvaluationSessionRequest extends FormRequest
             'modality_id' => ['required', 'uuid', Rule::exists('modalities', 'id')],
             'shift_id' => ['required', 'uuid', Rule::exists('shifts', 'id')],
             'subject_id' => ['required', 'uuid', Rule::exists('subjects', 'id')],
+            'instructor_id' => ['required', 'uuid', Rule::exists('instructors', 'id'),
+            ],
             'name' => ['nullable', 'string', 'max:255'],
         ];
     }

@@ -267,8 +267,8 @@ class GradeSessionRepository
             'modality:id,name,code',
             'shift:id,name,code',
             'subject:id,name,code,evaluation_type_id,is_average,is_behavior',
-            'instructor:id,person_id',
-            'instructor.person:id,full_name,legal_id,email',
+            'instructor:id,person_id,academic_title',
+            'instructor.person:id,full_name,legal_id,email,photo',
 
             'records' => fn ($query) => $query
                 ->join('persons', 'persons.id', '=', 'grade_records.person_id')

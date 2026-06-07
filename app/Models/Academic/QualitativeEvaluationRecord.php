@@ -18,6 +18,12 @@ class QualitativeEvaluationRecord extends Model
         'qualitative_evaluation_session_id',
         'student_id',
         'enrollment_id',
+        'final_score',
+        'final_value',
+    ];
+
+    protected $casts = [
+        'final_score' => 'decimal:2',
     ];
 
     public function session(): BelongsTo
