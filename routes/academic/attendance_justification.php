@@ -1,7 +1,8 @@
 <?php
 
+use App\Http\Controllers\Academic\AttendanceJustificationController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\academic\AttendanceJustificationController;
+
 
 Route::controller(AttendanceJustificationController::class)->group(function () {
 

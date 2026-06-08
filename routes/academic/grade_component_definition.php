@@ -1,6 +1,7 @@
 <?php
 
-use App\Http\Controllers\academic\GradeComponentDefinitionController;
+
+use App\Http\Controllers\Academic\GradeComponentDefinitionController;
 use Illuminate\Support\Facades\Route;
 
 Route::controller(GradeComponentDefinitionController::class)->group(function () {
