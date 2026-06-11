@@ -46,4 +46,9 @@ return new class extends Migration
             $t->index(['is_active']);
         });
     }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('tenants');
+    }
 };

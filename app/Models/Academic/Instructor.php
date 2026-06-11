@@ -23,9 +23,12 @@ class Instructor extends Model
         'person_id',
         'department_id',
         'tenant_id',
+        'code',
         'academic_title',
         'academic_level',
+        'specialty',
         'status',
+        'status_changed_at',
     ];
 
     public function person(): BelongsTo

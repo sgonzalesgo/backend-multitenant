@@ -72,7 +72,7 @@ class UpdateSubjectRequest extends FormRequest
             'code' => [
                 'nullable',
                 'string',
-                'max:3',
+                'max:20',
                 Rule::unique('subjects', 'code')
                     ->ignore($subject)
                     ->where(function ($query) use ($tenantId) {

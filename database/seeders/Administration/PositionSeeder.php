@@ -17,6 +17,7 @@ class PositionSeeder extends Seeder
             ['name' => 'Secretario(a)', 'code' => 'SECRETARY', 'is_active' => true],
             ['name' => 'Inspector(a)', 'code' => 'INSPECTOR', 'is_active' => true],
             ['name' => 'Coordinador(a)', 'code' => 'COORDINATOR', 'is_active' => true],
+            ['name' => 'Director(a)', 'code' => 'DIRECTOR', 'is_active' => true],
         ];
 
         foreach ($positions as $position) {

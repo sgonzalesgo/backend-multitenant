@@ -89,7 +89,8 @@ class AuthRepository
             throw $e;
         } catch (Throwable $e) {
             report($e);
-            throw new HttpException(500, __('errors.server_error'));
+            throw new HttpException(500, $e->getMessage());
+//            throw new HttpException(500, __('errors.server_error'));
         }
     }
 

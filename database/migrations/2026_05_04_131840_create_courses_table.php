@@ -22,9 +22,10 @@ return new class extends Migration
                 ->restrictOnDelete();
 
             $table->foreignUuid('instructor_id')
+                ->nullable()
                 ->constrained('instructors')
                 ->cascadeOnUpdate()
-                ->restrictOnDelete();
+                ->nullOnDelete();
 
             $table->unsignedInteger('level_number');
             $table->string('code', 50);

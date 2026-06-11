@@ -113,6 +113,21 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        # configuracion para la segunda base de datos
+        'pgsql_v1' => [
+            'driver' => 'pgsql',
+            'host' => env('V1_DB_HOST', '127.0.0.1'),
+            'port' => env('V1_DB_PORT', '5432'),
+            'database' => env('V1_DB_DATABASE', 'eduolivo_v1_local'),
+            'username' => env('V1_DB_USERNAME', 'postgres'),
+            'password' => env('V1_DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
     ],
 
     /*

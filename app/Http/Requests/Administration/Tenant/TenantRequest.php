@@ -136,6 +136,7 @@ namespace App\Http\Requests\Administration\Tenant;
 
 use App\Models\Administration\TenantPosition;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class TenantRequest extends FormRequest
@@ -148,6 +149,8 @@ class TenantRequest extends FormRequest
     public function rules(): array
     {
         $id = $this->route('id');
+
+        Log::info('ID: ' . $id);
 
         return [
             'name' => [
@@ -278,6 +281,11 @@ class TenantRequest extends FormRequest
                 }
             }
         });
+    }
+
+    protected function prepareForValidation(): void
+    {
+        Log::info('Tenant Request', $this->all());
     }
 
     public function attributes(): array

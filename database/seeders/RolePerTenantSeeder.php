@@ -263,7 +263,7 @@ class RolePerTenantSeeder extends Seeder
                 // para ver el menu de ingreso de calificaciones
 
                 "List grade_entries",
-                "Create grade_entries",
+                "Store grade_entries",
                 "Search grade_entries",
                 "Update grade_entries",
                 "Close grade_entries",

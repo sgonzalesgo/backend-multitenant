@@ -12,9 +12,15 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         // Usuarios GLOBALes (sin tenant_id)
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@example.test'],
-            ['name' => 'Global Admin', 'password' => bcrypt('secret123')]
+        $admin = User::query()->updateOrCreate(
+            [
+                'email' => 'admin@example.test',
+            ],
+            [
+                'name' => 'Global Admin',
+                'password' => bcrypt('secret123'),
+                'email_verified_at' => now(),
+            ]
         );
 
         // Asignación por tenant:

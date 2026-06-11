@@ -66,7 +66,7 @@ class StoreSubjectRequest extends FormRequest
             'code' => [
                 'nullable',
                 'string',
-                'max:3',
+                'max:20',
                 Rule::unique('subjects', 'code')
                     ->where(function ($query) use ($tenantId) {
                         return $query

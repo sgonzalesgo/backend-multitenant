@@ -8,13 +8,13 @@
 `php artisan ide-helper:meta`
 
 [//]: # (Pasos previos)
-`php artisan passport:keys`
-`php artisan passport:client --personal`
+php artisan passport:keys
+php artisan passport:client --personal
 
 [//]: # (Corre seeders)
-`php artisan db:seed --class=PermissionSeeder`
-`php artisan db:seed --class=RoleSeeder`
-`php artisan db:seed --class=UserSeeder`
+php artisan db:seed --class=PermissionSeeder
+php artisan db:seed --class=RoleSeeder
+php artisan db:seed --class=UserSeeder
 
 [//]: # (Tenemos un servicio para identificar a las personas, esto lo usamos para cuando un usuario de un colegio quiere buscar a
 [//]: # (un estudiante para matricularlo que es de otro colegio, para buscarlo se usa ese servicio&#41;)

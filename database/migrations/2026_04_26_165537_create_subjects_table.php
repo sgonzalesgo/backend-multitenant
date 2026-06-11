@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('subject_type_id')->nullable();
             $table->uuid('evaluation_type_id')->nullable();
 
-            $table->string('code', 3);
+            $table->string('code', 50);
             $table->string('name', 100);
             $table->string('description', 255)->nullable();
 
