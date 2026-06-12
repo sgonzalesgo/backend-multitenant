@@ -267,7 +267,16 @@ class RolePerTenantSeeder extends Seeder
                 "Search grade_entries",
                 "Update grade_entries",
                 "Close grade_entries",
-                "Reopen grade_entries"
+                "Reopen grade_entries",
+
+                "List support_tickets",
+                "Store support_tickets",
+                "Update support_tickets",
+                "Assign support_tickets",
+                "Changue status_support_tickets",
+                "Delete support_tickets",
+
+
             ],
         ];
 

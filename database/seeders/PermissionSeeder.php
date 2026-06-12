@@ -260,6 +260,13 @@ class PermissionSeeder extends Seeder
             "Reopen grade_entries",
             "Open grade_entries",
 
+            "List support_tickets",
+            "Store support_tickets",
+            "Update support_tickets",
+            "Assign support_tickets",
+            "Changue status_support_tickets",
+            "Delete support_tickets",
+
 //            permiso especial para que pueda gestionar cesiones de evaluación si queremos con base en periodos de evaluación
             "Manage grades_outside_periods"
 

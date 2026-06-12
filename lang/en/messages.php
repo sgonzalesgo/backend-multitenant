@@ -431,5 +431,25 @@ return [
         'list_success' => 'Grade sessions retrieved successfully.',
     ],
 
+    'support_tickets' => [
+        'listed' => 'Support tickets listed successfully.',
+        'created' => 'Support ticket created successfully.',
+        'shown' => 'Support ticket retrieved successfully.',
+        'updated' => 'Support ticket updated successfully.',
+        'deleted' => 'Support ticket deleted successfully.',
+        'assigned' => 'Support ticket assigned successfully.',
+        'status_changed' => 'Support ticket status changed successfully.',
+        'comment_created' => 'Support ticket comment created successfully.',
+
+        'comment_updated' => 'Support ticket comment updated successfully.',
+        'comment_deleted' => 'Support ticket comment deleted successfully.',
+
+        'not_found' => 'Support ticket not found.',
+        'tenant_not_resolved' => 'The current tenant could not be resolved.',
+        'default_assignee_not_found' => 'The default support assignee could not be found.',
+        'attachments_added' => 'Support ticket attachments added successfully.',
+        'attachment_deleted' => 'Support ticket attachment deleted successfully.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Student dashboard retrieved successfully.',
 ];

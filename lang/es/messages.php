@@ -431,5 +431,25 @@ return [
         'list_success' => 'Sesiones de calificaciones obtenidas correctamente.',
     ],
 
+    'support_tickets' => [
+        'listed' => 'Tickets de soporte listados correctamente.',
+        'created' => 'Ticket de soporte creado correctamente.',
+        'shown' => 'Ticket de soporte obtenido correctamente.',
+        'updated' => 'Ticket de soporte actualizado correctamente.',
+        'deleted' => 'Ticket de soporte eliminado correctamente.',
+        'assigned' => 'Ticket de soporte asignado correctamente.',
+        'status_changed' => 'Estado del ticket de soporte actualizado correctamente.',
+        'comment_created' => 'Comentario del ticket de soporte creado correctamente.',
+
+        'comment_updated' => 'Comentario del ticket de soporte actualizado correctamente.',
+        'comment_deleted' => 'Comentario del ticket de soporte eliminado correctamente.',
+
+        'not_found' => 'Ticket de soporte no encontrado.',
+        'tenant_not_resolved' => 'No se pudo resolver la institución actual.',
+        'default_assignee_not_found' => 'No se pudo encontrar el usuario de soporte predeterminado.',
+        'attachments_added' => 'Adjuntos del ticket de soporte agregados correctamente.',
+        'attachment_deleted' => 'Adjunto del ticket de soporte eliminado correctamente.',
+    ],
+
     'dashboard_retrieved_successfully' => 'Dashboard del estudiante obtenido correctamente.',
 ];
