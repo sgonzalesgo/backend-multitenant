@@ -10,6 +10,8 @@ use App\Repositories\Academic\AcademicScheduleRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use App\Jobs\Academic\GenerateAcademicScheduleCalendarEventsJob;
+
 
 class AcademicScheduleController extends Controller
 {
@@ -71,10 +73,7 @@ class AcademicScheduleController extends Controller
         ], Response::HTTP_OK);
     }
 
-    public function update(
-        UpdateAcademicScheduleRequest $request,
-        AcademicSchedule $academicSchedule
-    ): JsonResponse {
+    public function update(UpdateAcademicScheduleRequest $request, AcademicSchedule $academicSchedule): JsonResponse {
         $academicSchedule = $this->repo->update(
             $academicSchedule,
             $request->validated()
@@ -96,6 +95,37 @@ class AcademicScheduleController extends Controller
             'code' => Response::HTTP_OK,
             'message' => __('messages.academic_schedules.deleted'),
             'data' => null,
+            'error' => null,
+        ], Response::HTTP_OK);
+    }
+
+    public function generateCalendarEvents(AcademicSchedule $academicSchedule): JsonResponse
+    {
+        $this->repo->ensureInstructorsHaveUsers($academicSchedule);
+
+        $academicSchedule = $this->repo->markCalendarSyncAsProcessing($academicSchedule);
+
+        GenerateAcademicScheduleCalendarEventsJob::dispatch(
+            (string) $academicSchedule->id,
+            (string) $academicSchedule->tenant_id
+        );
+
+        return response()->json([
+            'code' => Response::HTTP_ACCEPTED,
+            'message' => __('messages.academic_schedules.calendar_generation_started'),
+            'data' => $academicSchedule,
+            'error' => null,
+        ], Response::HTTP_ACCEPTED);
+    }
+
+    public function calendarSyncStatus(AcademicSchedule $academicSchedule): JsonResponse
+    {
+        $data = $this->repo->calendarSyncStatus($academicSchedule);
+
+        return response()->json([
+            'code' => Response::HTTP_OK,
+            'message' => __('messages.academic_schedules.calendar_sync_status_shown'),
+            'data' => $data,
             'error' => null,
         ], Response::HTTP_OK);
     }

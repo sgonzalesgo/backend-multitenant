@@ -252,6 +252,11 @@ return [
         'conflict_detected' => 'Se detectó un conflicto de horario con otra aula o instructor.',
         'end_time_must_be_after_start_time' => 'La hora de fin debe ser mayor que la hora de inicio.',
         'instructor_user_required' => 'El instructor seleccionado debe tener una cuenta de usuario asociada para crear eventos en el calendario.',
+        'calendar_generation_started' => 'La generación de eventos del calendario ha iniciado.',
+        'instructors_without_user' => 'Los siguientes instructores no tienen una cuenta de usuario asociada',
+        'unknown_instructor' => 'Instructor desconocido',
+        'calendar_generation_already_processing' => 'La generación de eventos del calendario ya está en proceso.',
+        'calendar_sync_status_shown' => 'Estado de generación de eventos obtenido correctamente.',
     ],
     'attendance' => [
         'subjects_retrieved' => 'Asignaturas de asistencia obtenidas correctamente.',

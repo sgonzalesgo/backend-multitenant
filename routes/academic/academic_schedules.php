@@ -10,6 +10,8 @@ Route::controller(AcademicScheduleController::class)->group(function () {
     // CRUD
     Route::get('academic-schedules', 'index')->middleware('permission:List academic_schedules');
     Route::post('academic-schedules', 'store')->middleware('permission:Store academic_schedules');
+    Route::post('academic-schedules/{academicSchedule}/generate-calendar-events', 'generateCalendarEvents')->middleware('permission:Update academic_schedules');
+    Route::get('academic-schedules/{academicSchedule}/calendar-sync-status', 'calendarSyncStatus')->middleware('permission:Search academic_schedules');
     Route::get('academic-schedules/{academicSchedule}', 'show')->middleware('permission:Search academic_schedules');
     Route::post('academic-schedules/{academicSchedule}', 'update')->middleware('permission:Update academic_schedules');
     Route::delete('academic-schedules/{academicSchedule}', 'destroy')->middleware('permission:Delete academic_schedules');

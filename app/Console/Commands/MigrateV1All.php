@@ -16,13 +16,13 @@ class MigrateV1All extends Command
         $steps = [
             ['db:seed', ['--class' => 'PermissionSeeder']],
             ['db:seed', ['--class' => 'Database\\Seeders\\Administration\\PositionSeeder']],
-            ['db:seed', ['--class' => 'Database\\Seeders\\Calendar\\CalendarEventTypeSeeder']],
             ['db:seed', ['--class' => 'Database\\Seeders\\General\\CountrySeeder']],
             ['db:seed', ['--class' => 'Database\\Seeders\\General\\StateSeeder']],
             ['db:seed', ['--class' => 'Database\\Seeders\\General\\CitySeeder']],
             ['db:seed', ['--class' => 'EnrollmentStatusSeeder']],
 
             ['migrate:v1-tenants'],
+            ['db:seed', ['--class' => 'Database\\Seeders\\Calendar\\CalendarEventTypeSeeder']],
 
             ['db:seed', ['--class' => 'RolePerTenantSeeder']],
             ['db:seed', ['--class' => 'UserSeeder']],
@@ -48,11 +48,12 @@ class MigrateV1All extends Command
             ['db:seed', ['--class' => 'EnrollmentStatusSeeder']],
             ['migrate:v1-enrollment-statuses', ['--fresh' => true]],
             ['migrate:v1-enrollments', ['--fresh' => true]],
-            ['migrate:migrate:v1-users'],
+            ['migrate:v1-users'],
 
             ['migrate:v1-classrooms'],
             ['migrate:v1-tenant-positions'],
             ['migrate:v1-roles'],
+            ['migrate:v1-academic-schedules'],
         ];
 
         foreach ($steps as $step) {

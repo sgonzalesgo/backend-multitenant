@@ -2,8 +2,7 @@
 
 namespace App\Repositories\Academic;
 
-use App\Events\Calendar\CalendarEventCreated;
-use App\Events\Calendar\CalendarEventDeleted;
+
 use App\Models\Academic\AcademicSchedule;
 use App\Models\Academic\AcademicScheduleFrequency;
 use App\Models\Academic\Enrollment;
@@ -100,10 +99,23 @@ class AcademicScheduleRepository
 
         $perPage = max(1, min((int) Arr::get($filters, 'per_page', 15), 100));
 
+        $rawQ = Arr::get($filters, 'q', '');
+        $decodedQ = [];
+
+        if (is_string($rawQ) && trim($rawQ) !== '') {
+            $decoded = json_decode($rawQ, true);
+            $decodedQ = is_array($decoded) ? $decoded : [];
+        } elseif (is_array($rawQ)) {
+            $decodedQ = $rawQ;
+        }
+
+        $columns = Arr::get($decodedQ, 'columns', []);
+
         return AcademicSchedule::query()
             ->with($this->relations())
             ->where('tenant_id', $tenantId)
             ->whereIn('status', ['draft', 'in_progress', 'accepted'])
+            ->when(Arr::get($columns, 'academic_year_id'), fn ($q, $v) => $q->where('academic_year_id', $v))
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
     }
@@ -137,7 +149,9 @@ class AcademicScheduleRepository
                 ...$this->extractSchedulePayload($data),
             ]);
 
-            $this->resetFrequenciesAndCalendarEvents($academicSchedule, Arr::get($data, 'frequencies', []));
+            $this->resetFrequenciesOnly($academicSchedule, Arr::get($data, 'frequencies', []));
+
+            $this->markCalendarSyncAsPending($academicSchedule);
 
             return $academicSchedule->refresh()->load($this->relations());
         });
@@ -190,11 +204,13 @@ class AcademicScheduleRepository
             $academicSchedule->save();
 
             if (array_key_exists('frequencies', $data)) {
-                $this->resetFrequenciesAndCalendarEvents(
+                $this->resetFrequenciesOnly(
                     $academicSchedule,
                     Arr::get($data, 'frequencies', [])
                 );
             }
+
+            $this->markCalendarSyncAsPending($academicSchedule);
 
             return $academicSchedule->refresh()->load($this->relations());
         });
@@ -217,56 +233,61 @@ class AcademicScheduleRepository
         });
     }
 
-    protected function resetFrequenciesAndCalendarEvents(
-        AcademicSchedule $academicSchedule,
-        array $frequencies
-    ): void {
-        $this->deleteCalendarEventsForSchedule($academicSchedule);
-
+    protected function resetFrequenciesOnly(AcademicSchedule $academicSchedule, array $frequencies): void {
         $academicSchedule->frequencies()->delete();
 
         foreach ($frequencies as $frequencyData) {
-            $frequency = $academicSchedule->frequencies()->create(
+            $academicSchedule->frequencies()->create(
                 $this->extractFrequencyPayload($frequencyData)
             );
-
-            $firstCalendarEvent = $this->createCalendarEventsForFrequency(
-                $academicSchedule,
-                $frequency
-            );
-
-            if ($firstCalendarEvent) {
-                $frequency->forceFill([
-                    'calendar_event_id' => $firstCalendarEvent->id,
-                ])->save();
-            }
         }
+    }
+
+    protected function markCalendarSyncAsPending(AcademicSchedule $academicSchedule): void
+    {
+        $academicSchedule->forceFill([
+            'calendar_sync_status' => 'pending',
+            'calendar_sync_error' => null,
+            'calendar_sync_requested_at' => null,
+            'calendar_synced_at' => null,
+            'calendar_sync_total_events' => 0,
+            'calendar_sync_processed_events' => 0,
+            'calendar_sync_progress' => 0,
+        ])->save();
     }
 
     protected function deleteCalendarEventsForSchedule(AcademicSchedule $academicSchedule): void
     {
-        CalendarEvent::query()
+        $eventIds = CalendarEvent::query()
             ->where('tenant_id', $academicSchedule->tenant_id)
             ->where('source', 'academic_schedule')
             ->where('metadata->academic_schedule_id', (string) $academicSchedule->id)
-            ->get()
-            ->each(function (CalendarEvent $calendarEvent) {
-                $eventId = (string) $calendarEvent->id;
-                $tenantId = (string) $calendarEvent->tenant_id;
+            ->pluck('id');
 
-                $calendarEvent->delete();
+        if ($eventIds->isEmpty()) {
+            return;
+        }
 
-                event(new CalendarEventDeleted($eventId, $tenantId));
-            });
+        DB::table('calendar_event_participants')
+            ->whereIn('calendar_event_id', $eventIds)
+            ->delete();
+
+        DB::table('calendar_event_audiences')
+            ->whereIn('calendar_event_id', $eventIds)
+            ->delete();
+
+        CalendarEvent::query()
+            ->whereIn('id', $eventIds)
+            ->delete();
     }
 
     /**
      * @throws ValidationException
      */
-    /**
-     * @throws ValidationException
-     */
-    protected function createCalendarEventsForFrequency(AcademicSchedule $academicSchedule, AcademicScheduleFrequency $frequency): ?CalendarEvent {
+    protected function createCalendarEventsForFrequency(
+        AcademicSchedule $academicSchedule,
+        AcademicScheduleFrequency $frequency
+    ): ?CalendarEvent {
         $academicSchedule->loadMissing([
             'academicYear',
             'course',
@@ -344,11 +365,11 @@ class AcademicScheduleRepository
                 'end_at' => $endAt,
 
                 'all_day' => false,
-                'timezone' => config('app.timezone', 'UTC'),
+                'timezone' => 'UTC',
                 'status' => 'confirmed',
-                'visibility' => 'private',
+                'visibility' => 'restricted',
                 'source' => 'academic_schedule',
-                'editable_by' => 'creator',
+                'editable_by' => 'creator_only',
 
                 'is_recurring' => false,
                 'recurrence_rule' => null,
@@ -370,6 +391,7 @@ class AcademicScheduleRepository
                     'subject_id' => (string) $frequency->subject_id,
                     'instructor_id' => (string) $frequency->instructor_id,
                     'day_of_week' => (int) $frequency->day_of_week,
+                    'generated_from_schedule_job' => true,
                 ],
             ]);
 
@@ -379,7 +401,7 @@ class AcademicScheduleRepository
                 $frequency
             );
 
-            event(new CalendarEventCreated($calendarEvent));
+            $this->incrementCalendarSyncProgress($academicSchedule);
 
             if (! $firstCalendarEvent) {
                 $firstCalendarEvent = $calendarEvent;
@@ -441,7 +463,7 @@ class AcademicScheduleRepository
                 'calendar_event_id' => $calendarEvent->id,
                 'user_id' => $frequency->instructor->person->user?->id,
                 'person_id' => $frequency->instructor->person->id,
-                'participant_type' => 'instructor',
+                'participant_type' => 'teacher',
                 'role' => 'organizer',
                 'response_status' => 'accepted',
                 'is_required' => true,
@@ -460,11 +482,7 @@ class AcademicScheduleRepository
     /**
      * @throws ValidationException
      */
-    protected function ensureNoConflicts(
-        array $data,
-        string $tenantId,
-        ?string $ignoreScheduleId = null
-    ): void {
+    protected function ensureNoConflicts(array $data, string $tenantId, ?string $ignoreScheduleId = null): void {
         $frequencies = Arr::get($data, 'frequencies', []);
 
         foreach ($frequencies as $index => $frequency) {
@@ -665,4 +683,182 @@ class AcademicScheduleRepository
             $frequency->observation,
         ])));
     }
+
+    public function markCalendarSyncAsProcessing(AcademicSchedule $academicSchedule): AcademicSchedule
+    {
+        $tenantId = $this->requireTenantId();
+
+        if ((string) $academicSchedule->tenant_id !== $tenantId) {
+            abort(404);
+        }
+
+        if ($academicSchedule->calendar_sync_status === 'processing') {
+            throw ValidationException::withMessages([
+                'calendar_sync_status' => __('messages.academic_schedules.calendar_generation_already_processing'),
+            ]);
+        }
+
+        $academicSchedule->forceFill([
+            'calendar_sync_status' => 'processing',
+            'calendar_sync_error' => null,
+            'calendar_sync_requested_at' => now(),
+            'calendar_synced_at' => null,
+            'calendar_sync_total_events' => 0,
+            'calendar_sync_processed_events' => 0,
+            'calendar_sync_progress' => 0,
+        ])->save();
+
+        return $academicSchedule->refresh()->load($this->relations());
+    }
+
+    public function generateCalendarEventsForSchedule(AcademicSchedule $academicSchedule): AcademicSchedule
+    {
+        $academicSchedule->loadMissing([
+            'academicYear',
+            'course',
+            'course.educationalLevel',
+            'specialty',
+            'parallel',
+            'shift',
+            'modality',
+            'frequencies',
+        ]);
+
+        $totalEvents = $this->calculateTotalCalendarEventsForSchedule($academicSchedule);
+
+        $academicSchedule->forceFill([
+            'calendar_sync_status' => 'processing',
+            'calendar_sync_error' => null,
+            'calendar_sync_total_events' => $totalEvents,
+            'calendar_sync_processed_events' => 0,
+            'calendar_sync_progress' => 0,
+            'calendar_synced_at' => null,
+        ])->save();
+
+        $this->deleteCalendarEventsForSchedule($academicSchedule);
+
+        foreach ($academicSchedule->frequencies as $frequency) {
+            $firstCalendarEvent = $this->createCalendarEventsForFrequency(
+                $academicSchedule,
+                $frequency
+            );
+
+            if ($firstCalendarEvent) {
+                $frequency->forceFill([
+                    'calendar_event_id' => $firstCalendarEvent->id,
+                ])->save();
+            }
+        }
+
+        $academicSchedule->forceFill([
+            'calendar_sync_status' => 'completed',
+            'calendar_sync_processed_events' => $academicSchedule->calendar_sync_total_events,
+            'calendar_sync_progress' => 100,
+            'calendar_synced_at' => now(),
+        ])->save();
+
+        return $academicSchedule->refresh()->load($this->relations());
+    }
+
+    protected function calculateTotalCalendarEventsForSchedule(AcademicSchedule $academicSchedule): int
+    {
+        $academicSchedule->loadMissing([
+            'academicYear',
+            'frequencies',
+        ]);
+
+        $startDate = CarbonImmutable::parse($academicSchedule->academicYear->start_date)->startOfDay();
+        $endDate = CarbonImmutable::parse($academicSchedule->academicYear->end_date)->endOfDay();
+
+        $total = 0;
+
+        foreach ($academicSchedule->frequencies as $frequency) {
+            $firstDate = $this->firstDateForDayOfWeek(
+                $startDate,
+                (int) $frequency->day_of_week
+            );
+
+            $currentDate = $firstDate;
+
+            while ($currentDate->lte($endDate)) {
+                $total++;
+                $currentDate = $currentDate->addWeek();
+            }
+        }
+
+        return $total;
+    }
+
+    protected function incrementCalendarSyncProgress(AcademicSchedule $academicSchedule): void
+    {
+        $processed = ((int) $academicSchedule->calendar_sync_processed_events) + 1;
+
+        $academicSchedule->calendar_sync_processed_events = $processed;
+
+        if ($processed % 10 !== 0) {
+            return;
+        }
+
+        $total = max(
+            (int) $academicSchedule->calendar_sync_total_events,
+            1
+        );
+
+        $progress = (int) floor(($processed / $total) * 100);
+
+        $academicSchedule->forceFill([
+            'calendar_sync_processed_events' => $processed,
+            'calendar_sync_progress' => min($progress, 99),
+        ])->save();
+    }
+
+    public function ensureInstructorsHaveUsers(AcademicSchedule $academicSchedule): void
+    {
+        $academicSchedule->loadMissing([
+            'frequencies.instructor.person.user',
+        ]);
+
+        $missing = $academicSchedule->frequencies
+            ->filter(function ($frequency) {
+                return ! $frequency->instructor?->person?->user;
+            })
+            ->map(function ($frequency) {
+                return $frequency->instructor?->person?->full_name
+                    ?? __('messages.academic_schedules.unknown_instructor');
+            })
+            ->unique()
+            ->values();
+
+        if ($missing->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'instructors' => [
+                    __('messages.academic_schedules.instructors_without_user') . ': '
+                    . $missing->implode(', '),
+                ],
+            ]);
+        }
+    }
+
+    public function calendarSyncStatus(AcademicSchedule $academicSchedule): array
+    {
+        $tenantId = $this->requireTenantId();
+
+        if ((string) $academicSchedule->tenant_id !== $tenantId) {
+            abort(404);
+        }
+
+        $academicSchedule->refresh();
+
+        return [
+            'id' => (string) $academicSchedule->id,
+            'calendar_sync_status' => $academicSchedule->calendar_sync_status,
+            'calendar_sync_error' => $academicSchedule->calendar_sync_error,
+            'calendar_sync_requested_at' => optional($academicSchedule->calendar_sync_requested_at)?->toIso8601String(),
+            'calendar_synced_at' => optional($academicSchedule->calendar_synced_at)?->toIso8601String(),
+            'calendar_sync_total_events' => (int) $academicSchedule->calendar_sync_total_events,
+            'calendar_sync_processed_events' => (int) $academicSchedule->calendar_sync_processed_events,
+            'calendar_sync_progress' => (int) $academicSchedule->calendar_sync_progress,
+        ];
+    }
+
 }

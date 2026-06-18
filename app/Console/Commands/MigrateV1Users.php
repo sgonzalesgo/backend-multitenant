@@ -2,10 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Academic\Instructor;
 use App\Models\Administration\User;
 use App\Models\MigrationIdMap;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 
 class MigrateV1Users extends Command
 {
@@ -74,14 +76,21 @@ class MigrateV1Users extends Command
                     ->first();
 
                 if ($existingUser) {
+                    $this->assignInstructorRoleIfApplies(
+                        $existingUser->person_id,
+                        $existingUser
+                    );
+
                     MigrationIdMap::query()->create([
                         'entity' => 'user',
                         'old_id' => $oldUser->id,
                         'new_id' => $existingUser->id,
                         'metadata' => [
                             'matched_existing' => true,
+                            'matched_by' => 'email',
                             'old_email' => $oldUser->email,
                             'old_person_id' => $oldPersonId,
+                            'new_person_id' => $existingUser->person_id,
                         ],
                     ]);
 
@@ -89,11 +98,45 @@ class MigrateV1Users extends Command
                     continue;
                 }
 
+                if ($personId) {
+                    $userWithSamePerson = User::query()
+                        ->where('person_id', $personId)
+                        ->first();
+
+                    if ($userWithSamePerson) {
+                        $this->warn(
+                            "Skipped user {$oldUser->email}: person {$personId} already linked to user {$userWithSamePerson->email}"
+                        );
+
+                        $this->assignInstructorRoleIfApplies(
+                            $personId,
+                            $userWithSamePerson
+                        );
+
+                        MigrationIdMap::query()->create([
+                            'entity' => 'user',
+                            'old_id' => $oldUser->id,
+                            'new_id' => $userWithSamePerson->id,
+                            'metadata' => [
+                                'matched_existing' => true,
+                                'matched_by' => 'person_id',
+                                'old_email' => $oldUser->email,
+                                'old_person_id' => $oldPersonId,
+                                'new_person_id' => $personId,
+                                'existing_user_email' => $userWithSamePerson->email,
+                            ],
+                        ]);
+
+                        $skipped++;
+                        continue;
+                    }
+                }
+
                 $user = User::query()->create([
                     'person_id' => $personId,
                     'name' => $oldUser->name,
                     'email' => $oldUser->email,
-                    'email_verified_at' => $oldUser->email_verified_at ?? now(),
+                    'email_verified_at' => now(),
                     'password' => $oldUser->password,
                     'avatar' => $this->normalizeAvatarPath($oldUser->avatar ?? null),
                     'status' => ($oldUser->active ?? true) ? 'active' : 'inactive',
@@ -106,6 +149,8 @@ class MigrateV1Users extends Command
                     'created_at' => $oldUser->created_at ?? now(),
                     'updated_at' => $oldUser->updated_at ?? now(),
                 ]);
+
+                $this->assignInstructorRoleIfApplies($personId, $user);
 
                 MigrationIdMap::query()->create([
                     'entity' => 'user',
@@ -162,5 +207,34 @@ class MigrateV1Users extends Command
         return str($avatar)
             ->replaceStart('avatars/', 'users/')
             ->toString();
+    }
+
+    private function assignInstructorRoleIfApplies(?string $personId, User $user): void
+    {
+        if (! $personId) {
+            return;
+        }
+
+        $isInstructor = Instructor::query()
+            ->where('person_id', $personId)
+            ->exists();
+
+        if (! $isInstructor) {
+            return;
+        }
+
+        $role = Role::query()
+            ->where('name', 'Instructor')
+            ->first();
+
+        if (! $role) {
+            $this->warn('Role Instructor not found.');
+
+            return;
+        }
+
+        if (! $user->hasRole('Instructor')) {
+            $user->assignRole($role);
+        }
     }
 }

@@ -252,6 +252,11 @@ return [
         'conflict_detected' => 'A scheduling conflict was detected with another classroom or instructor.',
         'end_time_must_be_after_start_time' => 'The end time must be greater than the start time.',
         'instructor_user_required' => 'The selected instructor must have an associated user account to create calendar events.',
+        'calendar_generation_started' => 'Calendar events generation started.',
+        'instructors_without_user' => 'The following instructors do not have an associated user account',
+        'unknown_instructor' => 'Unknown instructor',
+        'calendar_generation_already_processing' => 'Calendar event generation is already in progress.',
+        'calendar_sync_status_shown' => 'Event generation status successfully retrieved.',
     ],
     'attendance' => [
         'subjects_retrieved' => 'Attendance subjects retrieved successfully.',

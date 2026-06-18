@@ -29,6 +29,21 @@ class AcademicSchedule extends Model
         'shift_id',
         'status',
         'general_observation',
+        'calendar_sync_status',
+        'calendar_sync_error',
+        'calendar_sync_requested_at',
+        'calendar_synced_at',
+        'calendar_sync_total_events',
+        'calendar_sync_processed_events',
+        'calendar_sync_progress',
+    ];
+
+    protected $casts = [
+        'calendar_sync_requested_at' => 'datetime',
+        'calendar_synced_at' => 'datetime',
+        'calendar_sync_total_events' => 'integer',
+        'calendar_sync_processed_events' => 'integer',
+        'calendar_sync_progress' => 'integer',
     ];
 
     public function tenant(): BelongsTo

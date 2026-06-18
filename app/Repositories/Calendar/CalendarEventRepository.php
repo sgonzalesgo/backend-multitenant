@@ -20,9 +20,6 @@ class CalendarEventRepository
         $query = CalendarEvent::query()
             ->with([
                 'eventType',
-                'creator',
-                'participants.user',
-                'audiences',
             ])
             ->forTenant($tenantId)
             ->where(function ($q) use ($user) {
@@ -66,9 +63,37 @@ class CalendarEventRepository
         return $query
             ->orderBy('start_at')
             ->get()
-            ->map(fn (CalendarEvent $event) => $this->transformEvent($event, (string) $user->id))
+            ->map(fn (CalendarEvent $event) => $this->transformEventForCalendar($event, (string) $user->id))
             ->values()
             ->toArray();
+    }
+
+    public function show(CalendarEvent $calendarEvent, User $user): array
+    {
+        $this->ensureBelongsToTenant($calendarEvent);
+
+        if (!$this->canUserViewEvent($calendarEvent, $user)) {
+            throw new HttpException(404, __('calendar.event.not_found'));
+        }
+
+//        $calendarEvent->load([
+//            'eventType',
+//            'creator',
+//            'participants.user',
+//            'audiences',
+//        ]);
+
+        $calendarEvent->load([
+            'eventType',
+            'creator',
+            'participants.user',
+            'participants.person',
+            'audiences',
+        ]);
+
+//        return $this->transformEvent($calendarEvent, (string) $user->id);
+
+        return $this->transformEventDetail($calendarEvent, (string) $user->id);
     }
 
     public function store(array $data, User $user): array
@@ -108,31 +133,14 @@ class CalendarEventRepository
                 'eventType',
                 'creator',
                 'participants.user',
+                'participants.person',
                 'audiences',
             ]);
         });
 
         broadcast(new CalendarEventCreated($event))->toOthers();
 
-        return $this->transformEvent($event, (string) $user->id);
-    }
-
-    public function show(CalendarEvent $calendarEvent, User $user): array
-    {
-        $this->ensureBelongsToTenant($calendarEvent);
-
-        if (!$this->canUserViewEvent($calendarEvent, $user)) {
-            throw new HttpException(404, __('calendar.event.not_found'));
-        }
-
-        $calendarEvent->load([
-            'eventType',
-            'creator',
-            'participants.user',
-            'audiences',
-        ]);
-
-        return $this->transformEvent($calendarEvent, (string) $user->id);
+        return $this->transformEventDetail($event, (string) $user->id);
     }
 
     public function update(CalendarEvent $calendarEvent, array $data, User $user): array
@@ -166,7 +174,10 @@ class CalendarEventRepository
 
             $calendarEvent->save();
 
-            if (array_key_exists('participants', $data)) {
+            if (
+                $calendarEvent->source !== 'academic_schedule' &&
+                array_key_exists('participants', $data)
+            ) {
                 $this->syncParticipants($calendarEvent, $data['participants'] ?? [], $tenantId, $user, true);
             }
 
@@ -178,13 +189,14 @@ class CalendarEventRepository
                 'eventType',
                 'creator',
                 'participants.user',
+                'participants.person',
                 'audiences',
             ]);
         });
 
         broadcast(new CalendarEventUpdated($calendarEvent))->toOthers();
 
-        return $this->transformEvent($calendarEvent, (string) $user->id);
+        return $this->transformEventDetail($calendarEvent, (string) $user->id);
     }
 
     public function delete(CalendarEvent $calendarEvent, User $user): array
@@ -290,7 +302,7 @@ class CalendarEventRepository
         }
     }
 
-    protected function transformEvent(CalendarEvent $event, string $authUserId): array
+    protected function transformEventDetail(CalendarEvent $event, string $authUserId): array
     {
         $authUser = auth()->user();
         $canEdit = $authUser ? $this->canUserEditEvent($event, $authUser) : false;
@@ -369,6 +381,14 @@ class CalendarEventRepository
                     'name' => $participant->user->name ?? null,
                     'email' => $participant->user->email ?? null,
                 ] : null,
+
+                'person' => $participant->person ? [
+                    'id' => (string) $participant->person->id,
+                    'full_name' => $participant->person->full_name ?? null,
+                    'email' => $participant->person->email ?? null,
+                    'phone' => $participant->person->phone ?? null,
+                    'photo' => $participant->person->photo ?? null,
+                ] : null,
             ];
         })->values()->toArray();
     }
@@ -415,5 +435,44 @@ class CalendarEventRepository
         }
 
         return false;
+    }
+
+    protected function transformEventForCalendar(CalendarEvent $event, string $authUserId): array
+    {
+        $authUser = auth()->user();
+        $canEdit = $authUser ? $this->canUserEditEvent($event, $authUser) : false;
+        $eventColor = $event->color ?: $event->eventType?->color;
+
+        return [
+            'id' => (string) $event->id,
+            'title' => $event->title,
+            'start' => optional($event->start_at)?->toIso8601String(),
+            'end' => optional($event->end_at)?->toIso8601String(),
+            'allDay' => (bool) $event->all_day,
+            'url' => $event->url,
+            'editable' => $canEdit,
+            'startEditable' => $canEdit,
+            'durationEditable' => $canEdit,
+            'backgroundColor' => $eventColor,
+            'borderColor' => $eventColor,
+            'extendedProps' => [
+                'location' => $event->location,
+                'status' => $event->status,
+                'visibility' => $event->visibility,
+                'source' => $event->source,
+                'metadata' => $event->metadata,
+                'event_type' => $event->eventType ? [
+                    'id' => (string) $event->eventType->id,
+                    'code' => $event->eventType->code,
+                    'name' => $event->eventType->name,
+                    'color' => $event->eventType->color,
+                    'icon' => $event->eventType->icon,
+                ] : null,
+                'permissions' => [
+                    'can_edit' => $canEdit,
+                    'can_delete' => $canEdit,
+                ],
+            ],
+        ];
     }
 }
